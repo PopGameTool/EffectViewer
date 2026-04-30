@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using EffectViewer.Runtime.Showcase;
 using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Lua
@@ -13,6 +14,9 @@ namespace EffectViewer.Runtime.Lua
             UserData.RegisterType<LuaEffectApi>();
             UserData.RegisterType<LuaSceneApi>();
             UserData.RegisterType<SceneObject>();
+            UserData.RegisterType<ShowcaseReanimation>();
+            UserData.RegisterType<ShowcaseParticle>();
+            UserData.RegisterType<ShowcaseTrail>();
         }
 
         public LuaHost(EffectWorld world)
@@ -23,13 +27,13 @@ namespace EffectViewer.Runtime.Lua
         public LuaRunResult Run(string code)
         {
             List<string> logs = [];
-            _world.Clear();
+            ShowcaseScene scene = _world.BeginShowcase();
 
             try
             {
                 Script script = new(CoreModules.Preset_SoftSandbox);
                 script.Options.DebugPrint = message => logs.Add(message);
-                script.Globals["effect"] = new LuaEffectApi(_world, logs);
+                script.Globals["effect"] = new LuaEffectApi(_world, scene, logs);
                 script.Globals["scene"] = new LuaSceneApi(_world, logs);
 
                 script.DoString(code);
@@ -40,17 +44,19 @@ namespace EffectViewer.Runtime.Lua
                     script.Call(update, 1.0 / 60.0);
                 }
 
-                return new LuaRunResult(true, logs, _world.Objects.ToList());
+                return new LuaRunResult(true, logs, _world.Objects.ToList(), scene);
             }
             catch (ScriptRuntimeException ex)
             {
                 logs.Add(ex.DecoratedMessage);
-                return new LuaRunResult(false, logs, _world.Objects.ToList());
+                scene.Dispose();
+                return new LuaRunResult(false, logs, _world.Objects.ToList(), null);
             }
             catch (SyntaxErrorException ex)
             {
                 logs.Add(ex.DecoratedMessage);
-                return new LuaRunResult(false, logs, _world.Objects.ToList());
+                scene.Dispose();
+                return new LuaRunResult(false, logs, _world.Objects.ToList(), null);
             }
         }
     }

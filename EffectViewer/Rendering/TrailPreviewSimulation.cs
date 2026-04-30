@@ -14,11 +14,13 @@ namespace EffectViewer.Rendering
 
         private readonly TrailDefinition _definition;
         private readonly string _textureId;
+        private readonly float _x;
+        private readonly float _y;
         private double _accumulator;
         private int _tick;
         private Trail _trail;
 
-        public TrailPreviewSimulation(EffectProject project, string path, string fallbackId)
+        public TrailPreviewSimulation(EffectProject project, string path, string fallbackId, float x = 0f, float y = 0f)
         {
             string fullPath = TrailPreviewFrameBuilder.ResolvePath(project, path);
             _definition = !string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath)
@@ -26,6 +28,8 @@ namespace EffectViewer.Rendering
                 : new TrailDefinition();
             _definition.ApplyDefaults();
             _textureId = string.IsNullOrWhiteSpace(_definition.mImage) ? fallbackId : _definition.mImage;
+            _x = x;
+            _y = y;
             Reset();
         }
 
@@ -60,7 +64,7 @@ namespace EffectViewer.Rendering
             }
 
             Vector2 point = BuildMovingPoint(_tick);
-            _trail.AddPoint(point.X, point.Y);
+            _trail.AddPoint(point.X + _x, point.Y + _y);
         }
 
         private RenderFrame BuildFrame()

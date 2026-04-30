@@ -133,8 +133,13 @@ namespace EffectViewer.ViewModels
                 case EffectAssetKind.Showcase:
                     if (CurrentProject.Assets.Showcases.TryGetValue(item.AssetId, out ShowcaseAsset showcase))
                     {
-                        SetCurrentEditor(new ShowcaseEditorViewModel(showcase, _luaHost));
+                        SetCurrentEditor(new ShowcaseEditorViewModel(showcase, _luaHost, CurrentProject));
                         StatusText = $"Editing showcase {item.AssetId}";
+                    }
+                    else
+                    {
+                        SetCurrentEditor(new ShowcaseEditorViewModel(_luaHost, CurrentProject));
+                        StatusText = "Editing showcases";
                     }
                     break;
             }
@@ -171,8 +176,16 @@ namespace EffectViewer.ViewModels
             root.Children.Add(CreateFolder("Trails", CurrentProject.Manifest.Trails.Select(asset =>
                 new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Trail, asset.Id, asset.Path))));
 
-            root.Children.Add(CreateFolder("Showcases", CurrentProject.Manifest.Showcases.Select(asset =>
-                new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Showcase, asset.Id, asset.Path))));
+            ProjectExplorerItemViewModel showcases = new("Showcases", EffectAssetKind.Showcase, "Showcases")
+            {
+                IsExpanded = true
+            };
+            foreach (ShowcaseAsset asset in CurrentProject.Manifest.Showcases)
+            {
+                showcases.Children.Add(new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Showcase, asset.Id, asset.Path));
+            }
+
+            root.Children.Add(showcases);
 
             ProjectItems.Add(root);
         }

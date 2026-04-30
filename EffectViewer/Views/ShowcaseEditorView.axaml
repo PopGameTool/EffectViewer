@@ -6,61 +6,55 @@
              x:DataType="vm:ShowcaseEditorViewModel">
   <Grid RowDefinitions="Auto,*" Margin="24" RowSpacing="16">
     <DockPanel LastChildFill="True">
-      <Button DockPanel.Dock="Right"
-              Content="Run"
-              Command="{Binding RunScriptCommand}"
-              MinWidth="92"/>
       <StackPanel Spacing="4">
         <TextBlock Text="{Binding AssetId}" FontSize="24" FontWeight="SemiBold"/>
         <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
       </StackPanel>
     </DockPanel>
 
-    <Grid Grid.Row="1" ColumnDefinitions="*,360" RowDefinitions="*,180" ColumnSpacing="16" RowSpacing="16">
-      <Grid RowDefinitions="*,180" RowSpacing="12">
-        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-                BorderThickness="1"
-                CornerRadius="6">
-          <controls:InteractiveEffectViewport Frame="{Binding PreviewFrame}"
-                                              TextureSource="{Binding TextureSource}"/>
-        </Border>
-
-        <TextBox Grid.Row="1"
-                 Text="{Binding ScriptText}"
-                 AcceptsReturn="True"
-                 FontFamily="Consolas"
-                 FontSize="14"
-                 TextWrapping="NoWrap"
-                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                 ScrollViewer.VerticalScrollBarVisibility="Auto"/>
-      </Grid>
+    <Grid Grid.Row="1" ColumnDefinitions="*,360" ColumnSpacing="16">
+      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+              BorderThickness="1"
+              CornerRadius="6">
+        <controls:InteractiveEffectViewport Frame="{Binding PreviewFrame}"
+                                            FrameProvider="{Binding PreviewFrameProvider}"
+                                            TextureSource="{Binding TextureSource}"/>
+      </Border>
 
       <Border Grid.Column="1"
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
               BorderThickness="1"
               CornerRadius="6"
               Padding="14">
-        <Grid RowDefinitions="Auto,*" RowSpacing="10">
-          <TextBlock Text="Scene objects" FontSize="16" FontWeight="SemiBold"/>
-          <ListBox Grid.Row="1" ItemsSource="{Binding SceneObjects}">
-            <ListBox.ItemTemplate>
-              <DataTemplate>
-                <TextBlock Text="{Binding Id}"/>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </Grid>
-      </Border>
+        <Grid RowDefinitions="Auto,*,Auto,120" RowSpacing="10">
+          <DockPanel LastChildFill="True">
+            <Button DockPanel.Dock="Right"
+                    Content="Run"
+                    Command="{Binding RunScriptCommand}"
+                    MinWidth="92"/>
+            <TextBlock Text="Script" FontSize="16" FontWeight="SemiBold"/>
+          </DockPanel>
 
-      <Border Grid.Row="1"
-              Grid.ColumnSpan="2"
-              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-              BorderThickness="1"
-              CornerRadius="6"
-              Padding="12">
-        <Grid RowDefinitions="Auto,*" RowSpacing="8">
-          <TextBlock Text="{Binding Status}" FontWeight="SemiBold"/>
-          <ListBox Grid.Row="1" ItemsSource="{Binding Logs}"/>
+          <TextBox Grid.Row="1"
+                   Text="{Binding ScriptText}"
+                   AcceptsReturn="True"
+                   FontFamily="Consolas"
+                   FontSize="14"
+                   TextWrapping="NoWrap"
+                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+
+          <TextBlock Grid.Row="2" Text="{Binding Status}" FontWeight="SemiBold"/>
+          <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="8">
+            <ListBox ItemsSource="{Binding SceneObjects}">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Id}"/>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <ListBox Grid.Column="1" ItemsSource="{Binding Logs}"/>
+          </Grid>
         </Grid>
       </Border>
     </Grid>

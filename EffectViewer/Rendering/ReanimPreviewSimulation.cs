@@ -11,13 +11,17 @@ namespace EffectViewer.Rendering
     {
         private const double UpdateStepSeconds = 1.0 / TodLibConstants.TICKS_PER_SECOND;
         private readonly Reanimation _reanimation;
+        private readonly float _x;
+        private readonly float _y;
         private double _accumulator;
 
-        public ReanimPreviewSimulation(EffectProject project, string path)
+        public ReanimPreviewSimulation(EffectProject project, string path, float x = 0f, float y = 0f)
         {
             ResourceHandler.SetProvider(new ProjectResourceProvider(project));
             string fullPath = ResolvePath(project, path);
             _reanimation = CreateReanimation(fullPath);
+            _x = x;
+            _y = y;
         }
 
         public RenderFrame GetFrame(double deltaSeconds)
@@ -55,7 +59,9 @@ namespace EffectViewer.Rendering
             {
                 mClipRect = new Rectangle(-16384, -16384, 16384 * 3, 16384 * 3),
                 mColor = SexyColor.White,
-                mDrawMode = DrawMode.Normal
+                mDrawMode = DrawMode.Normal,
+                mTransX = _x,
+                mTransY = _y
             };
 
             _reanimation.Draw(graphics);

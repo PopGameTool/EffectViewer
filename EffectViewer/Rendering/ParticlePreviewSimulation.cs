@@ -16,6 +16,8 @@ namespace EffectViewer.Rendering
         private readonly EffectProject _project;
         private readonly string _path;
         private readonly string _assetId;
+        private readonly float _x;
+        private readonly float _y;
         private readonly TodParticleHolder _holder = new();
         private TodParticleDefinition _definition;
         private TodParticleSystem _system;
@@ -23,11 +25,13 @@ namespace EffectViewer.Rendering
         private int _ticksSinceRestart;
         private bool _disposed;
 
-        public ParticlePreviewSimulation(EffectProject project, string path, string assetId)
+        public ParticlePreviewSimulation(EffectProject project, string path, string assetId, float x = 400f, float y = 300f)
         {
             _project = project;
             _path = path;
             _assetId = assetId;
+            _x = x;
+            _y = y;
             ResourceHandler.SetProvider(new ProjectResourceProvider(project));
             _holder.InitializeHolder();
             _definition = LoadDefinition();
@@ -76,7 +80,7 @@ namespace EffectViewer.Rendering
             _holder.mParticles.DataArrayFreeAll();
             _accumulator = 0;
             _ticksSinceRestart = 0;
-            _system = _holder.AllocParticleSystemFromDef(400f, 300f, 0, _definition, _assetId);
+            _system = _holder.AllocParticleSystemFromDef(_x, _y, 0, _definition, _assetId);
         }
 
         private void Update()
