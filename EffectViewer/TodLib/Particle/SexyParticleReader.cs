@@ -53,22 +53,22 @@ namespace EffectViewer.TodLib.Particle
 
         private static readonly DefMap<ParticleField> ParticleFieldDefMap = new(
             () => new ParticleField(),
-            DefinitionMapLoader.Enum<ParticleField, ParticleFieldType>("FieldType", ParticleFieldTypeSymbols, static (ref ParticleField field, ParticleFieldType value) => field.mFieldType = value),
+            DefinitionMapLoader.Enum<ParticleField, ParticleFieldType>("FieldType", ParticleFieldTypeSymbols, static (ref ParticleField field, ParticleFieldType value) => field.mFieldType = value, static (ref ParticleField field) => field.mFieldType),
             DefinitionMapLoader.TrackFloat<ParticleField>("x", static (ref ParticleField field) => field.mX),
             DefinitionMapLoader.TrackFloat<ParticleField>("y", static (ref ParticleField field) => field.mY));
 
         private static readonly DefMap<TodEmitterDefinition> EmitterDefMap = new(
             () => new TodEmitterDefinition(),
-            DefinitionMapLoader.Image<TodEmitterDefinition>("Image", static (ref TodEmitterDefinition emitter, string value) => emitter.mImage = value),
-            DefinitionMapLoader.Int<TodEmitterDefinition>("ImageRow", static (ref TodEmitterDefinition emitter, int value) => emitter.mImageRow = value),
-            DefinitionMapLoader.Int<TodEmitterDefinition>("ImageCol", static (ref TodEmitterDefinition emitter, int value) => emitter.mImageCol = value),
-            DefinitionMapLoader.Int<TodEmitterDefinition>("ImageFrames", static (ref TodEmitterDefinition emitter, int value) => emitter.mImageFrames = value),
-            DefinitionMapLoader.Int<TodEmitterDefinition>("Animated", static (ref TodEmitterDefinition emitter, int value) => emitter.mAnimated = value),
-            DefinitionMapLoader.Flags<TodEmitterDefinition>("ParticleFlags", ParticleFlagSymbols, static (ref TodEmitterDefinition emitter, int bitIndex, bool value) => SetBit(ref emitter.mParticleFlags, bitIndex, value)),
-            DefinitionMapLoader.Enum<TodEmitterDefinition, EmitterType>("EmitterType", EmitterTypeSymbols, static (ref TodEmitterDefinition emitter, EmitterType value) => emitter.mEmitterType = value),
-            DefinitionMapLoader.String<TodEmitterDefinition>("Name", static (ref TodEmitterDefinition emitter, string value) => emitter.mName = value),
+            DefinitionMapLoader.Image<TodEmitterDefinition>("Image", static (ref TodEmitterDefinition emitter, string value) => emitter.mImage = value, static (ref TodEmitterDefinition emitter) => emitter.mImage),
+            DefinitionMapLoader.Int<TodEmitterDefinition>("ImageRow", static (ref TodEmitterDefinition emitter, int value) => emitter.mImageRow = value, static (ref TodEmitterDefinition emitter) => emitter.mImageRow),
+            DefinitionMapLoader.Int<TodEmitterDefinition>("ImageCol", static (ref TodEmitterDefinition emitter, int value) => emitter.mImageCol = value, static (ref TodEmitterDefinition emitter) => emitter.mImageCol),
+            DefinitionMapLoader.Int<TodEmitterDefinition>("ImageFrames", static (ref TodEmitterDefinition emitter, int value) => emitter.mImageFrames = value, static (ref TodEmitterDefinition emitter) => emitter.mImageFrames, static value => value != 1),
+            DefinitionMapLoader.Int<TodEmitterDefinition>("Animated", static (ref TodEmitterDefinition emitter, int value) => emitter.mAnimated = value, static (ref TodEmitterDefinition emitter) => emitter.mAnimated),
+            DefinitionMapLoader.Flags<TodEmitterDefinition>("ParticleFlags", ParticleFlagSymbols, static (ref TodEmitterDefinition emitter, int bitIndex, bool value) => SetBit(ref emitter.mParticleFlags, bitIndex, value), static (ref TodEmitterDefinition emitter) => emitter.mParticleFlags),
+            DefinitionMapLoader.Enum<TodEmitterDefinition, EmitterType>("EmitterType", EmitterTypeSymbols, static (ref TodEmitterDefinition emitter, EmitterType value) => emitter.mEmitterType = value, static (ref TodEmitterDefinition emitter) => emitter.mEmitterType, static value => value != EmitterType.Box),
+            DefinitionMapLoader.String<TodEmitterDefinition>("Name", static (ref TodEmitterDefinition emitter, string value) => emitter.mName = value, static (ref TodEmitterDefinition emitter) => emitter.mName),
             DefinitionMapLoader.TrackFloat<TodEmitterDefinition>("SystemDuration", static (ref TodEmitterDefinition emitter) => emitter.mSystemDuration),
-            DefinitionMapLoader.String<TodEmitterDefinition>("OnDuration", static (ref TodEmitterDefinition emitter, string value) => emitter.mOnDuration = value),
+            DefinitionMapLoader.String<TodEmitterDefinition>("OnDuration", static (ref TodEmitterDefinition emitter, string value) => emitter.mOnDuration = value, static (ref TodEmitterDefinition emitter) => emitter.mOnDuration),
             DefinitionMapLoader.TrackFloat<TodEmitterDefinition>("CrossFadeDuration", static (ref TodEmitterDefinition emitter) => emitter.mCrossFadeDuration),
             DefinitionMapLoader.TrackFloat<TodEmitterDefinition>("SpawnRate", static (ref TodEmitterDefinition emitter) => emitter.mSpawnRate),
             DefinitionMapLoader.TrackFloat<TodEmitterDefinition>("SpawnMinActive", static (ref TodEmitterDefinition emitter) => emitter.mSpawnMinActive),
@@ -90,8 +90,8 @@ namespace EffectViewer.TodLib.Particle
             DefinitionMapLoader.TrackFloat<TodEmitterDefinition>("SystemBrightness", static (ref TodEmitterDefinition emitter) => emitter.mSystemBrightness),
             DefinitionMapLoader.TrackFloat<TodEmitterDefinition>("LaunchSpeed", static (ref TodEmitterDefinition emitter) => emitter.mLaunchSpeed),
             DefinitionMapLoader.TrackFloat<TodEmitterDefinition>("LaunchAngle", static (ref TodEmitterDefinition emitter) => emitter.mLaunchAngle),
-            DefinitionMapLoader.Array<TodEmitterDefinition, ParticleField>("Field", ParticleFieldDefMap, static (ref TodEmitterDefinition emitter, ParticleField field) => AddParticleField(ref emitter, field)),
-            DefinitionMapLoader.Array<TodEmitterDefinition, ParticleField>("SystemField", ParticleFieldDefMap, static (ref TodEmitterDefinition emitter, ParticleField field) => AddSystemField(ref emitter, field)),
+            DefinitionMapLoader.Array<TodEmitterDefinition, ParticleField>("Field", ParticleFieldDefMap, static (ref TodEmitterDefinition emitter, ParticleField field) => AddParticleField(ref emitter, field), static (ref TodEmitterDefinition emitter) => SafeCount(emitter.mParticleFields, emitter.mParticleFieldCount), static (ref TodEmitterDefinition emitter, int index) => emitter.mParticleFields[index]),
+            DefinitionMapLoader.Array<TodEmitterDefinition, ParticleField>("SystemField", ParticleFieldDefMap, static (ref TodEmitterDefinition emitter, ParticleField field) => AddSystemField(ref emitter, field), static (ref TodEmitterDefinition emitter) => SafeCount(emitter.mSystemFields, emitter.mSystemFieldCount), static (ref TodEmitterDefinition emitter, int index) => emitter.mSystemFields[index]),
             DefinitionMapLoader.TrackFloat<TodEmitterDefinition>("ParticleRed", static (ref TodEmitterDefinition emitter) => emitter.mParticleRed),
             DefinitionMapLoader.TrackFloat<TodEmitterDefinition>("ParticleGreen", static (ref TodEmitterDefinition emitter) => emitter.mParticleGreen),
             DefinitionMapLoader.TrackFloat<TodEmitterDefinition>("ParticleBlue", static (ref TodEmitterDefinition emitter) => emitter.mParticleBlue),
@@ -111,11 +111,21 @@ namespace EffectViewer.TodLib.Particle
 
         private static readonly DefMap<TodParticleDefinition> ParticleDefMap = new(
             () => new TodParticleDefinition(),
-            DefinitionMapLoader.Array<TodParticleDefinition, TodEmitterDefinition>("Emitter", EmitterDefMap, static (ref TodParticleDefinition particles, TodEmitterDefinition emitter) => AddEmitter(ref particles, emitter)));
+            DefinitionMapLoader.Array<TodParticleDefinition, TodEmitterDefinition>("Emitter", EmitterDefMap, static (ref TodParticleDefinition particles, TodEmitterDefinition emitter) => AddEmitter(ref particles, emitter), static (ref TodParticleDefinition particles) => SafeCount(particles.mEmitterDefs, particles.mEmitterDefCount), static (ref TodParticleDefinition particles, int index) => particles.mEmitterDefs[index]));
 
         public static TodParticleDefinition Decode(Stream stream)
         {
             return DefinitionMapLoader.Load(stream, ParticleDefMap);
+        }
+
+        public static void Encode(Stream stream, TodParticleDefinition definition)
+        {
+            DefinitionMapLoader.Save(stream, ParticleDefMap, definition);
+        }
+
+        public static void WriteXml(Stream stream, TodParticleDefinition definition)
+        {
+            Encode(stream, definition);
         }
 
         public static void SetBit(ref int flags, int index, bool value)
@@ -160,6 +170,11 @@ namespace EffectViewer.TodLib.Particle
             fields[^1] = field;
             emitter.mSystemFields = fields;
             emitter.mSystemFieldCount = fields.Length;
+        }
+
+        private static int SafeCount<T>(T[] values, int count)
+        {
+            return values is null ? 0 : Math.Min(values.Length, count);
         }
     }
 }
