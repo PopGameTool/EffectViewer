@@ -125,7 +125,7 @@ namespace EffectViewer.Rendering
                     return definition;
                 }
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException or ArgumentException or System.Xml.XmlException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or FormatException or ArgumentException)
             {
             }
 

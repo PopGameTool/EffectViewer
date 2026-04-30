@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Xml.Linq;
 using EffectViewer.Assets;
+using EffectViewer.TodLib.Common;
 
 namespace EffectViewer.Projects
 {
@@ -64,23 +64,28 @@ namespace EffectViewer.Projects
             string resourcesPath,
             Dictionary<string, ImageAsset> images)
         {
-            XDocument document = XDocument.Load(resourcesPath, LoadOptions.PreserveWhitespace);
+            SexyXmlParser parser = SexyXmlParser.FromFile(resourcesPath);
             string currentPath = string.Empty;
             string currentPrefix = string.Empty;
             int missingImages = 0;
 
-            foreach (XElement element in document.Descendants().Where(element =>
-                         element.Name.LocalName is "SetDefaults" or "Image"))
+            while (parser.TryNextElement(out SexyXmlElement element))
             {
-                if (element.Name.LocalName == "SetDefaults")
+                if (element.Type != SexyXmlElementType.Start ||
+                    element.Value is not ("SetDefaults" or "Image"))
                 {
-                    currentPath = (string)element.Attribute("path") ?? currentPath;
-                    currentPrefix = (string)element.Attribute("idprefix") ?? currentPrefix;
                     continue;
                 }
 
-                string rawId = (string)element.Attribute("id") ?? string.Empty;
-                string rawPath = (string)element.Attribute("path") ?? string.Empty;
+                if (element.Value == "SetDefaults")
+                {
+                    currentPath = ReadAttribute(element, "path") ?? currentPath;
+                    currentPrefix = ReadAttribute(element, "idprefix") ?? currentPrefix;
+                    continue;
+                }
+
+                string rawId = ReadAttribute(element, "id") ?? string.Empty;
+                string rawPath = ReadAttribute(element, "path") ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(rawId) || string.IsNullOrWhiteSpace(rawPath))
                 {
                     continue;
@@ -314,9 +319,14 @@ namespace EffectViewer.Projects
             return relativePath.Replace('\\', '/');
         }
 
-        private static int ReadPositiveInt(XElement element, string name, int fallback)
+        private static string ReadAttribute(SexyXmlElement element, string name)
         {
-            string value = (string)element.Attribute(name);
+            return element.Attributes.TryGetValue(name, out string value) ? value : null;
+        }
+
+        private static int ReadPositiveInt(SexyXmlElement element, string name, int fallback)
+        {
+            string value = ReadAttribute(element, name);
             return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed) && parsed > 0
                 ? parsed
                 : fallback;

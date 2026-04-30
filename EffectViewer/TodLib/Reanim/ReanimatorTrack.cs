@@ -6,6 +6,11 @@ namespace EffectViewer.TodLib.Reanim
         public ReanimatorTransform[] mTransforms;
         public short mTransformCount;
 
+        public ReanimatorTrack()
+            : this("", 0)
+        {
+        }
+
         public ReanimatorTrack(string name, int transformCount)
         {
             mName = name;

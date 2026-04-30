@@ -327,7 +327,7 @@ namespace EffectViewer.Runtime.Showcase
                     return definition;
                 }
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException or ArgumentException or System.Xml.XmlException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or FormatException or ArgumentException)
             {
             }
 
@@ -348,7 +348,7 @@ namespace EffectViewer.Runtime.Showcase
                     return Rendering.TrailPreviewFrameBuilder.LoadDefinition(fullPath);
                 }
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException or ArgumentException or System.Xml.XmlException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or FormatException or ArgumentException)
             {
             }
 

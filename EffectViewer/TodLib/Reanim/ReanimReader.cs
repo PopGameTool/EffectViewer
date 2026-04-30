@@ -1,196 +1,151 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Xml;
 
 namespace EffectViewer.TodLib.Reanim
 {
     public class ReanimReader
     {
+        private static readonly DefMap<ReanimatorTransform> ReanimatorTransformDefMap = new(
+            () => new ReanimatorTransform(),
+            DefinitionMapLoader.Float<ReanimatorTransform>("x", static (ref ReanimatorTransform transform, float value) => transform.mTransX = value),
+            DefinitionMapLoader.Float<ReanimatorTransform>("y", static (ref ReanimatorTransform transform, float value) => transform.mTransY = value),
+            DefinitionMapLoader.Float<ReanimatorTransform>("kx", static (ref ReanimatorTransform transform, float value) => transform.mSkewX = value),
+            DefinitionMapLoader.Float<ReanimatorTransform>("ky", static (ref ReanimatorTransform transform, float value) => transform.mSkewY = value),
+            DefinitionMapLoader.Float<ReanimatorTransform>("sx", static (ref ReanimatorTransform transform, float value) => transform.mScaleX = value),
+            DefinitionMapLoader.Float<ReanimatorTransform>("sy", static (ref ReanimatorTransform transform, float value) => transform.mScaleY = value),
+            DefinitionMapLoader.Float<ReanimatorTransform>("f", static (ref ReanimatorTransform transform, float value) => transform.mFrame = value),
+            DefinitionMapLoader.Float<ReanimatorTransform>("a", static (ref ReanimatorTransform transform, float value) => transform.mAlpha = value),
+            DefinitionMapLoader.Image<ReanimatorTransform>("i", static (ref ReanimatorTransform transform, string value) => transform.mImage = value),
+            DefinitionMapLoader.Font<ReanimatorTransform>("font", static (ref ReanimatorTransform transform, string value) => transform.mFont = value),
+            DefinitionMapLoader.String<ReanimatorTransform>("text", static (ref ReanimatorTransform transform, string value) => transform.mText = value));
+
+        private static readonly DefMap<ReanimatorTrack> ReanimatorTrackDefMap = new(
+            () => new ReanimatorTrack(),
+            DefinitionMapLoader.String<ReanimatorTrack>("name", static (ref ReanimatorTrack track, string value) => track.mName = Reanimation.ToLower(value)),
+            DefinitionMapLoader.Array<ReanimatorTrack, ReanimatorTransform>("t", ReanimatorTransformDefMap, static (ref ReanimatorTrack track, ReanimatorTransform transform) => AddTransform(ref track, transform)));
+
+        private static readonly DefMap<ReanimatorDefinition> ReanimatorDefMap = new(
+            () => new ReanimatorDefinition(),
+            DefinitionMapLoader.Array<ReanimatorDefinition, ReanimatorTrack>("track", ReanimatorTrackDefMap, static (ref ReanimatorDefinition reanim, ReanimatorTrack track) => AddTrack(ref reanim, track)),
+            DefinitionMapLoader.Float<ReanimatorDefinition>("fps", static (ref ReanimatorDefinition reanim, float value) => reanim.mFPS = value),
+            new DoScaleField());
+
         public static ReanimatorDefinition Decode(Stream stream)
         {
-            ReanimatorDefinition reanim = new();
-            XmlReaderSettings settings = new()
-            {
-                ConformanceLevel = ConformanceLevel.Fragment,
-                IgnoreComments = true,
-                IgnoreWhitespace = true,
-            };
-            string text;
-            using (StreamReader sr = new(stream))
-            {
-                text = sr.ReadToEnd().Replace("&", "&amp;");
-            }
-
-            ReanimScaleType doScale = ReanimScaleType.ScaleFromPC;
-            List<ReanimatorTrack> aTotalTracks = [];
-
-            using (XmlReader reader = XmlReader.Create(new StringReader(text), settings))
-            {
-                while (reader.Read())
-                {
-                    if (reader.NodeType == XmlNodeType.Element)
-                    {
-                        if (reader.Name == "doScale")
-                        {
-                            doScale = (ReanimScaleType)(byte)sbyte.Parse(ReadElementText(reader), CultureInfo.InvariantCulture);
-                        }
-                        else if (reader.Name == "fps")
-                        {
-                            reanim.mFPS = float.Parse(ReadElementText(reader), CultureInfo.InvariantCulture);
-                        }
-                        else if (reader.Name == "track")
-                        {
-                            aTotalTracks.Add(ReadReanimTrackFromXml(reader));
-                        }
-                    }
-                }
-            }
-
-            for (int i = 0; i < aTotalTracks.Count; i++)
-            {
-                ReanimatorTrack track = aTotalTracks[i];
-                bool isGround = ReanimatorXnaHelpers.ReanimatorTrackNameToId(track.mName) == Reanimation.ReanimTrackId__ground;
-                for (int j = 0; j < track.mTransformCount; j++)
-                {
-                    if (!isGround)
-                    {
-                        ReanimatorTransform transform = track.mTransforms[j];
-                        if (doScale == ReanimScaleType.InvertAndScale)
-                        {
-                            transform.mTransX = transform.mTransX == ReanimatorXnaHelpers.DEFAULT_FIELD_PLACEHOLDER
-                                ? transform.mTransX
-                                : transform.mTransX * 1.875f;
-                            transform.mTransY = transform.mTransY == ReanimatorXnaHelpers.DEFAULT_FIELD_PLACEHOLDER
-                                ? transform.mTransY
-                                : transform.mTransY * 1.875f;
-                        }
-                    }
-                }
-            }
-
-            reanim.mTrackCount = (short)aTotalTracks.Count;
-            reanim.mTracks = [.. aTotalTracks];
+            ReanimLoadContext.ScaleType = ReanimScaleType.ScaleFromPC;
+            ReanimatorDefinition reanim = DefinitionMapLoader.Load(stream, ReanimatorDefMap);
+            ApplyScale(reanim, ReanimLoadContext.ScaleType);
+            ReanimLoadContext.ScaleType = ReanimScaleType.ScaleFromPC;
             return reanim;
         }
 
-        private static string ReadElementText(XmlReader reader)
+        private static void ApplyScale(ReanimatorDefinition reanim, ReanimScaleType scaleType)
         {
-            if (reader.IsEmptyElement)
+            if (scaleType != ReanimScaleType.InvertAndScale || reanim.mTracks is null)
             {
-                return string.Empty;
+                return;
             }
 
-            if (!reader.Read())
+            for (int i = 0; i < reanim.mTrackCount; i++)
             {
-                throw new InvalidDataException("Unexpected end of XML element");
-            }
-
-            if (reader.NodeType != XmlNodeType.Text)
-            {
-                throw new InvalidDataException($"Expected text node, got {reader.NodeType}");
-            }
-
-            string value = reader.Value;
-
-            if (!reader.Read() || reader.NodeType != XmlNodeType.EndElement)
-            {
-                throw new InvalidDataException("Expected end element");
-            }
-
-            return value;
-        }
-
-        private static ReanimatorTrack ReadReanimTrackFromXml(XmlReader reader)
-        {
-            string name = string.Empty;
-            List<ReanimatorTransform> transforms = new List<ReanimatorTransform>();
-
-            if (!reader.IsEmptyElement)
-            {
-                while (reader.Read())
+                ReanimatorTrack track = reanim.mTracks[i];
+                bool isGround = ReanimatorXnaHelpers.ReanimatorTrackNameToId(track.mName) == Reanimation.ReanimTrackId__ground;
+                if (isGround || track.mTransforms is null)
                 {
-                    if (reader.NodeType == XmlNodeType.EndElement)
+                    continue;
+                }
+
+                for (int j = 0; j < track.mTransformCount; j++)
+                {
+                    ReanimatorTransform transform = track.mTransforms[j];
+                    if (transform.mTransX != ReanimatorXnaHelpers.DEFAULT_FIELD_PLACEHOLDER)
                     {
-                        break;
+                        transform.mTransX *= 1.875f;
                     }
-                    else if (reader.NodeType == XmlNodeType.Element)
+
+                    if (transform.mTransY != ReanimatorXnaHelpers.DEFAULT_FIELD_PLACEHOLDER)
                     {
-                        if (reader.Name == "name")
-                        {
-                            name = Reanimation.ToLower(ReadElementText(reader));
-                        }
-                        else if (reader.Name == "t")
-                        {
-                            transforms.Add(ReadReanimTransformFromXml(reader));
-                        }
+                        transform.mTransY *= 1.875f;
                     }
+
+                    track.mTransforms[j] = transform;
                 }
             }
-
-            ReanimatorTrack track = new ReanimatorTrack(name, transforms.Count);
-            for (int i = 0; i < transforms.Count; i++)
-            {
-                track.mTransforms[i] = transforms[i];
-            }
-
-            return track;
         }
 
-        private static ReanimatorTransform ReadReanimTransformFromXml(XmlReader reader)
+        private static void AddTrack(ref ReanimatorDefinition reanim, ReanimatorTrack track)
         {
-            ReanimatorTransform transform = new ReanimatorTransform();
-            if (!reader.IsEmptyElement)
+            ReanimatorTrack[] tracks = reanim.mTracks ?? [];
+            Array.Resize(ref tracks, tracks.Length + 1);
+            tracks[^1] = track;
+            reanim.mTracks = tracks;
+            reanim.mTrackCount = (short)tracks.Length;
+        }
+
+        private static void AddTransform(ref ReanimatorTrack track, ReanimatorTransform transform)
+        {
+            ReanimatorTransform[] transforms = track.mTransforms ?? [];
+            Array.Resize(ref transforms, transforms.Length + 1);
+            transforms[^1] = transform;
+            track.mTransforms = transforms;
+            track.mTransformCount = (short)transforms.Length;
+        }
+
+        private sealed class DoScaleField : IDefField<ReanimatorDefinition>
+        {
+            public string Name => "doScale";
+            public DefFieldType FieldType => DefFieldType.Int;
+
+            public bool TryRead(SexyXmlParser parser, string elementName, ref ReanimatorDefinition definition)
             {
-                while (reader.Read())
+                if (!string.Equals(elementName, Name, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (reader.NodeType == XmlNodeType.EndElement)
-                    {
-                        break;
-                    }
-                    else if (reader.NodeType == XmlNodeType.Element)
-                    {
-                        switch (reader.Name)
-                        {
-                        case "x":
-                            transform.mTransX = float.Parse(ReadElementText(reader), CultureInfo.InvariantCulture);
-                            break;
-                        case "y":
-                            transform.mTransY = float.Parse(ReadElementText(reader), CultureInfo.InvariantCulture);
-                            break;
-                        case "kx":
-                            transform.mSkewX = float.Parse(ReadElementText(reader), CultureInfo.InvariantCulture);
-                            break;
-                        case "ky":
-                            transform.mSkewY = float.Parse(ReadElementText(reader), CultureInfo.InvariantCulture);
-                            break;
-                        case "sx":
-                            transform.mScaleX = float.Parse(ReadElementText(reader), CultureInfo.InvariantCulture);
-                            break;
-                        case "sy":
-                            transform.mScaleY = float.Parse(ReadElementText(reader), CultureInfo.InvariantCulture);
-                            break;
-                        case "f":
-                            transform.mFrame = float.Parse(ReadElementText(reader), CultureInfo.InvariantCulture);
-                            break;
-                        case "a":
-                            transform.mAlpha = float.Parse(ReadElementText(reader), CultureInfo.InvariantCulture);
-                            break;
-                        case "i":
-                            transform.mImage = ReadElementText(reader);
-                            break;
-                        case "font":
-                            transform.mFont = ReadElementText(reader);
-                            break;
-                        case "text":
-                            transform.mText = ReadElementText(reader);
-                            break;
-                        }
-                    }
+                    return false;
                 }
+
+                string value = ReadElementText(parser);
+                if (sbyte.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out sbyte parsed))
+                {
+                    ReanimLoadContext.ScaleType = (ReanimScaleType)(byte)parsed;
+                    return true;
+                }
+
+                throw parser.CreateError($"Can't parse int value '{value}'");
             }
 
-            return transform;
+            private static string ReadElementText(SexyXmlParser parser)
+            {
+                if (!parser.TryNextElement(out SexyXmlElement element))
+                {
+                    throw parser.CreateError("Missing element value");
+                }
+
+                if (element.Type == SexyXmlElementType.End)
+                {
+                    return string.Empty;
+                }
+
+                if (element.Type != SexyXmlElementType.Element)
+                {
+                    throw parser.CreateError("unknown element type");
+                }
+
+                string value = element.Value;
+                if (!parser.TryNextElement(out element) || element.Type != SexyXmlElementType.End)
+                {
+                    throw parser.CreateError("Missing element end");
+                }
+
+                return value;
+            }
+        }
+
+        private static class ReanimLoadContext
+        {
+            [ThreadStatic]
+            public static ReanimScaleType ScaleType;
         }
 
         internal enum ReanimScaleType

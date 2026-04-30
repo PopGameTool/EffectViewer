@@ -32,7 +32,7 @@ namespace EffectViewer.Projects
                     _ => new EffectFileSummary { Kind = kind.ToString(), Error = "Unsupported effect type." }
                 };
             }
-            catch (Exception ex) when (ex is IOException or InvalidDataException or FormatException or System.Xml.XmlException)
+            catch (Exception ex) when (ex is IOException or InvalidDataException or FormatException)
             {
                 return new EffectFileSummary
                 {
