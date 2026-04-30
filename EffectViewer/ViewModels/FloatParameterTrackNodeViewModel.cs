@@ -20,7 +20,7 @@ namespace EffectViewer.ViewModels
             get => _timePercent;
             set
             {
-                double clamped = Math.Clamp(value, 0d, 100d);
+                double clamped = RoundToThreeDecimals(Math.Clamp(value, 0d, 100d));
                 if (SetProperty(ref _timePercent, clamped))
                 {
                     Changed?.Invoke(this);
@@ -33,7 +33,8 @@ namespace EffectViewer.ViewModels
             get => _lowValue;
             set
             {
-                if (SetProperty(ref _lowValue, value))
+                double rounded = RoundToThreeDecimals(value);
+                if (SetProperty(ref _lowValue, rounded))
                 {
                     Changed?.Invoke(this);
                 }
@@ -45,7 +46,8 @@ namespace EffectViewer.ViewModels
             get => _highValue;
             set
             {
-                if (SetProperty(ref _highValue, value))
+                double rounded = RoundToThreeDecimals(value);
+                if (SetProperty(ref _highValue, rounded))
                 {
                     Changed?.Invoke(this);
                 }
@@ -87,6 +89,12 @@ namespace EffectViewer.ViewModels
         private void Remove()
         {
             _remove?.Invoke(this);
+        }
+
+        private static double RoundToThreeDecimals(double value)
+        {
+            double rounded = Math.Round(value, 3, MidpointRounding.AwayFromZero);
+            return rounded == -0d ? 0d : rounded;
         }
     }
 }
