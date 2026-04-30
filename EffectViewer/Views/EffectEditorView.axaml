@@ -16,7 +16,18 @@
                   Content="Add"
                   MinWidth="64"
                   Command="{Binding AddNodeCommand}"/>
+          <Button DockPanel.Dock="Right"
+                  Content="Reset"
+                  Margin="0,0,6,0"
+                  MinWidth="64"
+                  Command="{Binding ResetCommand}"/>
         </DockPanel>
+        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="1"
+                CornerRadius="4"
+                Height="72">
+          <controls:FloatParameterTrackPreview Track="{Binding}"/>
+        </Border>
         <ItemsControl ItemsSource="{Binding Nodes}">
           <ItemsControl.ItemTemplate>
             <DataTemplate DataType="vm:FloatParameterTrackNodeViewModel">
@@ -55,10 +66,19 @@
                   <ComboBox ItemsSource="{Binding CurveOptions}"
                             SelectedItem="{Binding Distribution}"
                             HorizontalAlignment="Stretch"/>
-                  <Button Content="Remove"
-                          HorizontalAlignment="Right"
-                          MinWidth="76"
-                          Command="{Binding RemoveCommand}"/>
+                  <StackPanel Orientation="Horizontal"
+                              HorizontalAlignment="Right"
+                              Spacing="6">
+                    <Button Content="Equal"
+                            MinWidth="64"
+                            Command="{Binding EqualizeCommand}"/>
+                    <Button Content="Copy"
+                            MinWidth="64"
+                            Command="{Binding CopyCommand}"/>
+                    <Button Content="Remove"
+                            MinWidth="76"
+                            Command="{Binding RemoveCommand}"/>
+                  </StackPanel>
                 </StackPanel>
               </Border>
             </DataTemplate>
@@ -172,7 +192,13 @@
                           IsChecked="{Binding TrailLoops}"/>
                 <ContentControl Content="{Binding TrailWidthOverLength}"
                                 ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+                <ContentControl Content="{Binding TrailWidthOverTime}"
+                                ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
                 <ContentControl Content="{Binding TrailAlphaOverLength}"
+                                ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+                <ContentControl Content="{Binding TrailAlphaOverTime}"
+                                ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+                <ContentControl Content="{Binding TrailDuration}"
                                 ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
                 <TextBlock Text="{Binding TrailDefinitionError}"
                            IsVisible="{Binding HasTrailDefinitionError}"

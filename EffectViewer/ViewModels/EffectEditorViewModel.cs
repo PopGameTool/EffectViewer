@@ -16,6 +16,9 @@ namespace EffectViewer.ViewModels
         private readonly ReanimPreviewSimulation _reanimPreview;
         private const float TrailDefaultWidthOverLength = 1f;
         private const float TrailDefaultAlphaOverLength = 1f;
+        private const float TrailDefaultWidthOverTime = 1f;
+        private const float TrailDefaultAlphaOverTime = 1f;
+        private const float TrailDefaultDuration = 100f;
         private TrailDefinition _trailDefinition;
         private string _savedTrailImageId;
         private int _savedTrailMaxPoints;
@@ -23,6 +26,9 @@ namespace EffectViewer.ViewModels
         private bool _savedTrailLoops;
         private FloatParameterTrack _savedTrailWidthOverLength;
         private FloatParameterTrack _savedTrailAlphaOverLength;
+        private FloatParameterTrack _savedTrailWidthOverTime;
+        private FloatParameterTrack _savedTrailAlphaOverTime;
+        private FloatParameterTrack _savedTrailDuration;
         private string _selectedReanimLayer;
         private string _trailImageId;
         private int _trailMaxPoints;
@@ -94,6 +100,9 @@ namespace EffectViewer.ViewModels
 
         public FloatParameterTrackViewModel TrailWidthOverLength { get; } = new("WidthOverLength", TrailDefaultWidthOverLength);
         public FloatParameterTrackViewModel TrailAlphaOverLength { get; } = new("AlphaOverLength", TrailDefaultAlphaOverLength);
+        public FloatParameterTrackViewModel TrailWidthOverTime { get; } = new("WidthOverTime", TrailDefaultWidthOverTime);
+        public FloatParameterTrackViewModel TrailAlphaOverTime { get; } = new("AlphaOverTime", TrailDefaultAlphaOverTime);
+        public FloatParameterTrackViewModel TrailDuration { get; } = new("TrailDuration", TrailDefaultDuration);
 
         public string TrailDefinitionError
         {
@@ -135,6 +144,9 @@ namespace EffectViewer.ViewModels
             FileSummary = new EffectFileAnalyzer().Analyze(project, kind, path);
             TrailWidthOverLength.Changed += OnTrailTrackChanged;
             TrailAlphaOverLength.Changed += OnTrailTrackChanged;
+            TrailWidthOverTime.Changed += OnTrailTrackChanged;
+            TrailAlphaOverTime.Changed += OnTrailTrackChanged;
+            TrailDuration.Changed += OnTrailTrackChanged;
             EditorSummary = kind switch
             {
                 EffectAssetKind.Reanim => "Reanim editor shell: tracks, frames, transforms, and image bindings will live here.",
@@ -259,6 +271,9 @@ namespace EffectViewer.ViewModels
                 _savedTrailLoops = TrailLoops;
                 _savedTrailWidthOverLength = CloneTrack(_trailDefinition.mWidthOverLength);
                 _savedTrailAlphaOverLength = CloneTrack(_trailDefinition.mAlphaOverLength);
+                _savedTrailWidthOverTime = CloneTrack(_trailDefinition.mWidthOverTime);
+                _savedTrailAlphaOverTime = CloneTrack(_trailDefinition.mAlphaOverTime);
+                _savedTrailDuration = CloneTrack(_trailDefinition.mTrailDuration);
             }
 
             base.AcceptSavedState();
@@ -275,6 +290,9 @@ namespace EffectViewer.ViewModels
                     _savedTrailLoops,
                     _savedTrailWidthOverLength,
                     _savedTrailAlphaOverLength,
+                    _savedTrailWidthOverTime,
+                    _savedTrailAlphaOverTime,
+                    _savedTrailDuration,
                     markDirty: false);
             }
 
@@ -296,6 +314,9 @@ namespace EffectViewer.ViewModels
                 TodCommon.TestBit((uint)_trailDefinition.mTrailFlags, (int)TrailFlags.Loops),
                 _trailDefinition.mWidthOverLength,
                 _trailDefinition.mAlphaOverLength,
+                _trailDefinition.mWidthOverTime,
+                _trailDefinition.mAlphaOverTime,
+                _trailDefinition.mTrailDuration,
                 markDirty: false);
             AcceptSavedState();
             RefreshTrailPreview();
@@ -309,6 +330,9 @@ namespace EffectViewer.ViewModels
             bool loops,
             FloatParameterTrack widthOverLength,
             FloatParameterTrack alphaOverLength,
+            FloatParameterTrack widthOverTime,
+            FloatParameterTrack alphaOverTime,
+            FloatParameterTrack duration,
             bool markDirty)
         {
             _suppressTrailPropertyChanges = true;
@@ -318,6 +342,9 @@ namespace EffectViewer.ViewModels
             TrailLoops = loops;
             TrailWidthOverLength.LoadFrom(widthOverLength);
             TrailAlphaOverLength.LoadFrom(alphaOverLength);
+            TrailWidthOverTime.LoadFrom(widthOverTime);
+            TrailAlphaOverTime.LoadFrom(alphaOverTime);
+            TrailDuration.LoadFrom(duration);
             _suppressTrailPropertyChanges = false;
             ApplyTrailPropertyChanges(markDirty);
         }
@@ -374,6 +401,9 @@ namespace EffectViewer.ViewModels
             {
                 TrailWidthOverLength.ApplyTo(_trailDefinition.mWidthOverLength);
                 TrailAlphaOverLength.ApplyTo(_trailDefinition.mAlphaOverLength);
+                TrailWidthOverTime.ApplyTo(_trailDefinition.mWidthOverTime);
+                TrailAlphaOverTime.ApplyTo(_trailDefinition.mAlphaOverTime);
+                TrailDuration.ApplyTo(_trailDefinition.mTrailDuration);
             }
             catch (System.Exception ex) when (ex is System.FormatException or System.OverflowException)
             {
@@ -433,6 +463,9 @@ namespace EffectViewer.ViewModels
         {
             TrailWidthOverLength.Changed -= OnTrailTrackChanged;
             TrailAlphaOverLength.Changed -= OnTrailTrackChanged;
+            TrailWidthOverTime.Changed -= OnTrailTrackChanged;
+            TrailAlphaOverTime.Changed -= OnTrailTrackChanged;
+            TrailDuration.Changed -= OnTrailTrackChanged;
             base.Dispose();
         }
     }

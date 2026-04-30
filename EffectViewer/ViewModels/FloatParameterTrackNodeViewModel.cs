@@ -7,6 +7,8 @@ namespace EffectViewer.ViewModels
     public sealed partial class FloatParameterTrackNodeViewModel : ViewModelBase
     {
         private readonly Action<FloatParameterTrackNodeViewModel> _remove;
+        private readonly Action<FloatParameterTrackNodeViewModel> _copy;
+        private readonly Action<FloatParameterTrackNodeViewModel> _equalize;
         private double _timePercent;
         private double _lowValue;
         private double _highValue;
@@ -80,15 +82,32 @@ namespace EffectViewer.ViewModels
 
         public event Action<FloatParameterTrackNodeViewModel> Changed;
 
-        public FloatParameterTrackNodeViewModel(Action<FloatParameterTrackNodeViewModel> remove)
+        public FloatParameterTrackNodeViewModel(
+            Action<FloatParameterTrackNodeViewModel> remove,
+            Action<FloatParameterTrackNodeViewModel> copy,
+            Action<FloatParameterTrackNodeViewModel> equalize)
         {
             _remove = remove;
+            _copy = copy;
+            _equalize = equalize;
         }
 
         [RelayCommand]
         private void Remove()
         {
             _remove?.Invoke(this);
+        }
+
+        [RelayCommand]
+        private void Copy()
+        {
+            _copy?.Invoke(this);
+        }
+
+        [RelayCommand]
+        private void Equalize()
+        {
+            _equalize?.Invoke(this);
         }
 
         private static double RoundToThreeDecimals(double value)

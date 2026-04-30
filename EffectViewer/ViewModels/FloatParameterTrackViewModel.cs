@@ -76,7 +76,7 @@ namespace EffectViewer.ViewModels
             double time = Nodes.Count == 0
                 ? 0d
                 : Math.Min(100d, Nodes[^1].TimePercent + 10d);
-            AddNode(new FloatParameterTrackNodeViewModel(RemoveNode)
+            AddNode(new FloatParameterTrackNodeViewModel(RemoveNode, CopyNode, EqualizeNode)
             {
                 TimePercent = time,
                 LowValue = _defaultValue,
@@ -87,10 +87,53 @@ namespace EffectViewer.ViewModels
             RaiseChanged();
         }
 
+        [RelayCommand]
+        private void Reset()
+        {
+            _suppressChanged = true;
+            foreach (FloatParameterTrackNodeViewModel node in Nodes.ToArray())
+            {
+                node.Changed -= OnNodeChanged;
+            }
+
+            Nodes.Clear();
+            AddNode(CreateDefaultNode());
+            _suppressChanged = false;
+            RaiseChanged();
+        }
+
         private void AddNode(FloatParameterTrackNodeViewModel node)
         {
             node.Changed += OnNodeChanged;
             Nodes.Add(node);
+        }
+
+        private void CopyNode(FloatParameterTrackNodeViewModel node)
+        {
+            if (node is null)
+            {
+                return;
+            }
+
+            AddNode(new FloatParameterTrackNodeViewModel(RemoveNode, CopyNode, EqualizeNode)
+            {
+                TimePercent = Math.Min(100d, node.TimePercent + 1d),
+                LowValue = node.LowValue,
+                HighValue = node.HighValue,
+                CurveType = node.CurveType,
+                Distribution = node.Distribution
+            });
+            RaiseChanged();
+        }
+
+        private void EqualizeNode(FloatParameterTrackNodeViewModel node)
+        {
+            if (node is null)
+            {
+                return;
+            }
+
+            node.HighValue = node.LowValue;
         }
 
         private void RemoveNode(FloatParameterTrackNodeViewModel node)
@@ -134,7 +177,7 @@ namespace EffectViewer.ViewModels
 
         private FloatParameterTrackNodeViewModel CreateDefaultNode()
         {
-            return new FloatParameterTrackNodeViewModel(RemoveNode)
+            return new FloatParameterTrackNodeViewModel(RemoveNode, CopyNode, EqualizeNode)
             {
                 TimePercent = 0d,
                 LowValue = _defaultValue,
@@ -146,7 +189,7 @@ namespace EffectViewer.ViewModels
 
         private FloatParameterTrackNodeViewModel CreateNode(FloatParameterTrackNode node)
         {
-            return new FloatParameterTrackNodeViewModel(RemoveNode)
+            return new FloatParameterTrackNodeViewModel(RemoveNode, CopyNode, EqualizeNode)
             {
                 TimePercent = node.mTime * 100d,
                 LowValue = node.mLowValue,
