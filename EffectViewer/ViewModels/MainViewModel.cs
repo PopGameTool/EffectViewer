@@ -90,7 +90,7 @@ namespace EffectViewer.ViewModels
             _effectWorld.LoadProject(CurrentProject);
             _luaHost = new LuaHost(_effectWorld);
             RebuildProjectTree();
-            CurrentEditor = new WelcomeEditorViewModel();
+            SetCurrentEditor(new WelcomeEditorViewModel());
         }
 
         partial void OnSelectedProjectItemChanged(ProjectExplorerItemViewModel value)
@@ -110,34 +110,44 @@ namespace EffectViewer.ViewModels
                 case EffectAssetKind.Image:
                     if (CurrentProject.Assets.Images.TryGetValue(item.AssetId, out Assets.ImageAsset image))
                     {
-                        CurrentEditor = new ImageEditorViewModel(image, CurrentProject);
+                        SetCurrentEditor(new ImageEditorViewModel(image, CurrentProject));
                         StatusText = $"Editing image {image.Id}";
                     }
                     break;
 
                 case EffectAssetKind.Reanim:
-                    CurrentEditor = new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject);
+                    SetCurrentEditor(new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
                     StatusText = $"Editing reanim {item.AssetId}";
                     break;
 
                 case EffectAssetKind.Particle:
-                    CurrentEditor = new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject);
+                    SetCurrentEditor(new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
                     StatusText = $"Editing particle {item.AssetId}";
                     break;
 
                 case EffectAssetKind.Trail:
-                    CurrentEditor = new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject);
+                    SetCurrentEditor(new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
                     StatusText = $"Editing trail {item.AssetId}";
                     break;
 
                 case EffectAssetKind.Showcase:
                     if (CurrentProject.Assets.Showcases.TryGetValue(item.AssetId, out ShowcaseAsset showcase))
                     {
-                        CurrentEditor = new ShowcaseEditorViewModel(showcase, _luaHost);
+                        SetCurrentEditor(new ShowcaseEditorViewModel(showcase, _luaHost));
                         StatusText = $"Editing showcase {item.AssetId}";
                     }
                     break;
             }
+        }
+
+        private void SetCurrentEditor(EditorViewModelBase editor)
+        {
+            if (!ReferenceEquals(CurrentEditor, editor))
+            {
+                CurrentEditor?.Dispose();
+            }
+
+            CurrentEditor = editor;
         }
 
         private void RebuildProjectTree()

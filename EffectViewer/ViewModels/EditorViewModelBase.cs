@@ -1,10 +1,11 @@
+using System;
 using EffectViewer.Projects;
 using EffectViewer.Rendering;
 using EffectViewer.Rendering.TextureUpload;
 
 namespace EffectViewer.ViewModels
 {
-    public abstract partial class EditorViewModelBase : ViewModelBase
+    public abstract partial class EditorViewModelBase : ViewModelBase, IDisposable
     {
         public string Title { get; }
         public EffectAssetKind Kind { get; }
@@ -18,6 +19,14 @@ namespace EffectViewer.ViewModels
             Kind = kind;
             PreviewFrame = EffectPreviewFrameBuilder.BuildPlaceholder(kind, title);
             TextureSource = new GeneratedTextureSource();
+        }
+
+        public virtual void Dispose()
+        {
+            if (PreviewFrameProvider is IDisposable disposableProvider)
+            {
+                disposableProvider.Dispose();
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ using EffectViewer.Assets;
 using EffectViewer.Projects;
 using EffectViewer.Rendering;
 using EffectViewer.Rendering.TextureUpload;
+using System.IO;
 using Math = System.Math;
 
 namespace EffectViewer.ViewModels
@@ -19,6 +20,8 @@ namespace EffectViewer.ViewModels
 
         [ObservableProperty]
         private int _frameIndex;
+        private readonly int _imageWidth;
+        private readonly int _imageHeight;
 
         public string AssetId => Asset.Id;
         public string Path => Asset.Path;
@@ -34,6 +37,7 @@ namespace EffectViewer.ViewModels
             _rows = asset.Rows;
             _cols = asset.Cols;
             _frameIndex = 0;
+            ResolveImageSize(asset, project, out _imageWidth, out _imageHeight);
             RefreshPreviewFrame();
             TextureSource = new ProjectTextureSource(project);
         }
@@ -83,8 +87,21 @@ namespace EffectViewer.ViewModels
 
         private void RefreshPreviewFrame()
         {
-            PreviewFrame = EffectPreviewFrameBuilder.BuildImagePreview(Asset.Id, Rows, Cols, FrameIndex);
+            PreviewFrame = EffectPreviewFrameBuilder.BuildImagePreview(Asset.Id, Rows, Cols, FrameIndex, _imageWidth, _imageHeight);
             OnPropertyChanged(nameof(PreviewFrame));
+        }
+
+        private static void ResolveImageSize(ImageAsset asset, EffectProject project, out int width, out int height)
+        {
+            width = 0;
+            height = 0;
+            string fullPath = !string.IsNullOrWhiteSpace(asset.SourcePath) && File.Exists(asset.SourcePath)
+                ? asset.SourcePath
+                : System.IO.Path.IsPathRooted(asset.Path) || string.IsNullOrWhiteSpace(project.RootPath)
+                    ? asset.Path
+                    : System.IO.Path.Combine(project.RootPath, asset.Path);
+
+            Runtime.ImageFileSizeReader.TryReadSize(fullPath, out width, out height);
         }
 
         private void NotifyCellProperties()

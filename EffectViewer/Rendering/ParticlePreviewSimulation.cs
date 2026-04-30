@@ -8,7 +8,7 @@ using EffectViewer.TodLib.Particle;
 
 namespace EffectViewer.Rendering
 {
-    public sealed class ParticlePreviewSimulation : IRenderFrameProvider
+    public sealed class ParticlePreviewSimulation : IRenderFrameProvider, IDisposable
     {
         private const double UpdateStepSeconds = 1.0 / TodLibConstants.TICKS_PER_SECOND;
         private const int MaxRestartTicks = TodLibConstants.TICKS_PER_SECOND * 12;
@@ -21,6 +21,7 @@ namespace EffectViewer.Rendering
         private TodParticleSystem _system;
         private double _accumulator;
         private int _ticksSinceRestart;
+        private bool _disposed;
 
         public ParticlePreviewSimulation(EffectProject project, string path, string assetId)
         {
@@ -35,6 +36,11 @@ namespace EffectViewer.Rendering
 
         public RenderFrame GetFrame(double deltaSeconds)
         {
+            if (_disposed)
+            {
+                return new RenderFrame();
+            }
+
             _accumulator += deltaSeconds;
             int guard = 0;
             while (_accumulator >= UpdateStepSeconds && guard++ < 20)
@@ -46,8 +52,25 @@ namespace EffectViewer.Rendering
             return BuildFrame();
         }
 
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            _system = null;
+            _holder.Dispose();
+        }
+
         private void Reset()
         {
+            if (_disposed)
+            {
+                return;
+            }
+
             _holder.mParticleSystems.DataArrayFreeAll();
             _holder.mEmitters.DataArrayFreeAll();
             _holder.mParticles.DataArrayFreeAll();

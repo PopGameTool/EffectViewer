@@ -30,7 +30,7 @@ namespace EffectViewer.Rendering
             return frame;
         }
 
-        public static RenderFrame BuildImagePreview(string assetId, int rows, int cols, int frameIndex = 0)
+        public static RenderFrame BuildImagePreview(string assetId, int rows, int cols, int frameIndex = 0, int imageWidth = 0, int imageHeight = 0)
         {
             rows = Math.Max(1, rows);
             cols = Math.Max(1, cols);
@@ -44,10 +44,13 @@ namespace EffectViewer.Rendering
             float bottom = (row + 1) / (float)rows;
 
             RenderFrame frame = new();
+            Vector2 size = imageWidth > 0 && imageHeight > 0
+                ? new Vector2(Math.Max(1, imageWidth / (float)cols), Math.Max(1, imageHeight / (float)rows))
+                : new Vector2(256f, 256f);
             frame.Sprites.Add(new RenderSpriteCommand(
                 new RenderTextureRef(assetId),
                 new Vector2(0.5f, 0.5f),
-                new Vector2(0.7f, 0.7f),
+                size,
                 new Vector4(left, top, right, bottom),
                 Vector4.One,
                 RenderBlendMode.Normal));

@@ -10,39 +10,8 @@
       <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
     </StackPanel>
 
-    <Grid Grid.Row="1" ColumnDefinitions="260,*,320" ColumnSpacing="16">
+    <Grid Grid.Row="1" ColumnDefinitions="*,320" ColumnSpacing="16">
       <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-              BorderThickness="1"
-              CornerRadius="6"
-              Padding="14">
-        <StackPanel Spacing="10">
-          <TextBlock Text="Structure" FontSize="16" FontWeight="SemiBold"/>
-          <TextBlock Text="{Binding Kind}"/>
-          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
-            <TextBlock Text="Loaded"/>
-            <TextBlock Grid.Column="1" Text="{Binding FileSummary.IsLoaded}"/>
-            <TextBlock Grid.Row="1" Text="Tracks"/>
-            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FileSummary.TrackCount}"/>
-            <TextBlock Grid.Row="2" Text="Frames"/>
-            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding FileSummary.FrameCount}"/>
-            <TextBlock Grid.Row="3" Text="FPS"/>
-            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding FileSummary.Fps}"/>
-            <TextBlock Grid.Row="4" Text="Emitters"/>
-            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding FileSummary.EmitterCount}"/>
-            <TextBlock Grid.Row="5" Text="Fields"/>
-            <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding FileSummary.FieldCount}"/>
-          </Grid>
-          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
-            <TextBlock Text="MaxPoints"/>
-            <TextBlock Grid.Column="1" Text="{Binding FileSummary.MaxPoints}"/>
-            <TextBlock Grid.Row="1" Text="MinDist"/>
-            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FileSummary.MinPointDistance}"/>
-          </Grid>
-        </StackPanel>
-      </Border>
-
-      <Border Grid.Column="1"
-              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
               BorderThickness="1"
               CornerRadius="6">
         <controls:InteractiveEffectViewport Frame="{Binding PreviewFrame}"
@@ -50,23 +19,48 @@
                                             TextureSource="{Binding TextureSource}"/>
       </Border>
 
-      <Border Grid.Column="2"
+      <Border Grid.Column="1"
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
               BorderThickness="1"
-              CornerRadius="6"
-              Padding="14">
-        <StackPanel Spacing="10">
-          <TextBlock Text="Properties" FontSize="16" FontWeight="SemiBold"/>
-          <TextBlock Text="{Binding EditorSummary}" TextWrapping="Wrap"/>
-          <Separator/>
-          <TextBlock Text="Image references" FontWeight="SemiBold"/>
-          <TextBlock Text="{Binding ImageReferenceSummary}" TextWrapping="Wrap"/>
-          <TextBlock Text="Resolved images" FontWeight="SemiBold"/>
-          <TextBlock Text="{Binding ResolvedImageReferenceSummary}" TextWrapping="Wrap"/>
-          <TextBlock Text="Missing images" FontWeight="SemiBold"/>
-          <TextBlock Text="{Binding MissingImageSummary}" TextWrapping="Wrap"/>
-          <TextBlock Text="{Binding FileSummary.Error}" TextWrapping="Wrap"/>
-        </StackPanel>
+              CornerRadius="6">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="10" Margin="14">
+            <TextBlock Text="Properties" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding EditorSummary}" TextWrapping="Wrap"/>
+            <Separator/>
+            <TextBlock Text="Structure" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding Kind}"/>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+              <TextBlock Text="Loaded"/>
+              <TextBlock Grid.Column="1" Text="{Binding FileSummary.IsLoaded}"/>
+              <TextBlock Grid.Row="1" Text="Tracks"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FileSummary.TrackCount}"/>
+              <TextBlock Grid.Row="2" Text="Frames"/>
+              <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding FileSummary.FrameCount}"/>
+              <TextBlock Grid.Row="3" Text="FPS"/>
+              <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding FileSummary.Fps}"/>
+              <TextBlock Grid.Row="4" Text="Emitters"/>
+              <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding FileSummary.EmitterCount}"/>
+              <TextBlock Grid.Row="5" Text="Fields"/>
+              <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding FileSummary.FieldCount}"/>
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+              <TextBlock Text="MaxPoints"/>
+              <TextBlock Grid.Column="1" Text="{Binding FileSummary.MaxPoints}"/>
+              <TextBlock Grid.Row="1" Text="MinDist"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FileSummary.MinPointDistance}"/>
+            </Grid>
+            <Separator/>
+            <TextBlock Text="Image references" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding ImageReferenceSummary}" TextWrapping="Wrap"/>
+            <TextBlock Text="Resolved images" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding ResolvedImageReferenceSummary}" TextWrapping="Wrap"/>
+            <TextBlock Text="Missing images" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding MissingImageSummary}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding FileSummary.Error}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </ScrollViewer>
       </Border>
     </Grid>
   </Grid>

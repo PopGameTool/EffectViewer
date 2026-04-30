@@ -10,41 +10,45 @@
       <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
     </StackPanel>
 
-    <Grid Grid.Row="1" ColumnDefinitions="320,*" ColumnSpacing="20">
+    <Grid Grid.Row="1" ColumnDefinitions="*,320" ColumnSpacing="16">
       <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
               BorderThickness="1"
               CornerRadius="6"
               Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
-        <Grid RowDefinitions="*,Auto" Margin="16">
-          <controls:InteractiveEffectViewport Frame="{Binding PreviewFrame}"
-                                              TextureSource="{Binding TextureSource}"/>
-          <TextBlock Grid.Row="1"
-                     HorizontalAlignment="Center"
-                     Text="{Binding CellCount, StringFormat='{}Frames: {0}'}"/>
-        </Grid>
+        <controls:InteractiveEffectViewport Frame="{Binding PreviewFrame}"
+                                            TextureSource="{Binding TextureSource}"/>
       </Border>
 
-      <StackPanel Grid.Column="1" Spacing="12" MaxWidth="360">
-        <TextBlock Text="Metadata" FontSize="18" FontWeight="SemiBold"/>
-        <TextBlock Text="Rows"/>
-        <NumericUpDown Value="{Binding Rows}" Minimum="1" Maximum="128" Increment="1"/>
-        <TextBlock Text="Cols"/>
-        <NumericUpDown Value="{Binding Cols}" Minimum="1" Maximum="128" Increment="1"/>
-        <Separator Margin="0,8"/>
-        <TextBlock Text="Frame"/>
-        <NumericUpDown Value="{Binding FrameIndex}"
-                       Minimum="0"
-                       Maximum="{Binding MaxFrameIndex}"
-                       Increment="1"/>
-        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
-          <TextBlock Text="Cells"/>
-          <TextBlock Grid.Column="1" Text="{Binding CellCount}"/>
-          <TextBlock Grid.Row="1" Text="Row"/>
-          <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CurrentRow}"/>
-          <TextBlock Grid.Row="2" Text="Col"/>
-          <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CurrentCol}"/>
-        </Grid>
-      </StackPanel>
+      <Border Grid.Column="1"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+              BorderThickness="1"
+              CornerRadius="6">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="12" Margin="14">
+            <TextBlock Text="Properties" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock Text="Metadata" FontWeight="SemiBold"/>
+            <TextBlock Text="Rows"/>
+            <NumericUpDown Value="{Binding Rows}" Minimum="1" Maximum="128" Increment="1"/>
+            <TextBlock Text="Cols"/>
+            <NumericUpDown Value="{Binding Cols}" Minimum="1" Maximum="128" Increment="1"/>
+            <Separator Margin="0,8"/>
+            <TextBlock Text="Frame" FontWeight="SemiBold"/>
+            <NumericUpDown Value="{Binding FrameIndex}"
+                           Minimum="0"
+                           Maximum="{Binding MaxFrameIndex}"
+                           Increment="1"/>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+              <TextBlock Text="Cells"/>
+              <TextBlock Grid.Column="1" Text="{Binding CellCount}"/>
+              <TextBlock Grid.Row="1" Text="Row"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CurrentRow}"/>
+              <TextBlock Grid.Row="2" Text="Col"/>
+              <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CurrentCol}"/>
+            </Grid>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
     </Grid>
   </Grid>
 </UserControl>
