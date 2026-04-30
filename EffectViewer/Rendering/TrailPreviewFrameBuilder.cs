@@ -19,6 +19,16 @@ namespace EffectViewer.Rendering
             }
 
             TrailDefinition definition = LoadDefinition(fullPath);
+            return Build(definition, fallbackId);
+        }
+
+        public static RenderFrame Build(TrailDefinition definition, string fallbackId)
+        {
+            if (definition is null)
+            {
+                return EffectPreviewFrameBuilder.BuildPlaceholder(EffectAssetKind.Trail, fallbackId);
+            }
+
             string textureId = string.IsNullOrWhiteSpace(definition.mImage) ? fallbackId : definition.mImage;
 
             RenderFrame frame = new();

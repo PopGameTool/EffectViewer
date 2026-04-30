@@ -225,7 +225,12 @@ namespace EffectViewer.TodLib.Common
 
         public static TrackFloatDefField<T> TrackFloat<T>(string name, DefTrackGetter<T> getter)
         {
-            return new TrackFloatDefField<T>(name, getter);
+            return new TrackFloatDefField<T>(name, getter, null);
+        }
+
+        public static TrackFloatDefField<T> TrackFloat<T>(string name, DefTrackGetter<T> getter, float defaultValue)
+        {
+            return new TrackFloatDefField<T>(name, getter, defaultValue);
         }
 
         public static ArrayDefField<T, TItem> Array<T, TItem>(string name, DefMap<TItem> itemMap, DefItemAppender<T, TItem> append)
@@ -492,7 +497,23 @@ namespace EffectViewer.TodLib.Common
 
         private static string FormatFloat(float value)
         {
-            return value.ToString("G9", CultureInfo.InvariantCulture);
+            string text = value.ToString("0.###", CultureInfo.InvariantCulture);
+            if (text == "-0")
+            {
+                return "0";
+            }
+
+            if (text.StartsWith("0.", StringComparison.Ordinal))
+            {
+                return text[1..];
+            }
+
+            if (text.StartsWith("-0.", StringComparison.Ordinal))
+            {
+                return "-" + text[2..];
+            }
+
+            return text;
         }
 
         private static string FormatEnum<TEnum>(TEnum value, IReadOnlyDictionary<string, TEnum> symbols)
@@ -755,11 +776,13 @@ namespace EffectViewer.TodLib.Common
         internal sealed class TrackFloatDefField<T> : IDefField<T>
         {
             private readonly DefTrackGetter<T> _getter;
+            private readonly float? _defaultValue;
 
-            public TrackFloatDefField(string name, DefTrackGetter<T> getter)
+            public TrackFloatDefField(string name, DefTrackGetter<T> getter, float? defaultValue)
             {
                 Name = name;
                 _getter = getter;
+                _defaultValue = defaultValue;
             }
 
             public string Name { get; }
@@ -779,7 +802,7 @@ namespace EffectViewer.TodLib.Common
             public void Write(SexyXmlWriter writer, ref T definition)
             {
                 FloatParameterTrack track = _getter(ref definition);
-                if (track?.mNodes is null || track.mCountNodes <= 0 || IsDefaultFloatTrack(track))
+                if (track?.mNodes is null || track.mCountNodes <= 0 || IsDefaultFloatTrack(track, _defaultValue))
                 {
                     return;
                 }
@@ -787,7 +810,7 @@ namespace EffectViewer.TodLib.Common
                 writer.WriteElement(Name, WriteFloatTrack(track));
             }
 
-            private static bool IsDefaultFloatTrack(FloatParameterTrack track)
+            private static bool IsDefaultFloatTrack(FloatParameterTrack track, float? defaultValue)
             {
                 if (track.mCountNodes != 1 || track.mNodes.Length == 0)
                 {
@@ -795,10 +818,16 @@ namespace EffectViewer.TodLib.Common
                 }
 
                 FloatParameterTrackNode node = track.mNodes[0];
-                return node.mTime == 0f &&
+                bool isSingleConstant = node.mTime == 0f &&
                     node.mLowValue == node.mHighValue &&
                     node.mCurveType == TodCurves.Constant &&
                     node.mDistribution == TodCurves.Linear;
+                if (!isSingleConstant)
+                {
+                    return false;
+                }
+
+                return !defaultValue.HasValue || Math.Abs(node.mLowValue - defaultValue.Value) < 0.0005f;
             }
         }
 

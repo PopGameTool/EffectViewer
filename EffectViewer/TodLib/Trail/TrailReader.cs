@@ -18,11 +18,11 @@ namespace EffectViewer.TodLib.Trail
             DefinitionMapLoader.Int<TrailDefinition>("MaxPoints", static (ref TrailDefinition trail, int value) => trail.mMaxPoints = value, static (ref TrailDefinition trail) => trail.mMaxPoints, static value => value != 2),
             DefinitionMapLoader.Float<TrailDefinition>("MinPointDistance", static (ref TrailDefinition trail, float value) => trail.mMinPointDistance = value, static (ref TrailDefinition trail) => trail.mMinPointDistance, static value => value != 1f),
             DefinitionMapLoader.Flags<TrailDefinition>("TrailFlags", TrailFlagSymbols, static (ref TrailDefinition trail, int bitIndex, bool value) => SexyParticleReader.SetBit(ref trail.mTrailFlags, bitIndex, value), static (ref TrailDefinition trail) => trail.mTrailFlags),
-            DefinitionMapLoader.TrackFloat<TrailDefinition>("WidthOverLength", static (ref TrailDefinition trail) => trail.mWidthOverLength),
-            DefinitionMapLoader.TrackFloat<TrailDefinition>("WidthOverTime", static (ref TrailDefinition trail) => trail.mWidthOverTime),
-            DefinitionMapLoader.TrackFloat<TrailDefinition>("AlphaOverLength", static (ref TrailDefinition trail) => trail.mAlphaOverLength),
-            DefinitionMapLoader.TrackFloat<TrailDefinition>("AlphaOverTime", static (ref TrailDefinition trail) => trail.mAlphaOverTime),
-            DefinitionMapLoader.TrackFloat<TrailDefinition>("TrailDuration", static (ref TrailDefinition trail) => trail.mTrailDuration));
+            DefinitionMapLoader.TrackFloat<TrailDefinition>("WidthOverLength", static (ref TrailDefinition trail) => trail.mWidthOverLength, 1f),
+            DefinitionMapLoader.TrackFloat<TrailDefinition>("WidthOverTime", static (ref TrailDefinition trail) => trail.mWidthOverTime, 1f),
+            DefinitionMapLoader.TrackFloat<TrailDefinition>("AlphaOverLength", static (ref TrailDefinition trail) => trail.mAlphaOverLength, 1f),
+            DefinitionMapLoader.TrackFloat<TrailDefinition>("AlphaOverTime", static (ref TrailDefinition trail) => trail.mAlphaOverTime, 1f),
+            DefinitionMapLoader.TrackFloat<TrailDefinition>("TrailDuration", static (ref TrailDefinition trail) => trail.mTrailDuration, 100f));
 
         public static TrailDefinition Decode(Stream stream)
         {

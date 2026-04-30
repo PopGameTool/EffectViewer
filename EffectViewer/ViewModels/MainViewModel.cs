@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -340,9 +341,17 @@ namespace EffectViewer.ViewModels
                 return false;
             }
 
-            await editor.SaveAsync(_projectService, CurrentProject);
-            StatusText = $"Saved {editor.Title}.";
-            return true;
+            try
+            {
+                await editor.SaveAsync(_projectService, CurrentProject);
+                StatusText = $"Saved {editor.Title}.";
+                return true;
+            }
+            catch (System.Exception ex) when (ex is IOException or System.FormatException or System.InvalidOperationException)
+            {
+                StatusText = $"Could not save {editor.Title}: {ex.Message}";
+                return false;
+            }
         }
 
         private Task<UnsavedChangesChoice> PromptUnsavedChangesAsync(EditorViewModelBase editor)

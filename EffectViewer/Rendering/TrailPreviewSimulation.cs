@@ -21,16 +21,26 @@ namespace EffectViewer.Rendering
         private Trail _trail;
 
         public TrailPreviewSimulation(EffectProject project, string path, string fallbackId, float x = 0f, float y = 0f)
+            : this(LoadDefinition(project, path), fallbackId, x, y)
         {
-            string fullPath = TrailPreviewFrameBuilder.ResolvePath(project, path);
-            _definition = !string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath)
-                ? TrailPreviewFrameBuilder.LoadDefinition(fullPath)
-                : new TrailDefinition();
+        }
+
+        public TrailPreviewSimulation(TrailDefinition definition, string fallbackId, float x = 0f, float y = 0f)
+        {
+            _definition = definition ?? new TrailDefinition();
             _definition.ApplyDefaults();
             _textureId = string.IsNullOrWhiteSpace(_definition.mImage) ? fallbackId : _definition.mImage;
             _x = x;
             _y = y;
             Reset();
+        }
+
+        private static TrailDefinition LoadDefinition(EffectProject project, string path)
+        {
+            string fullPath = TrailPreviewFrameBuilder.ResolvePath(project, path);
+            return !string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath)
+                ? TrailPreviewFrameBuilder.LoadDefinition(fullPath)
+                : new TrailDefinition();
         }
 
         public RenderFrame GetFrame(double deltaSeconds)
