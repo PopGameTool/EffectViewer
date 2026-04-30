@@ -4,6 +4,7 @@ using EffectViewer.Projects;
 using EffectViewer.Rendering;
 using EffectViewer.Rendering.TextureUpload;
 using System.IO;
+using System.Threading.Tasks;
 using Math = System.Math;
 
 namespace EffectViewer.ViewModels
@@ -22,6 +23,8 @@ namespace EffectViewer.ViewModels
         private int _frameIndex;
         private readonly int _imageWidth;
         private readonly int _imageHeight;
+        private int _savedRows;
+        private int _savedCols;
 
         public string AssetId => Asset.Id;
         public string Path => Asset.Path;
@@ -29,6 +32,8 @@ namespace EffectViewer.ViewModels
         public int MaxFrameIndex => CellCount - 1;
         public int CurrentRow => Cols <= 0 ? 0 : FrameIndex / Cols;
         public int CurrentCol => Cols <= 0 ? 0 : FrameIndex % Cols;
+        public override bool SupportsSave => true;
+        public override bool SavesWithProjectManifest => true;
 
         public ImageEditorViewModel(ImageAsset asset, EffectProject project)
             : base(asset.Id, EffectAssetKind.Image)
@@ -36,6 +41,8 @@ namespace EffectViewer.ViewModels
             Asset = asset;
             _rows = asset.Rows;
             _cols = asset.Cols;
+            _savedRows = asset.Rows;
+            _savedCols = asset.Cols;
             _frameIndex = 0;
             ResolveImageSize(asset, project, out _imageWidth, out _imageHeight);
             RefreshPreviewFrame();
@@ -46,6 +53,7 @@ namespace EffectViewer.ViewModels
         {
             Rows = value < 1 ? 1 : value;
             Asset.Rows = Rows;
+            MarkDirty();
             ClampFrameIndex();
             RefreshPreviewFrame();
             NotifyCellProperties();
@@ -55,9 +63,35 @@ namespace EffectViewer.ViewModels
         {
             Cols = value < 1 ? 1 : value;
             Asset.Cols = Cols;
+            MarkDirty();
             ClampFrameIndex();
             RefreshPreviewFrame();
             NotifyCellProperties();
+        }
+
+        public override async Task SaveAsync(EffectProjectService projectService, EffectProject project)
+        {
+            await projectService.SaveAsync(project);
+            AcceptSavedState();
+        }
+
+        public override void AcceptSavedState()
+        {
+            _savedRows = Rows;
+            _savedCols = Cols;
+            base.AcceptSavedState();
+        }
+
+        public override void DiscardChanges()
+        {
+            Rows = _savedRows;
+            Cols = _savedCols;
+            Asset.Rows = _savedRows;
+            Asset.Cols = _savedCols;
+            ClampFrameIndex();
+            RefreshPreviewFrame();
+            NotifyCellProperties();
+            base.DiscardChanges();
         }
 
         partial void OnFrameIndexChanged(int value)

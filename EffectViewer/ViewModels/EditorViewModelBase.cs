@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using EffectViewer.Projects;
 using EffectViewer.Rendering;
 using EffectViewer.Rendering.TextureUpload;
@@ -10,8 +11,10 @@ namespace EffectViewer.ViewModels
         private RenderFrame _previewFrame;
         private IRenderFrameProvider _previewFrameProvider;
         private ITextureSource _textureSource;
+        private bool _isDirty;
 
         public string Title { get; }
+        public string TabTitle => IsDirty ? $"{Title}*" : Title;
         public string DocumentId { get; }
         private bool _isSelected;
 
@@ -21,6 +24,20 @@ namespace EffectViewer.ViewModels
             internal set => SetProperty(ref _isSelected, value);
         }
         public EffectAssetKind Kind { get; }
+        public bool IsDirty
+        {
+            get => _isDirty;
+            private set
+            {
+                if (SetProperty(ref _isDirty, value))
+                {
+                    OnPropertyChanged(nameof(TabTitle));
+                }
+            }
+        }
+
+        public virtual bool SupportsSave => false;
+        public virtual bool SavesWithProjectManifest => false;
 
         public RenderFrame PreviewFrame
         {
@@ -52,6 +69,32 @@ namespace EffectViewer.ViewModels
         public static string CreateDocumentId(EffectAssetKind kind, string title)
         {
             return $"{kind}:{title}";
+        }
+
+        public virtual Task SaveAsync(EffectProjectService projectService, EffectProject project)
+        {
+            MarkClean();
+            return Task.CompletedTask;
+        }
+
+        protected void MarkDirty()
+        {
+            IsDirty = true;
+        }
+
+        protected void MarkClean()
+        {
+            IsDirty = false;
+        }
+
+        public virtual void AcceptSavedState()
+        {
+            MarkClean();
+        }
+
+        public virtual void DiscardChanges()
+        {
+            MarkClean();
         }
 
         public virtual void Dispose()

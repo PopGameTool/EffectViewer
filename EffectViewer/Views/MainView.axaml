@@ -17,116 +17,156 @@
     </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="44,*,28">
-    <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-            BorderThickness="0,0,0,1">
-      <DockPanel Margin="12,0">
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <Button Content="Demo Project"
-                  Command="{Binding LoadDemoProjectCommand}"/>
-          <Button Content="Open Project"
-                  Click="OpenProjectButton_Click"/>
-          <Button Content="Import Folder"
-                  Click="ImportFolderButton_Click"/>
-          <Button Content="Save"
-                  Command="{Binding SaveProjectCommand}"/>
-        </StackPanel>
-        <TextBlock Text="{Binding CurrentProject.Manifest.Name}"
-                   VerticalAlignment="Center"
-                   HorizontalAlignment="Center"
-                   FontWeight="SemiBold"/>
-      </DockPanel>
-    </Border>
-
-    <Grid Grid.Row="1" ColumnDefinitions="280,*">
-      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-              BorderThickness="0,0,1,0"
-              Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
-        <Grid RowDefinitions="Auto,*" Margin="12" RowSpacing="10">
-          <TextBlock Text="Project Explorer"
-                     FontSize="15"
+  <Grid>
+    <Grid RowDefinitions="44,*,28">
+      <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+              BorderThickness="0,0,0,1">
+        <DockPanel Margin="12,0">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Demo Project"
+                    Command="{Binding LoadDemoProjectCommand}"/>
+            <Button Content="Open Project"
+                    Click="OpenProjectButton_Click"/>
+            <Button Content="Import Folder"
+                    Click="ImportFolderButton_Click"/>
+            <Button Content="Save File"
+                    Command="{Binding SaveFileCommand}"/>
+            <Button Content="Save Project"
+                    Command="{Binding SaveProjectCommand}"/>
+          </StackPanel>
+          <TextBlock Text="{Binding CurrentProject.Manifest.Name}"
+                     VerticalAlignment="Center"
+                     HorizontalAlignment="Center"
                      FontWeight="SemiBold"/>
-          <TreeView Grid.Row="1"
-                    ItemsSource="{Binding ProjectItems}"
-                    SelectedItem="{Binding SelectedProjectItem}">
-            <TreeView.ItemTemplate>
-              <TreeDataTemplate ItemsSource="{Binding Children}"
-                                DataType="vm:ProjectExplorerItemViewModel">
-                <TextBlock Text="{Binding Title}"/>
-              </TreeDataTemplate>
-            </TreeView.ItemTemplate>
-          </TreeView>
-        </Grid>
+        </DockPanel>
       </Border>
 
-      <Grid Grid.Column="1" RowDefinitions="40,*">
-        <Border Background="{DynamicResource SystemControlBackgroundChromeLowBrush}"
-                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-                BorderThickness="0,0,0,1">
-          <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                        VerticalScrollBarVisibility="Disabled">
-            <ItemsControl ItemsSource="{Binding OpenEditors}"
-                          Margin="8,0">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <StackPanel Orientation="Horizontal"/>
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-              <ItemsControl.ItemTemplate>
-                <DataTemplate DataType="vm:EditorViewModelBase">
-                  <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-                          BorderThickness="1,1,1,0"
-                          CornerRadius="4,4,0,0"
-                          Margin="0,6,6,0"
-                          Padding="10,0"
-                          MinWidth="120"
-                          Height="34"
-                          Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-                          Classes.document-tab="True"
-                          Classes.selected="{Binding IsSelected}">
-                    <DockPanel LastChildFill="True">
-                      <Button DockPanel.Dock="Right"
-                              Content="x"
-                              Width="22"
-                              Height="22"
-                              Padding="0"
-                              Margin="8,0,0,0"
-                              Command="{Binding $parent[UserControl].DataContext.CloseEditorCommand}"
-                              CommandParameter="{Binding}"/>
-                      <Button Background="Transparent"
-                              BorderThickness="0"
-                              Padding="0"
-                              HorizontalContentAlignment="Stretch"
-                              VerticalContentAlignment="Center"
-                              Command="{Binding $parent[UserControl].DataContext.SelectEditorCommand}"
-                              CommandParameter="{Binding}">
-                        <TextBlock Text="{Binding Title}"
-                                   Classes.document-tab-title="True"
-                                   Classes.selected="{Binding IsSelected}"
-                                   TextTrimming="CharacterEllipsis"
-                                   VerticalAlignment="Center"/>
-                      </Button>
-                    </DockPanel>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </ScrollViewer>
+      <Grid Grid.Row="1" ColumnDefinitions="280,*">
+        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="0,0,1,0"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+          <Grid RowDefinitions="Auto,*" Margin="12" RowSpacing="10">
+            <TextBlock Text="Project Explorer"
+                       FontSize="15"
+                       FontWeight="SemiBold"/>
+            <TreeView Grid.Row="1"
+                      ItemsSource="{Binding ProjectItems}"
+                      SelectedItem="{Binding SelectedProjectItem}">
+              <TreeView.ItemTemplate>
+                <TreeDataTemplate ItemsSource="{Binding Children}"
+                                  DataType="vm:ProjectExplorerItemViewModel">
+                  <TextBlock Text="{Binding Title}"/>
+                </TreeDataTemplate>
+              </TreeView.ItemTemplate>
+            </TreeView>
+          </Grid>
         </Border>
 
-        <ContentControl Grid.Row="1"
-                        Content="{Binding SelectedEditor}"/>
+        <Grid Grid.Column="1" RowDefinitions="40,*">
+          <Border Background="{DynamicResource SystemControlBackgroundChromeLowBrush}"
+                  BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                  BorderThickness="0,0,0,1">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding OpenEditors}"
+                            Margin="8,0">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="vm:EditorViewModelBase">
+                    <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                            BorderThickness="1,1,1,0"
+                            CornerRadius="4,4,0,0"
+                            Margin="0,6,6,0"
+                            Padding="10,0"
+                            MinWidth="120"
+                            Height="34"
+                            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                            Classes.document-tab="True"
+                            Classes.selected="{Binding IsSelected}">
+                      <DockPanel LastChildFill="True">
+                        <Button DockPanel.Dock="Right"
+                                Content="x"
+                                Width="22"
+                                Height="22"
+                                Padding="0"
+                                Margin="8,0,0,0"
+                                Command="{Binding $parent[UserControl].DataContext.CloseEditorCommand}"
+                                CommandParameter="{Binding}"/>
+                        <Button Background="Transparent"
+                                BorderThickness="0"
+                                Padding="0"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Center"
+                                Command="{Binding $parent[UserControl].DataContext.SelectEditorCommand}"
+                                CommandParameter="{Binding}">
+                          <TextBlock Text="{Binding TabTitle}"
+                                     Classes.document-tab-title="True"
+                                     Classes.selected="{Binding IsSelected}"
+                                     TextTrimming="CharacterEllipsis"
+                                     VerticalAlignment="Center"/>
+                        </Button>
+                      </DockPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Border>
+
+          <ContentControl Grid.Row="1"
+                          Content="{Binding SelectedEditor}"/>
+        </Grid>
       </Grid>
+
+      <Border Grid.Row="2"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+              BorderThickness="0,1,0,0">
+        <TextBlock Text="{Binding StatusText}"
+                   Margin="12,0"
+                   VerticalAlignment="Center"/>
+      </Border>
     </Grid>
 
-    <Border Grid.Row="2"
-            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-            BorderThickness="0,1,0,0">
-      <TextBlock Text="{Binding StatusText}"
-                 Margin="12,0"
-                 VerticalAlignment="Center"/>
+    <Border Background="#80000000"
+            IsVisible="{Binding IsUnsavedChangesPromptOpen}">
+      <Border Width="420"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="18">
+        <StackPanel Spacing="14">
+          <TextBlock Text="{Binding UnsavedChangesTitle}"
+                     FontSize="18"
+                     FontWeight="SemiBold"/>
+          <TextBlock Text="{Binding UnsavedChangesMessage}"
+                     TextWrapping="Wrap"/>
+          <TextBlock Text="Save changes before continuing?"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="8">
+            <Button Content="Save"
+                    MinWidth="80"
+                    Command="{Binding SaveUnsavedChangesCommand}"/>
+            <Button Content="Discard"
+                    MinWidth="80"
+                    Command="{Binding DiscardUnsavedChangesCommand}"/>
+            <Button Content="Cancel"
+                    MinWidth="80"
+                    Command="{Binding CancelUnsavedChangesCommand}"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
     </Border>
   </Grid>
 </UserControl>

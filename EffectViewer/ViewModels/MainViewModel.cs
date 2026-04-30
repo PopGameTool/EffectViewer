@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -15,6 +17,7 @@ namespace EffectViewer.ViewModels
         private readonly EffectProjectService _projectService = new();
         private readonly EffectWorld _effectWorld = new();
         private LuaHost _luaHost;
+        private TaskCompletionSource<UnsavedChangesChoice> _unsavedChangesCompletion;
 
         public ObservableCollection<ProjectExplorerItemViewModel> ProjectItems { get; } = [];
         public ObservableCollection<EditorViewModelBase> OpenEditors { get; } = [];
@@ -31,14 +34,37 @@ namespace EffectViewer.ViewModels
         [ObservableProperty]
         private string _statusText = "No project loaded";
 
+        [ObservableProperty]
+        private bool _isUnsavedChangesPromptOpen;
+
+        [ObservableProperty]
+        private string _unsavedChangesTitle;
+
+        [ObservableProperty]
+        private string _unsavedChangesMessage;
+
+        private enum UnsavedChangesChoice
+        {
+            Save,
+            Discard,
+            Cancel
+        }
+
         public MainViewModel()
         {
-            LoadDemoProject();
+            LoadProject(_projectService.CreateDemoProject());
+            StatusText = "Demo project loaded";
         }
 
         [RelayCommand]
-        private void LoadDemoProject()
+        private async Task LoadDemoProjectAsync()
         {
+            if (!await ConfirmAllUnsavedChangesAsync())
+            {
+                StatusText = "Canceled opening demo project.";
+                return;
+            }
+
             LoadProject(_projectService.CreateDemoProject());
             StatusText = "Demo project loaded";
         }
@@ -53,13 +79,36 @@ namespace EffectViewer.ViewModels
             }
 
             await _projectService.SaveAsync(CurrentProject);
+            foreach (EditorViewModelBase editor in OpenEditors.Where(editor => editor.SavesWithProjectManifest))
+            {
+                editor.AcceptSavedState();
+            }
+
             StatusText = $"Saved {CurrentProject.Manifest.Name}.";
+        }
+
+        [RelayCommand]
+        private async Task SaveFileAsync()
+        {
+            if (SelectedEditor is null)
+            {
+                StatusText = "No document is selected.";
+                return;
+            }
+
+            await SaveEditorAsync(SelectedEditor);
         }
 
         public async Task ImportResourceFolderAsync(string sourceDirectory)
         {
             if (string.IsNullOrWhiteSpace(sourceDirectory))
             {
+                return;
+            }
+
+            if (!await ConfirmAllUnsavedChangesAsync())
+            {
+                StatusText = "Canceled folder import.";
                 return;
             }
 
@@ -77,6 +126,12 @@ namespace EffectViewer.ViewModels
         {
             if (string.IsNullOrWhiteSpace(projectDirectory))
             {
+                return;
+            }
+
+            if (!await ConfirmAllUnsavedChangesAsync())
+            {
+                StatusText = "Canceled opening project.";
                 return;
             }
 
@@ -158,15 +213,27 @@ namespace EffectViewer.ViewModels
         }
 
         [RelayCommand]
-        private void CloseEditor(EditorViewModelBase editor)
+        private async Task CloseEditorAsync(EditorViewModelBase editor)
         {
             if (editor is null)
             {
                 return;
             }
 
+            if (!await ConfirmUnsavedChangesAsync(editor))
+            {
+                StatusText = $"Canceled closing {editor.Title}.";
+                return;
+            }
+
+            CloseEditorCore(editor);
+        }
+
+        private void CloseEditorCore(EditorViewModelBase editor)
+        {
             int index = OpenEditors.IndexOf(editor);
             bool wasSelected = ReferenceEquals(SelectedEditor, editor);
+            editor.PropertyChanged -= OnOpenEditorPropertyChanged;
             OpenEditors.Remove(editor);
             editor.Dispose();
             SelectedProjectItem = null;
@@ -194,6 +261,7 @@ namespace EffectViewer.ViewModels
 
         private void OpenEditorTab(EditorViewModelBase editor)
         {
+            editor.PropertyChanged += OnOpenEditorPropertyChanged;
             OpenEditors.Add(editor);
             SelectedEditor = editor;
             editor.IsSelected = ReferenceEquals(editor, SelectedEditor);
@@ -203,6 +271,7 @@ namespace EffectViewer.ViewModels
         {
             foreach (EditorViewModelBase editor in OpenEditors.ToList())
             {
+                editor.PropertyChanged -= OnOpenEditorPropertyChanged;
                 editor.Dispose();
             }
 
@@ -210,11 +279,133 @@ namespace EffectViewer.ViewModels
             SelectedEditor = null;
         }
 
+        public async Task<bool> ConfirmAllUnsavedChangesAsync()
+        {
+            foreach (EditorViewModelBase editor in OpenEditors.Where(editor => editor.IsDirty).ToList())
+            {
+                if (!await ConfirmUnsavedChangesAsync(editor))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private async Task<bool> ConfirmUnsavedChangesAsync(EditorViewModelBase editor)
+        {
+            if (editor is null || !editor.IsDirty)
+            {
+                return true;
+            }
+
+            SelectedEditor = editor;
+            UnsavedChangesChoice choice = await PromptUnsavedChangesAsync(editor);
+            switch (choice)
+            {
+                case UnsavedChangesChoice.Save:
+                    if (!await SaveEditorAsync(editor))
+                    {
+                        return false;
+                    }
+
+                    return true;
+
+                case UnsavedChangesChoice.Discard:
+                    editor.DiscardChanges();
+                    StatusText = $"Discarded changes to {editor.Title}.";
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        private async Task<bool> SaveEditorAsync(EditorViewModelBase editor)
+        {
+            if (editor is null)
+            {
+                return false;
+            }
+
+            if (!editor.SupportsSave)
+            {
+                StatusText = $"{editor.Title} does not support file saving yet.";
+                return false;
+            }
+
+            if (CurrentProject is null || string.IsNullOrWhiteSpace(CurrentProject.RootPath))
+            {
+                StatusText = "No writable project is loaded.";
+                return false;
+            }
+
+            await editor.SaveAsync(_projectService, CurrentProject);
+            StatusText = $"Saved {editor.Title}.";
+            return true;
+        }
+
+        private Task<UnsavedChangesChoice> PromptUnsavedChangesAsync(EditorViewModelBase editor)
+        {
+            _unsavedChangesCompletion = new TaskCompletionSource<UnsavedChangesChoice>();
+            UnsavedChangesTitle = "Unsaved Changes";
+            UnsavedChangesMessage = $"{editor.Title} has unsaved changes.";
+            IsUnsavedChangesPromptOpen = true;
+            return _unsavedChangesCompletion.Task;
+        }
+
+        [RelayCommand]
+        private void SaveUnsavedChanges()
+        {
+            CompleteUnsavedChangesPrompt(UnsavedChangesChoice.Save);
+        }
+
+        [RelayCommand]
+        private void DiscardUnsavedChanges()
+        {
+            CompleteUnsavedChangesPrompt(UnsavedChangesChoice.Discard);
+        }
+
+        [RelayCommand]
+        private void CancelUnsavedChanges()
+        {
+            CompleteUnsavedChangesPrompt(UnsavedChangesChoice.Cancel);
+        }
+
+        private void CompleteUnsavedChangesPrompt(UnsavedChangesChoice choice)
+        {
+            IsUnsavedChangesPromptOpen = false;
+            _unsavedChangesCompletion?.TrySetResult(choice);
+            _unsavedChangesCompletion = null;
+        }
+
         partial void OnSelectedEditorChanged(EditorViewModelBase value)
         {
             foreach (EditorViewModelBase editor in OpenEditors)
             {
                 editor.IsSelected = ReferenceEquals(editor, value);
+            }
+
+            if (value is not null)
+            {
+                StatusText = value.IsDirty
+                    ? $"Editing {value.Title} (unsaved)."
+                    : $"Editing {value.Title}.";
+            }
+        }
+
+        private void OnOpenEditorPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (sender is not EditorViewModelBase editor || !ReferenceEquals(editor, SelectedEditor))
+            {
+                return;
+            }
+
+            if (e.PropertyName == nameof(EditorViewModelBase.IsDirty))
+            {
+                StatusText = editor.IsDirty
+                    ? $"Editing {editor.Title} (unsaved)."
+                    : $"Editing {editor.Title}.";
             }
         }
 
