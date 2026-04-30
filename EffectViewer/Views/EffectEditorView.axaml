@@ -25,40 +25,80 @@
               CornerRadius="6">
         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
-          <StackPanel Spacing="10" Margin="14">
+          <StackPanel Spacing="10" Margin="14" HorizontalAlignment="Stretch">
             <TextBlock Text="Properties" FontSize="16" FontWeight="SemiBold"/>
-            <TextBlock Text="{Binding EditorSummary}" TextWrapping="Wrap"/>
-            <Separator/>
-            <TextBlock Text="Structure" FontWeight="SemiBold"/>
-            <TextBlock Text="{Binding Kind}"/>
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
-              <TextBlock Text="Loaded"/>
-              <TextBlock Grid.Column="1" Text="{Binding FileSummary.IsLoaded}"/>
-              <TextBlock Grid.Row="1" Text="Tracks"/>
-              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FileSummary.TrackCount}"/>
-              <TextBlock Grid.Row="2" Text="Frames"/>
-              <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding FileSummary.FrameCount}"/>
-              <TextBlock Grid.Row="3" Text="FPS"/>
-              <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding FileSummary.Fps}"/>
-              <TextBlock Grid.Row="4" Text="Emitters"/>
-              <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding FileSummary.EmitterCount}"/>
-              <TextBlock Grid.Row="5" Text="Fields"/>
-              <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding FileSummary.FieldCount}"/>
-            </Grid>
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
-              <TextBlock Text="MaxPoints"/>
-              <TextBlock Grid.Column="1" Text="{Binding FileSummary.MaxPoints}"/>
-              <TextBlock Grid.Row="1" Text="MinDist"/>
-              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FileSummary.MinPointDistance}"/>
-            </Grid>
-            <Separator/>
-            <TextBlock Text="Image references" FontWeight="SemiBold"/>
-            <TextBlock Text="{Binding ImageReferenceSummary}" TextWrapping="Wrap"/>
-            <TextBlock Text="Resolved images" FontWeight="SemiBold"/>
-            <TextBlock Text="{Binding ResolvedImageReferenceSummary}" TextWrapping="Wrap"/>
-            <TextBlock Text="Missing images" FontWeight="SemiBold"/>
-            <TextBlock Text="{Binding MissingImageSummary}" TextWrapping="Wrap"/>
-            <TextBlock Text="{Binding FileSummary.Error}" TextWrapping="Wrap"/>
+
+            <Expander Header="Animation"
+                      IsExpanded="True"
+                      IsVisible="{Binding HasReanimControls}"
+                      HorizontalAlignment="Stretch">
+              <StackPanel Spacing="10">
+                <TextBlock Text="Layer" FontWeight="SemiBold"/>
+                <ComboBox ItemsSource="{Binding ReanimLayers}"
+                          SelectedItem="{Binding SelectedReanimLayer}"
+                          HorizontalAlignment="Stretch"/>
+                <DockPanel LastChildFill="False">
+                  <TextBlock Text="Tracks" FontWeight="SemiBold"/>
+                  <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
+                    <Button Content="Show all"
+                            Command="{Binding ShowAllTracksCommand}"
+                            MinWidth="76"/>
+                    <Button Content="Hide all"
+                            Command="{Binding HideAllTracksCommand}"
+                            MinWidth="76"/>
+                  </StackPanel>
+                </DockPanel>
+                <ItemsControl ItemsSource="{Binding ReanimTracks}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <CheckBox IsChecked="{Binding IsVisible}"
+                                Content="{Binding Name}"
+                                Margin="0,2"/>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Expander>
+
+            <Expander Header="Structure" IsExpanded="True" HorizontalAlignment="Stretch">
+              <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6" IsVisible="{Binding IsReanimEditor}">
+                  <TextBlock Text="Tracks"/>
+                  <TextBlock Grid.Column="1" Text="{Binding FileSummary.TrackCount}"/>
+                  <TextBlock Grid.Row="1" Text="Frames"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FileSummary.FrameCount}"/>
+                  <TextBlock Grid.Row="2" Text="FPS"/>
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding FileSummary.Fps}"/>
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6" IsVisible="{Binding IsParticleEditor}">
+                  <TextBlock Text="Emitters"/>
+                  <TextBlock Grid.Column="1" Text="{Binding FileSummary.EmitterCount}"/>
+                  <TextBlock Grid.Row="1" Text="Fields"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FileSummary.FieldCount}"/>
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6" IsVisible="{Binding IsTrailEditor}">
+                  <TextBlock Text="MaxPoints"/>
+                  <TextBlock Grid.Column="1" Text="{Binding FileSummary.MaxPoints}"/>
+                  <TextBlock Grid.Row="1" Text="MinDist"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FileSummary.MinPointDistance}"/>
+                </Grid>
+              </StackPanel>
+            </Expander>
+
+            <Expander Header="Image References" IsExpanded="False" HorizontalAlignment="Stretch">
+              <StackPanel Spacing="8">
+                <TextBlock Text="References" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding ImageReferenceSummary}" TextWrapping="Wrap"/>
+                <TextBlock Text="Resolved" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding ResolvedImageReferenceSummary}" TextWrapping="Wrap"/>
+                <TextBlock Text="Missing" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding MissingImageSummary}" TextWrapping="Wrap"/>
+              </StackPanel>
+            </Expander>
+
+            <Expander Header="Errors" IsExpanded="False" HorizontalAlignment="Stretch">
+              <TextBlock Text="{Binding FileSummary.Error}" TextWrapping="Wrap"/>
+            </Expander>
           </StackPanel>
         </ScrollViewer>
       </Border>

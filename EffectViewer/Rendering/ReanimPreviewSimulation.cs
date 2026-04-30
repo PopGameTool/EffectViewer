@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using EffectViewer.Projects;
 using EffectViewer.Runtime;
 using EffectViewer.TodLib.Common;
@@ -15,6 +17,10 @@ namespace EffectViewer.Rendering
         private readonly float _y;
         private double _accumulator;
 
+        public IReadOnlyList<string> TrackNames { get; }
+        public IReadOnlyList<string> LayerTrackNames { get; }
+        public IReadOnlyList<string> LayerNames { get; }
+
         public ReanimPreviewSimulation(EffectProject project, string path, float x = 0f, float y = 0f)
         {
             ResourceHandler.SetProvider(new ProjectResourceProvider(project));
@@ -22,6 +28,9 @@ namespace EffectViewer.Rendering
             _reanimation = CreateReanimation(fullPath);
             _x = x;
             _y = y;
+            TrackNames = BuildTrackNames(_reanimation.mDefinition);
+            LayerTrackNames = BuildLayerTrackNames(_reanimation.mDefinition);
+            LayerNames = BuildLayerNames(LayerTrackNames);
         }
 
         public RenderFrame GetFrame(double deltaSeconds)
@@ -35,6 +44,56 @@ namespace EffectViewer.Rendering
             }
 
             return BuildFrame();
+        }
+
+        public void SetLayer(string trackName)
+        {
+            if (_reanimation.mDefinition?.mTrackCount <= 0)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(trackName))
+            {
+                SetFullTimeline();
+                return;
+            }
+
+            if (!_reanimation.TrackExists(trackName))
+            {
+                return;
+            }
+
+            _reanimation.mDead = false;
+            _reanimation.mLoopType = ReanimLoopType.Loop;
+            _reanimation.SetFramesForLayer(trackName);
+        }
+
+        public void SetTrackVisible(int trackIndex, bool visible)
+        {
+            if (_reanimation.mTrackInstances is null ||
+                trackIndex < 0 ||
+                trackIndex >= _reanimation.mTrackInstances.Length)
+            {
+                return;
+            }
+
+            _reanimation.mTrackInstances[trackIndex].mRenderGroup = visible
+                ? ReanimatorXnaHelpers.RENDER_GROUP_NORMAL
+                : ReanimatorXnaHelpers.RENDER_GROUP_HIDDEN;
+        }
+
+        public void SetAllTracksVisible(bool visible)
+        {
+            if (_reanimation.mTrackInstances is null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _reanimation.mTrackInstances.Length; i++)
+            {
+                SetTrackVisible(i, visible);
+            }
         }
 
         private void Update()
@@ -99,6 +158,61 @@ namespace EffectViewer.Rendering
             }
 
             return reanimation;
+        }
+
+        private void SetFullTimeline()
+        {
+            if (_reanimation.mDefinition?.mTrackCount <= 0 ||
+                _reanimation.mDefinition.mTracks is null ||
+                _reanimation.mDefinition.mTracks.Length == 0)
+            {
+                return;
+            }
+
+            _reanimation.mFrameStart = 0;
+            _reanimation.mFrameCount = _reanimation.mDefinition.mTracks[0].mTransformCount;
+            _reanimation.mAnimTime = 0f;
+            _reanimation.mLastFrameTime = -1f;
+            _reanimation.mLoopCount = 0;
+            _reanimation.mDead = false;
+        }
+
+        private static IReadOnlyList<string> BuildTrackNames(ReanimatorDefinition definition)
+        {
+            if (definition?.mTracks is null || definition.mTrackCount <= 0)
+            {
+                return [];
+            }
+
+            return definition.mTracks
+                .Take(definition.mTrackCount)
+                .Select((track, index) => string.IsNullOrWhiteSpace(track.mName)
+                    ? $"Track {index}"
+                    : track.mName)
+                .ToArray();
+        }
+
+        private static IReadOnlyList<string> BuildLayerTrackNames(ReanimatorDefinition definition)
+        {
+            if (definition?.mTracks is null || definition.mTrackCount <= 0)
+            {
+                return [];
+            }
+
+            return definition.mTracks
+                .Take(definition.mTrackCount)
+                .Select(track => track.mName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToArray();
+        }
+
+        private static IReadOnlyList<string> BuildLayerNames(IReadOnlyList<string> trackNames)
+        {
+            string[] layerNames = trackNames
+                .Where(name => name.StartsWith("anim_", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            return layerNames.Length > 0 ? layerNames : trackNames.ToArray();
         }
 
         private static string ResolvePath(EffectProject project, string path)
