@@ -1,0 +1,67 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:EffectViewer.ViewModels"
+             mc:Ignorable="d"
+             d:DesignWidth="1200"
+             d:DesignHeight="760"
+             x:Class="EffectViewer.Views.MainView"
+             x:DataType="vm:MainViewModel">
+  <Grid RowDefinitions="44,*,28">
+    <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+            BorderThickness="0,0,0,1">
+      <DockPanel Margin="12,0">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Content="Demo Project"
+                  Command="{Binding LoadDemoProjectCommand}"/>
+          <Button Content="Open Project"
+                  Click="OpenProjectButton_Click"/>
+          <Button Content="Import Folder"
+                  Click="ImportFolderButton_Click"/>
+          <Button Content="Save"
+                  Command="{Binding SaveProjectCommand}"/>
+        </StackPanel>
+        <TextBlock Text="{Binding CurrentProject.Manifest.Name}"
+                   VerticalAlignment="Center"
+                   HorizontalAlignment="Center"
+                   FontWeight="SemiBold"/>
+      </DockPanel>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="280,*">
+      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+              BorderThickness="0,0,1,0"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+        <Grid RowDefinitions="Auto,*" Margin="12" RowSpacing="10">
+          <TextBlock Text="Project Explorer"
+                     FontSize="15"
+                     FontWeight="SemiBold"/>
+          <TreeView Grid.Row="1"
+                    ItemsSource="{Binding ProjectItems}"
+                    SelectedItem="{Binding SelectedProjectItem}">
+            <TreeView.ItemTemplate>
+              <TreeDataTemplate ItemsSource="{Binding Children}"
+                                DataType="vm:ProjectExplorerItemViewModel">
+                <TextBlock Text="{Binding Title}"/>
+              </TreeDataTemplate>
+            </TreeView.ItemTemplate>
+          </TreeView>
+        </Grid>
+      </Border>
+
+      <ContentControl Grid.Column="1"
+                      Content="{Binding CurrentEditor}"/>
+    </Grid>
+
+    <Border Grid.Row="2"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+            BorderThickness="0,1,0,0">
+      <TextBlock Text="{Binding StatusText}"
+                 Margin="12,0"
+                 VerticalAlignment="Center"/>
+    </Border>
+  </Grid>
+</UserControl>

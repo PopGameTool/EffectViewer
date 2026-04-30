@@ -1,0 +1,16 @@
+using System.Collections.Generic;
+using EffectViewer.Assets;
+
+namespace EffectViewer.Projects
+{
+    public sealed class ProjectManifest
+    {
+        public int Version { get; set; } = 1;
+        public string Name { get; set; } = "Untitled Effect Project";
+        public List<ImageAsset> Images { get; set; } = [];
+        public List<EffectAsset> Reanims { get; set; } = [];
+        public List<EffectAsset> Particles { get; set; } = [];
+        public List<EffectAsset> Trails { get; set; } = [];
+        public List<ShowcaseAsset> Showcases { get; set; } = [];
+    }
+}

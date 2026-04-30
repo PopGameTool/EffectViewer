@@ -1,0 +1,11 @@
+global using Matrix4x4 = System.Numerics.Matrix4x4;
+global using Rectangle = System.Drawing.Rectangle;
+global using Vector2 = System.Numerics.Vector2;
+global using Vector3 = System.Numerics.Vector3;
+global using EffectViewer.TodLib.Common;
+global using EffectViewer.TodLib.Filter;
+global using EffectViewer.TodLib.Graphics;
+global using EffectViewer.TodLib.Particle;
+global using EffectViewer.TodLib.Reanim;
+global using EffectViewer.TodLib.Reanim.Attachment;
+global using EffectViewer.TodLib.Trail;

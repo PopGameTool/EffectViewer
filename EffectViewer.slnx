@@ -1,0 +1,11 @@
+<Solution>
+  <Project Path="EffectViewer.Android/EffectViewer.Android.csproj">
+    <Deploy />
+  </Project>
+  <Project Path="EffectViewer.Browser/EffectViewer.Browser.csproj" />
+  <Project Path="EffectViewer.Desktop/EffectViewer.Desktop.csproj" />
+  <Project Path="EffectViewer.iOS/EffectViewer.iOS.csproj">
+    <Deploy />
+  </Project>
+  <Project Path="EffectViewer/EffectViewer.csproj" />
+</Solution>

@@ -1,0 +1,182 @@
+using System;
+using System.Numerics;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Media;
+using EffectViewer.Rendering;
+using EffectViewer.Rendering.TextureUpload;
+
+namespace EffectViewer.Controls
+{
+    public sealed class InteractiveEffectViewport : UserControl
+    {
+        public static readonly StyledProperty<RenderFrame> FrameProperty =
+            AvaloniaProperty.Register<InteractiveEffectViewport, RenderFrame>(nameof(Frame), new RenderFrame());
+
+        public static readonly StyledProperty<ITextureSource> TextureSourceProperty =
+            AvaloniaProperty.Register<InteractiveEffectViewport, ITextureSource>(nameof(TextureSource));
+
+        public static readonly StyledProperty<IRenderFrameProvider> FrameProviderProperty =
+            AvaloniaProperty.Register<InteractiveEffectViewport, IRenderFrameProvider>(nameof(FrameProvider));
+
+        private readonly OpenGlEffectViewport _viewport = new();
+        private Vector2 _panPixels;
+        private Vector2 _lastPanPositionPixels;
+        private float _zoom = 1f;
+        private bool _isPanning;
+
+        public InteractiveEffectViewport()
+        {
+            Focusable = true;
+            ClipToBounds = true;
+            Background = Brushes.Transparent;
+
+            Grid root = new();
+            _viewport.IsHitTestVisible = false;
+            root.Children.Add(_viewport);
+            Content = root;
+        }
+
+        public RenderFrame Frame
+        {
+            get => GetValue(FrameProperty);
+            set => SetValue(FrameProperty, value);
+        }
+
+        public ITextureSource TextureSource
+        {
+            get => GetValue(TextureSourceProperty);
+            set => SetValue(TextureSourceProperty, value);
+        }
+
+        public IRenderFrameProvider FrameProvider
+        {
+            get => GetValue(FrameProviderProperty);
+            set => SetValue(FrameProviderProperty, value);
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+
+            if (change.Property == FrameProperty)
+            {
+                _viewport.Frame = Frame;
+            }
+            else if (change.Property == TextureSourceProperty)
+            {
+                _viewport.TextureSource = TextureSource;
+            }
+            else if (change.Property == FrameProviderProperty)
+            {
+                _viewport.FrameProvider = FrameProvider;
+            }
+        }
+
+        protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+        {
+            base.OnPointerWheelChanged(e);
+
+            double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+            Vector2 cursorPixels = ToPixels(e.GetPosition(this), scaling);
+            float oldZoom = _zoom;
+            float factor = (float)Math.Pow(1.12, e.Delta.Y);
+            float newZoom = Math.Clamp(oldZoom * factor, 0.05f, 32f);
+            if (Math.Abs(newZoom - oldZoom) < 0.0001f)
+            {
+                return;
+            }
+
+            Vector2 worldUnderCursor = (cursorPixels - _panPixels) / oldZoom;
+            _zoom = newZoom;
+            _panPixels = cursorPixels - worldUnderCursor * _zoom;
+            ApplyViewTransform();
+            e.Handled = true;
+        }
+
+        protected override void OnPointerPressed(PointerPressedEventArgs e)
+        {
+            base.OnPointerPressed(e);
+
+            PointerPoint point = e.GetCurrentPoint(this);
+            if (!point.Properties.IsLeftButtonPressed && !point.Properties.IsMiddleButtonPressed)
+            {
+                return;
+            }
+
+            Focus();
+            double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+            _lastPanPositionPixels = ToPixels(e.GetPosition(this), scaling);
+            _isPanning = true;
+            e.Pointer.Capture(this);
+            e.Handled = true;
+        }
+
+        protected override void OnPointerMoved(PointerEventArgs e)
+        {
+            base.OnPointerMoved(e);
+            if (!_isPanning)
+            {
+                return;
+            }
+
+            PointerPoint point = e.GetCurrentPoint(this);
+            if (!point.Properties.IsLeftButtonPressed && !point.Properties.IsMiddleButtonPressed)
+            {
+                EndPan(e.Pointer);
+                return;
+            }
+
+            double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+            Vector2 positionPixels = ToPixels(e.GetPosition(this), scaling);
+            _panPixels += positionPixels - _lastPanPositionPixels;
+            _lastPanPositionPixels = positionPixels;
+            ApplyViewTransform();
+            e.Handled = true;
+        }
+
+        protected override void OnPointerReleased(PointerReleasedEventArgs e)
+        {
+            base.OnPointerReleased(e);
+            EndPan(e.Pointer);
+            e.Handled = true;
+        }
+
+        protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+        {
+            base.OnPointerCaptureLost(e);
+            _isPanning = false;
+        }
+
+        protected override void OnDoubleTapped(TappedEventArgs e)
+        {
+            base.OnDoubleTapped(e);
+            _zoom = 1f;
+            _panPixels = Vector2.Zero;
+            ApplyViewTransform();
+            e.Handled = true;
+        }
+
+        private void ApplyViewTransform()
+        {
+            _viewport.SetViewTransform(_zoom, _panPixels);
+        }
+
+        private void EndPan(IPointer pointer)
+        {
+            if (!_isPanning)
+            {
+                return;
+            }
+
+            _isPanning = false;
+            pointer.Capture(null);
+        }
+
+        private static Vector2 ToPixels(Point point, double scaling)
+        {
+            return new Vector2((float)(point.X * scaling), (float)(point.Y * scaling));
+        }
+    }
+}
