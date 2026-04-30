@@ -12,6 +12,14 @@ namespace EffectViewer.ViewModels
         private ITextureSource _textureSource;
 
         public string Title { get; }
+        public string DocumentId { get; }
+        private bool _isSelected;
+
+        public bool IsSelected
+        {
+            get => _isSelected;
+            internal set => SetProperty(ref _isSelected, value);
+        }
         public EffectAssetKind Kind { get; }
 
         public RenderFrame PreviewFrame
@@ -36,8 +44,14 @@ namespace EffectViewer.ViewModels
         {
             Title = title;
             Kind = kind;
+            DocumentId = CreateDocumentId(kind, title);
             PreviewFrame = EffectPreviewFrameBuilder.BuildPlaceholder(kind, title);
             TextureSource = new GeneratedTextureSource();
+        }
+
+        public static string CreateDocumentId(EffectAssetKind kind, string title)
+        {
+            return $"{kind}:{title}";
         }
 
         public virtual void Dispose()

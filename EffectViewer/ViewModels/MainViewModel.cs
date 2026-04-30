@@ -17,6 +17,7 @@ namespace EffectViewer.ViewModels
         private LuaHost _luaHost;
 
         public ObservableCollection<ProjectExplorerItemViewModel> ProjectItems { get; } = [];
+        public ObservableCollection<EditorViewModelBase> OpenEditors { get; } = [];
 
         [ObservableProperty]
         private EffectProject _currentProject;
@@ -25,7 +26,7 @@ namespace EffectViewer.ViewModels
         private ProjectExplorerItemViewModel _selectedProjectItem;
 
         [ObservableProperty]
-        private EditorViewModelBase _currentEditor = new WelcomeEditorViewModel();
+        private EditorViewModelBase _selectedEditor;
 
         [ObservableProperty]
         private string _statusText = "No project loaded";
@@ -89,8 +90,10 @@ namespace EffectViewer.ViewModels
             CurrentProject = project;
             _effectWorld.LoadProject(CurrentProject);
             _luaHost = new LuaHost(_effectWorld);
+            SelectedProjectItem = null;
             RebuildProjectTree();
-            SetCurrentEditor(new WelcomeEditorViewModel());
+            CloseAllEditors();
+            OpenEditorTab(new WelcomeEditorViewModel());
         }
 
         partial void OnSelectedProjectItemChanged(ProjectExplorerItemViewModel value)
@@ -110,49 +113,109 @@ namespace EffectViewer.ViewModels
                 case EffectAssetKind.Image:
                     if (CurrentProject.Assets.Images.TryGetValue(item.AssetId, out Assets.ImageAsset image))
                     {
-                        SetCurrentEditor(new ImageEditorViewModel(image, CurrentProject));
+                        OpenOrSelectEditor(item.Kind, item.AssetId, () => new ImageEditorViewModel(image, CurrentProject));
                         StatusText = $"Editing image {image.Id}";
                     }
                     break;
 
                 case EffectAssetKind.Reanim:
-                    SetCurrentEditor(new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
+                    OpenOrSelectEditor(item.Kind, item.AssetId, () => new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
                     StatusText = $"Editing reanim {item.AssetId}";
                     break;
 
                 case EffectAssetKind.Particle:
-                    SetCurrentEditor(new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
+                    OpenOrSelectEditor(item.Kind, item.AssetId, () => new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
                     StatusText = $"Editing particle {item.AssetId}";
                     break;
 
                 case EffectAssetKind.Trail:
-                    SetCurrentEditor(new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
+                    OpenOrSelectEditor(item.Kind, item.AssetId, () => new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
                     StatusText = $"Editing trail {item.AssetId}";
                     break;
 
                 case EffectAssetKind.Showcase:
                     if (CurrentProject.Assets.Showcases.TryGetValue(item.AssetId, out ShowcaseAsset showcase))
                     {
-                        SetCurrentEditor(new ShowcaseEditorViewModel(showcase, _luaHost, CurrentProject));
+                        OpenOrSelectEditor(item.Kind, item.AssetId, () => new ShowcaseEditorViewModel(showcase, _luaHost, CurrentProject));
                         StatusText = $"Editing showcase {item.AssetId}";
                     }
                     else
                     {
-                        SetCurrentEditor(new ShowcaseEditorViewModel(_luaHost, CurrentProject));
+                        OpenOrSelectEditor(item.Kind, item.AssetId, () => new ShowcaseEditorViewModel(_luaHost, CurrentProject));
                         StatusText = "Editing showcases";
                     }
                     break;
             }
         }
 
-        private void SetCurrentEditor(EditorViewModelBase editor)
+        [RelayCommand]
+        private void SelectEditor(EditorViewModelBase editor)
         {
-            if (!ReferenceEquals(CurrentEditor, editor))
+            if (editor is not null)
             {
-                CurrentEditor?.Dispose();
+                SelectedEditor = editor;
+            }
+        }
+
+        [RelayCommand]
+        private void CloseEditor(EditorViewModelBase editor)
+        {
+            if (editor is null)
+            {
+                return;
             }
 
-            CurrentEditor = editor;
+            int index = OpenEditors.IndexOf(editor);
+            bool wasSelected = ReferenceEquals(SelectedEditor, editor);
+            OpenEditors.Remove(editor);
+            editor.Dispose();
+            SelectedProjectItem = null;
+
+            if (wasSelected)
+            {
+                SelectedEditor = OpenEditors.Count == 0
+                    ? null
+                    : OpenEditors[System.Math.Clamp(index, 0, OpenEditors.Count - 1)];
+            }
+        }
+
+        private void OpenOrSelectEditor(EffectAssetKind kind, string title, System.Func<EditorViewModelBase> editorFactory)
+        {
+            string documentId = EditorViewModelBase.CreateDocumentId(kind, title);
+            EditorViewModelBase existing = OpenEditors.FirstOrDefault(editor => editor.DocumentId == documentId);
+            if (existing is not null)
+            {
+                SelectedEditor = existing;
+                return;
+            }
+
+            OpenEditorTab(editorFactory());
+        }
+
+        private void OpenEditorTab(EditorViewModelBase editor)
+        {
+            OpenEditors.Add(editor);
+            SelectedEditor = editor;
+            editor.IsSelected = ReferenceEquals(editor, SelectedEditor);
+        }
+
+        private void CloseAllEditors()
+        {
+            foreach (EditorViewModelBase editor in OpenEditors.ToList())
+            {
+                editor.Dispose();
+            }
+
+            OpenEditors.Clear();
+            SelectedEditor = null;
+        }
+
+        partial void OnSelectedEditorChanged(EditorViewModelBase value)
+        {
+            foreach (EditorViewModelBase editor in OpenEditors)
+            {
+                editor.IsSelected = ReferenceEquals(editor, value);
+            }
         }
 
         private void RebuildProjectTree()

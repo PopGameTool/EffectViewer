@@ -8,6 +8,15 @@
              d:DesignHeight="760"
              x:Class="EffectViewer.Views.MainView"
              x:DataType="vm:MainViewModel">
+  <UserControl.Styles>
+    <Style Selector="Border.document-tab.selected">
+      <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.document-tab-title.selected">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+  </UserControl.Styles>
+
   <Grid RowDefinitions="44,*,28">
     <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
             BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
@@ -51,8 +60,64 @@
         </Grid>
       </Border>
 
-      <ContentControl Grid.Column="1"
-                      Content="{Binding CurrentEditor}"/>
+      <Grid Grid.Column="1" RowDefinitions="40,*">
+        <Border Background="{DynamicResource SystemControlBackgroundChromeLowBrush}"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="0,0,0,1">
+          <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                        VerticalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding OpenEditors}"
+                          Margin="8,0">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:EditorViewModelBase">
+                  <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                          BorderThickness="1,1,1,0"
+                          CornerRadius="4,4,0,0"
+                          Margin="0,6,6,0"
+                          Padding="10,0"
+                          MinWidth="120"
+                          Height="34"
+                          Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                          Classes.document-tab="True"
+                          Classes.selected="{Binding IsSelected}">
+                    <DockPanel LastChildFill="True">
+                      <Button DockPanel.Dock="Right"
+                              Content="x"
+                              Width="22"
+                              Height="22"
+                              Padding="0"
+                              Margin="8,0,0,0"
+                              Command="{Binding $parent[UserControl].DataContext.CloseEditorCommand}"
+                              CommandParameter="{Binding}"/>
+                      <Button Background="Transparent"
+                              BorderThickness="0"
+                              Padding="0"
+                              HorizontalContentAlignment="Stretch"
+                              VerticalContentAlignment="Center"
+                              Command="{Binding $parent[UserControl].DataContext.SelectEditorCommand}"
+                              CommandParameter="{Binding}">
+                        <TextBlock Text="{Binding Title}"
+                                   Classes.document-tab-title="True"
+                                   Classes.selected="{Binding IsSelected}"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center"/>
+                      </Button>
+                    </DockPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Border>
+
+        <ContentControl Grid.Row="1"
+                        Content="{Binding SelectedEditor}"/>
+      </Grid>
     </Grid>
 
     <Border Grid.Row="2"
