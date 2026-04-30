@@ -4,6 +4,12 @@ namespace EffectViewer.Rendering.TextureUpload
     {
         public bool TryLoad(RenderTextureRef texture, out TextureUploadData data)
         {
+            if (texture.Id == FrameCaptureGraphics.WhiteTextureId)
+            {
+                data = new TextureUploadData(1, 1, [255, 255, 255, 255]);
+                return true;
+            }
+
             const int width = 64;
             const int height = 64;
             byte[] pixels = new byte[width * height * 4];

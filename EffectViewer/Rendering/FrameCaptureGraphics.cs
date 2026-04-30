@@ -9,6 +9,8 @@ namespace EffectViewer.Rendering
 {
     public sealed class FrameCaptureGraphics : Graphics
     {
+        public const string WhiteTextureId = "__builtin_white_pixel";
+
         private readonly RenderFrame _frame = new();
 
         public RenderFrame Frame => _frame;
@@ -36,6 +38,27 @@ namespace EffectViewer.Rendering
             _frame.Meshes.Add(new RenderMeshCommand(
                 new RenderTextureRef(theTexture.mId),
                 vertices,
+                ToRenderBlendMode(mDrawMode)));
+        }
+
+        public override void FillRect(Rectangle rect)
+        {
+            FillRect(rect.X, rect.Y, rect.Width, rect.Height);
+        }
+
+        public override void FillRect(int x, int y, int width, int height)
+        {
+            if (width <= 0 || height <= 0)
+            {
+                return;
+            }
+
+            _frame.Sprites.Add(new RenderSpriteCommand(
+                new RenderTextureRef(WhiteTextureId),
+                new Vector2(x + mTransX + width * 0.5f, y + mTransY + height * 0.5f),
+                new Vector2(width, height),
+                new Vector4(0f, 0f, 1f, 1f),
+                ToVector4(mColor),
                 ToRenderBlendMode(mDrawMode)));
         }
 
