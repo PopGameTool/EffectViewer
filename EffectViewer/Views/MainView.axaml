@@ -18,27 +18,39 @@
   </UserControl.Styles>
 
   <Grid>
-    <Grid RowDefinitions="44,*,28">
+    <Grid RowDefinitions="34,*,28">
       <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
               BorderThickness="0,0,0,1">
         <DockPanel Margin="12,0">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Content="Demo Project"
-                    Command="{Binding LoadDemoProjectCommand}"/>
-            <Button Content="Open Project"
-                    Command="{Binding ShowOpenProjectDialogCommand}"/>
-            <Button Content="Import Project"
-                    Click="ImportProjectButton_Click"/>
-            <Button Content="Export Project"
-                    Click="ExportProjectButton_Click"/>
-            <Button Content="Import Folder"
-                    Click="ImportFolderButton_Click"/>
-            <Button Content="Save File"
-                    Command="{Binding SaveFileCommand}"/>
-            <Button Content="Save Project"
-                    Command="{Binding SaveProjectCommand}"/>
-          </StackPanel>
+          <Menu DockPanel.Dock="Left"
+                Background="Transparent">
+            <MenuItem Header="_File">
+              <MenuItem Header="_Save Current File"
+                        Command="{Binding SaveFileCommand}"
+                        IsEnabled="{Binding CanSaveSelectedFile}"/>
+              <MenuItem Header="_Export Current File..."
+                        Click="ExportFileMenuItem_Click"
+                        IsEnabled="{Binding CanExportSelectedFile}"/>
+              <Separator/>
+              <MenuItem Header="Save _Project"
+                        Command="{Binding SaveProjectCommand}"
+                        IsEnabled="{Binding CanSaveCurrentProject}"/>
+              <MenuItem Header="Export Project _Zip..."
+                        Click="ExportProjectMenuItem_Click"
+                        IsEnabled="{Binding CanSaveCurrentProject}"/>
+            </MenuItem>
+            <MenuItem Header="_Project">
+              <MenuItem Header="_Demo Project"
+                        Command="{Binding LoadDemoProjectCommand}"/>
+              <MenuItem Header="_Open Project..."
+                        Command="{Binding ShowOpenProjectDialogCommand}"/>
+              <MenuItem Header="_Import Project Zip..."
+                        Click="ImportProjectMenuItem_Click"/>
+              <MenuItem Header="Import Resource _Folder..."
+                        Click="ImportFolderMenuItem_Click"/>
+            </MenuItem>
+          </Menu>
           <TextBlock Text="{Binding CurrentProject.Manifest.Name}"
                      VerticalAlignment="Center"
                      HorizontalAlignment="Center"

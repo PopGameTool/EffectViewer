@@ -297,6 +297,33 @@ namespace EffectViewer.Projects
             });
         }
 
+        public async Task ExportProjectFileAsync(EffectProject project, string projectPath, Stream outputStream)
+        {
+            if (project is null)
+            {
+                throw new ArgumentNullException(nameof(project));
+            }
+
+            if (outputStream is null)
+            {
+                throw new ArgumentNullException(nameof(outputStream));
+            }
+
+            if (string.IsNullOrWhiteSpace(project.RootPath) || !Directory.Exists(project.RootPath))
+            {
+                throw new InvalidOperationException("Only projects stored in the app private project folder can export files.");
+            }
+
+            string sourcePath = ResolveProjectFilePath(project, projectPath);
+            if (!File.Exists(sourcePath))
+            {
+                throw new FileNotFoundException("The current project file could not be found.", projectPath);
+            }
+
+            await using FileStream source = File.OpenRead(sourcePath);
+            await source.CopyToAsync(outputStream);
+        }
+
         private string CreateUniqueProjectDirectory(string sourceName)
         {
             string baseName = ProjectPathUtility.CreateSafeName(sourceName, "project");
@@ -371,6 +398,27 @@ namespace EffectViewer.Projects
             }
 
             return destination;
+        }
+
+        private static string ResolveProjectFilePath(EffectProject project, string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new InvalidOperationException("The current document does not have a project file path.");
+            }
+
+            string normalizedPath = path.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+            string sourcePath = Path.IsPathRooted(normalizedPath)
+                ? Path.GetFullPath(normalizedPath)
+                : Path.GetFullPath(Path.Combine(project.RootPath, normalizedPath));
+            string projectRoot = Path.GetFullPath(project.RootPath);
+            if (!sourcePath.StartsWith(projectRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(sourcePath, projectRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("The current document path points outside the project folder.");
+            }
+
+            return sourcePath;
         }
 
         private static void Normalize(ProjectManifest manifest)

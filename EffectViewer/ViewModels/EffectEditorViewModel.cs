@@ -142,6 +142,8 @@ namespace EffectViewer.ViewModels
         }
 
         public override bool SupportsSave => Kind == EffectAssetKind.Trail || Kind == EffectAssetKind.Particle;
+        public override bool SupportsFileExport => true;
+        public override string ExportPath => Path;
         public string SelectedReanimLayer
         {
             get => _selectedReanimLayer;

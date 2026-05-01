@@ -14,7 +14,7 @@ namespace EffectViewer.Views
             InitializeComponent();
         }
 
-        private async void ImportFolderButton_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        private async void ImportFolderMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             string path = await PickFolderAsync("Import PopCap resource folder");
             if (!string.IsNullOrWhiteSpace(path) && DataContext is MainViewModel viewModel)
@@ -23,7 +23,7 @@ namespace EffectViewer.Views
             }
         }
 
-        private async void ImportProjectButton_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        private async void ImportProjectMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             TopLevel topLevel = TopLevel.GetTopLevel(this);
             if (topLevel?.StorageProvider is null || DataContext is not MainViewModel viewModel)
@@ -47,7 +47,7 @@ namespace EffectViewer.Views
             await viewModel.ImportProjectZipAsync(stream);
         }
 
-        private async void ExportProjectButton_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        private async void ExportProjectMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             TopLevel topLevel = TopLevel.GetTopLevel(this);
             if (topLevel?.StorageProvider is null || DataContext is not MainViewModel viewModel)
@@ -71,6 +71,37 @@ namespace EffectViewer.Views
 
             await using Stream stream = await file.OpenWriteAsync();
             await viewModel.ExportCurrentProjectZipAsync(stream);
+        }
+
+        private async void ExportFileMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            TopLevel topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.StorageProvider is null || DataContext is not MainViewModel viewModel)
+            {
+                return;
+            }
+
+            if (!await viewModel.PrepareSelectedFileExportAsync())
+            {
+                return;
+            }
+
+            string suggestedName = viewModel.GetSelectedFileExportName();
+            string defaultExtension = viewModel.GetSelectedFileDefaultExtension();
+            IStorageFile file = await topLevel.StorageProvider.SaveFilePickerAsync(new()
+            {
+                Title = "Export current file",
+                SuggestedFileName = suggestedName,
+                DefaultExtension = defaultExtension
+            });
+
+            if (file is null)
+            {
+                return;
+            }
+
+            await using Stream stream = await file.OpenWriteAsync();
+            await viewModel.ExportSelectedFileAsync(stream);
         }
 
         private async Task<string> PickFolderAsync(string title)

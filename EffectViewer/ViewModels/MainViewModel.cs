@@ -71,6 +71,9 @@ namespace EffectViewer.ViewModels
         private string _projectTransferProgressText;
 
         public bool HasAvailableProjects => AvailableProjects.Count > 0;
+        public bool CanSaveCurrentProject => CurrentProject is not null && !string.IsNullOrWhiteSpace(CurrentProject.RootPath);
+        public bool CanSaveSelectedFile => CanSaveCurrentProject && SelectedEditor?.SupportsSave == true;
+        public bool CanExportSelectedFile => CanSaveCurrentProject && SelectedEditor?.SupportsFileExport == true;
 
         private enum UnsavedChangesChoice
         {
@@ -84,6 +87,13 @@ namespace EffectViewer.ViewModels
             _projectService = new EffectProjectService(storageProvider);
             LoadProject(_projectService.CreateDemoProject());
             StatusText = "Demo project loaded";
+        }
+
+        partial void OnCurrentProjectChanged(EffectProject value)
+        {
+            OnPropertyChanged(nameof(CanSaveCurrentProject));
+            OnPropertyChanged(nameof(CanSaveSelectedFile));
+            OnPropertyChanged(nameof(CanExportSelectedFile));
         }
 
         [RelayCommand]
@@ -215,6 +225,72 @@ namespace EffectViewer.ViewModels
             finally
             {
                 EndProjectTransfer();
+            }
+        }
+
+        public string GetSelectedFileExportName()
+        {
+            string exportPath = SelectedEditor?.ExportPath;
+            string fileName = string.IsNullOrWhiteSpace(exportPath)
+                ? SelectedEditor?.Title
+                : Path.GetFileName(exportPath);
+
+            return CreateSafeFileName(fileName, "effectviewer-file");
+        }
+
+        public string GetSelectedFileDefaultExtension()
+        {
+            string extension = Path.GetExtension(GetSelectedFileExportName());
+            return string.IsNullOrWhiteSpace(extension) ? null : extension.TrimStart('.');
+        }
+
+        public async Task<bool> PrepareSelectedFileExportAsync()
+        {
+            EditorViewModelBase editor = SelectedEditor;
+            if (editor is null)
+            {
+                StatusText = "No document is selected.";
+                return false;
+            }
+
+            if (!editor.SupportsFileExport)
+            {
+                StatusText = $"{editor.Title} does not have a project file to export.";
+                return false;
+            }
+
+            if (CurrentProject is null || string.IsNullOrWhiteSpace(CurrentProject.RootPath))
+            {
+                StatusText = "No internal project is loaded.";
+                return false;
+            }
+
+            if (editor.IsDirty && !await SaveEditorAsync(editor))
+            {
+                StatusText = $"Canceled exporting {editor.Title}.";
+                return false;
+            }
+
+            return true;
+        }
+
+        public async Task ExportSelectedFileAsync(Stream outputStream)
+        {
+            if (outputStream is null || SelectedEditor is null)
+            {
+                return;
+            }
+
+            EditorViewModelBase editor = SelectedEditor;
+
+            try
+            {
+                await _projectService.ExportProjectFileAsync(CurrentProject, editor.ExportPath, outputStream);
+                StatusText = $"Exported {editor.Title}.";
+            }
+            catch (System.Exception ex) when (ex is IOException or System.UnauthorizedAccessException or System.InvalidOperationException)
+            {
+                StatusText = $"Could not export {editor.Title}: {ex.Message}";
             }
         }
 
@@ -558,6 +634,9 @@ namespace EffectViewer.ViewModels
                 editor.IsSelected = ReferenceEquals(editor, value);
             }
 
+            OnPropertyChanged(nameof(CanSaveSelectedFile));
+            OnPropertyChanged(nameof(CanExportSelectedFile));
+
             if (value is not null)
             {
                 StatusText = value.IsDirty
@@ -631,6 +710,17 @@ namespace EffectViewer.ViewModels
             }
 
             return folder;
+        }
+
+        private static string CreateSafeFileName(string value, string fallback)
+        {
+            string name = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+            foreach (char invalid in Path.GetInvalidFileNameChars())
+            {
+                name = name.Replace(invalid, '_');
+            }
+
+            return string.IsNullOrWhiteSpace(name) ? fallback : name;
         }
     }
 }

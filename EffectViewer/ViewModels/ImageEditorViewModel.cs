@@ -34,6 +34,8 @@ namespace EffectViewer.ViewModels
         public int CurrentCol => Cols <= 0 ? 0 : FrameIndex % Cols;
         public override bool SupportsSave => true;
         public override bool SavesWithProjectManifest => true;
+        public override bool SupportsFileExport => true;
+        public override string ExportPath => Path;
 
         public ImageEditorViewModel(ImageAsset asset, EffectProject project)
             : base(asset.Id, EffectAssetKind.Image)

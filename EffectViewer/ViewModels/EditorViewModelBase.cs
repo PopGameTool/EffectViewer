@@ -38,6 +38,8 @@ namespace EffectViewer.ViewModels
 
         public virtual bool SupportsSave => false;
         public virtual bool SavesWithProjectManifest => false;
+        public virtual bool SupportsFileExport => false;
+        public virtual string ExportPath => string.Empty;
 
         public RenderFrame PreviewFrame
         {
