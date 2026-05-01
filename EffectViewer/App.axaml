@@ -41,5 +41,18 @@
         <Style Selector="MenuItem">
             <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         </Style>
+        <Style Selector="GridSplitter.layout-splitter">
+            <Setter Property="Background" Value="{DynamicResource SystemControlForegroundBaseLowBrush}"/>
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+        <Style Selector="GridSplitter.layout-splitter:pointerover">
+            <Setter Property="Opacity" Value="0.9"/>
+        </Style>
+        <Style Selector="GridSplitter.vertical-splitter">
+            <Setter Property="Cursor" Value="SizeWestEast"/>
+        </Style>
+        <Style Selector="GridSplitter.horizontal-splitter">
+            <Setter Property="Cursor" Value="SizeNorthSouth"/>
+        </Style>
     </Application.Styles>
 </Application>

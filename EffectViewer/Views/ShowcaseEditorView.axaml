@@ -6,27 +6,55 @@
              x:DataType="vm:ShowcaseEditorViewModel">
   <Grid RowDefinitions="Auto,*" Margin="24" RowSpacing="16">
     <DockPanel LastChildFill="True">
+      <Menu DockPanel.Dock="Right"
+            Background="Transparent">
+        <MenuItem Header="_Layout">
+          <MenuItem Header="_Script Panel"
+                    Command="{Binding ToggleSidePanelCommand}"
+                    IsChecked="{Binding IsSidePanelVisible, Mode=OneWay}"
+                    ToggleType="CheckBox"/>
+          <Separator/>
+          <MenuItem Header="Dock Script Panel _Left"
+                    Command="{Binding DockSidePanelLeftCommand}"
+                    IsChecked="{Binding IsSidePanelOnLeft, Mode=OneWay}"
+                    ToggleType="Radio"/>
+          <MenuItem Header="Dock Script Panel _Right"
+                    Command="{Binding DockSidePanelRightCommand}"
+                    IsChecked="{Binding IsSidePanelOnRight, Mode=OneWay}"
+                    ToggleType="Radio"/>
+          <Separator/>
+          <MenuItem Header="_Reset Editor Layout"
+                    Command="{Binding ResetEditorLayoutCommand}"/>
+        </MenuItem>
+      </Menu>
       <StackPanel Spacing="4">
         <TextBlock Text="{Binding AssetId}" FontSize="24" FontWeight="SemiBold"/>
         <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
       </StackPanel>
     </DockPanel>
 
-    <Grid Grid.Row="1" ColumnDefinitions="*,360" ColumnSpacing="16">
-      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-              BorderThickness="1"
-              CornerRadius="6">
-        <controls:InteractiveEffectViewport Frame="{Binding PreviewFrame}"
-                                            FrameProvider="{Binding PreviewFrameProvider}"
-                                            TextureSource="{Binding TextureSource}"/>
-      </Border>
+    <controls:DockablePanelView Grid.Row="1"
+                                IsSidePanelVisible="{Binding IsSidePanelVisible}"
+                                IsSidePanelOnLeft="{Binding IsSidePanelOnLeft}"
+                                LayoutResetRevision="{Binding LayoutResetRevision}"
+                                DefaultSidePanelWidth="360"
+                                MinimumSidePanelWidth="300">
+      <controls:DockablePanelView.PrimaryContent>
+        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="1"
+                CornerRadius="6">
+          <controls:InteractiveEffectViewport Frame="{Binding PreviewFrame}"
+                                              FrameProvider="{Binding PreviewFrameProvider}"
+                                              TextureSource="{Binding TextureSource}"/>
+        </Border>
+      </controls:DockablePanelView.PrimaryContent>
 
-      <Border Grid.Column="1"
-              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-              BorderThickness="1"
-              CornerRadius="6"
-              Padding="14">
-        <Grid RowDefinitions="Auto,*,Auto,120" RowSpacing="10">
+      <controls:DockablePanelView.SideContent>
+        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="14">
+        <Grid RowDefinitions="Auto,*,Auto,5,120" RowSpacing="10">
           <DockPanel LastChildFill="True">
             <Button DockPanel.Dock="Right"
                     Content="Run"
@@ -45,7 +73,12 @@
                    ScrollViewer.VerticalScrollBarVisibility="Auto"/>
 
           <TextBlock Grid.Row="2" Text="{Binding Status}" FontWeight="SemiBold"/>
-          <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="8">
+          <GridSplitter Grid.Row="3"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        ResizeDirection="Rows"
+                        Classes="layout-splitter horizontal-splitter"/>
+          <Grid Grid.Row="4" ColumnDefinitions="*,5,*">
             <Grid RowDefinitions="Auto,*" RowSpacing="4">
               <TextBlock Text="Objects" FontWeight="SemiBold"/>
               <ListBox Grid.Row="1" ItemsSource="{Binding SceneObjects}">
@@ -56,7 +89,12 @@
                 </ListBox.ItemTemplate>
               </ListBox>
             </Grid>
-            <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto,72" RowSpacing="4">
+            <GridSplitter Grid.Column="1"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          ResizeDirection="Columns"
+                          Classes="layout-splitter vertical-splitter"/>
+            <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto,72" RowSpacing="4">
               <TextBlock Text="Logs" FontWeight="SemiBold"/>
               <ListBox Grid.Row="1"
                        ItemsSource="{Binding Logs}"
@@ -83,6 +121,7 @@
           </Grid>
         </Grid>
       </Border>
-    </Grid>
+      </controls:DockablePanelView.SideContent>
+    </controls:DockablePanelView>
   </Grid>
 </UserControl>

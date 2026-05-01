@@ -1,5 +1,7 @@
 using System;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using EffectViewer.Projects;
 using EffectViewer.Rendering;
 using EffectViewer.Rendering.TextureUpload;
@@ -12,6 +14,8 @@ namespace EffectViewer.ViewModels
         private IRenderFrameProvider _previewFrameProvider;
         private ITextureSource _textureSource;
         private bool _isDirty;
+        private bool _isSidePanelOnLeft;
+        private bool _isSidePanelVisible = true;
 
         public string Title { get; }
         public string TabTitle => IsDirty ? $"{Title}*" : Title;
@@ -40,6 +44,29 @@ namespace EffectViewer.ViewModels
         public virtual bool SavesWithProjectManifest => false;
         public virtual bool SupportsFileExport => false;
         public virtual string ExportPath => string.Empty;
+
+        public bool IsSidePanelOnLeft
+        {
+            get => _isSidePanelOnLeft;
+            set
+            {
+                if (SetProperty(ref _isSidePanelOnLeft, value))
+                {
+                    OnPropertyChanged(nameof(IsSidePanelOnRight));
+                }
+            }
+        }
+
+        public bool IsSidePanelOnRight => !IsSidePanelOnLeft;
+
+        public bool IsSidePanelVisible
+        {
+            get => _isSidePanelVisible;
+            set => SetProperty(ref _isSidePanelVisible, value);
+        }
+
+        [ObservableProperty]
+        private int _layoutResetRevision;
 
         public RenderFrame PreviewFrame
         {
@@ -105,6 +132,34 @@ namespace EffectViewer.ViewModels
             {
                 disposableProvider.Dispose();
             }
+        }
+
+        [RelayCommand]
+        private void DockSidePanelLeft()
+        {
+            IsSidePanelOnLeft = true;
+            IsSidePanelVisible = true;
+        }
+
+        [RelayCommand]
+        private void DockSidePanelRight()
+        {
+            IsSidePanelOnLeft = false;
+            IsSidePanelVisible = true;
+        }
+
+        [RelayCommand]
+        private void ToggleSidePanel()
+        {
+            IsSidePanelVisible = !IsSidePanelVisible;
+        }
+
+        [RelayCommand]
+        private void ResetEditorLayout()
+        {
+            IsSidePanelOnLeft = false;
+            IsSidePanelVisible = true;
+            LayoutResetRevision++;
         }
     }
 }

@@ -343,24 +343,54 @@
   </UserControl.Resources>
 
   <Grid RowDefinitions="Auto,*" Margin="24" RowSpacing="16">
-    <StackPanel Spacing="4">
-      <TextBlock Text="{Binding AssetId}" FontSize="24" FontWeight="SemiBold"/>
-      <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
-    </StackPanel>
+    <DockPanel LastChildFill="True">
+      <Menu DockPanel.Dock="Right"
+            Background="Transparent">
+        <MenuItem Header="_Layout">
+          <MenuItem Header="_Properties"
+                    Command="{Binding ToggleSidePanelCommand}"
+                    IsChecked="{Binding IsSidePanelVisible, Mode=OneWay}"
+                    ToggleType="CheckBox"/>
+          <Separator/>
+          <MenuItem Header="Dock Properties _Left"
+                    Command="{Binding DockSidePanelLeftCommand}"
+                    IsChecked="{Binding IsSidePanelOnLeft, Mode=OneWay}"
+                    ToggleType="Radio"/>
+          <MenuItem Header="Dock Properties _Right"
+                    Command="{Binding DockSidePanelRightCommand}"
+                    IsChecked="{Binding IsSidePanelOnRight, Mode=OneWay}"
+                    ToggleType="Radio"/>
+          <Separator/>
+          <MenuItem Header="_Reset Editor Layout"
+                    Command="{Binding ResetEditorLayoutCommand}"/>
+        </MenuItem>
+      </Menu>
+      <StackPanel Spacing="4">
+        <TextBlock Text="{Binding AssetId}" FontSize="24" FontWeight="SemiBold"/>
+        <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+      </StackPanel>
+    </DockPanel>
 
-    <Grid Grid.Row="1" ColumnDefinitions="*,320" ColumnSpacing="16">
-      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-              BorderThickness="1"
-              CornerRadius="6">
-        <controls:InteractiveEffectViewport Frame="{Binding PreviewFrame}"
-                                            FrameProvider="{Binding PreviewFrameProvider}"
-                                            TextureSource="{Binding TextureSource}"/>
-      </Border>
+    <controls:DockablePanelView Grid.Row="1"
+                                IsSidePanelVisible="{Binding IsSidePanelVisible}"
+                                IsSidePanelOnLeft="{Binding IsSidePanelOnLeft}"
+                                LayoutResetRevision="{Binding LayoutResetRevision}"
+                                DefaultSidePanelWidth="320"
+                                MinimumSidePanelWidth="260">
+      <controls:DockablePanelView.PrimaryContent>
+        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="1"
+                CornerRadius="6">
+          <controls:InteractiveEffectViewport Frame="{Binding PreviewFrame}"
+                                              FrameProvider="{Binding PreviewFrameProvider}"
+                                              TextureSource="{Binding TextureSource}"/>
+        </Border>
+      </controls:DockablePanelView.PrimaryContent>
 
-      <Border Grid.Column="1"
-              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-              BorderThickness="1"
-              CornerRadius="6">
+      <controls:DockablePanelView.SideContent>
+        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="1"
+                CornerRadius="6">
         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="10" Margin="14" HorizontalAlignment="Stretch">
@@ -521,6 +551,7 @@
           </StackPanel>
         </ScrollViewer>
       </Border>
-    </Grid>
+      </controls:DockablePanelView.SideContent>
+    </controls:DockablePanelView>
   </Grid>
 </UserControl>

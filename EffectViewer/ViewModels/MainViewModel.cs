@@ -14,6 +14,12 @@ using EffectViewer.Runtime.Lua;
 
 namespace EffectViewer.ViewModels
 {
+    public enum ProjectExplorerDockSide
+    {
+        Left,
+        Right
+    }
+
     public sealed partial class MainViewModel : ViewModelBase
     {
         private readonly EffectProjectService _projectService;
@@ -70,6 +76,19 @@ namespace EffectViewer.ViewModels
         [ObservableProperty]
         private string _projectTransferProgressText;
 
+        [ObservableProperty]
+        private ProjectExplorerDockSide _projectExplorerDockSide = ProjectExplorerDockSide.Left;
+
+        [ObservableProperty]
+        private bool _isProjectExplorerVisible = true;
+
+        [ObservableProperty]
+        private int _layoutResetRevision;
+
+        public bool IsProjectExplorerDockedLeft => ProjectExplorerDockSide == ProjectExplorerDockSide.Left;
+        public bool IsProjectExplorerDockedRight => ProjectExplorerDockSide == ProjectExplorerDockSide.Right;
+        public bool IsProjectExplorerVisibleLeft => IsProjectExplorerVisible && IsProjectExplorerDockedLeft;
+        public bool IsProjectExplorerVisibleRight => IsProjectExplorerVisible && IsProjectExplorerDockedRight;
         public bool HasAvailableProjects => AvailableProjects.Count > 0;
         public bool CanSaveCurrentProject => CurrentProject is not null && !string.IsNullOrWhiteSpace(CurrentProject.RootPath);
         public bool CanSaveSelectedFile => CanSaveCurrentProject && SelectedEditor?.SupportsSave == true;
@@ -87,6 +106,58 @@ namespace EffectViewer.ViewModels
             _projectService = new EffectProjectService(storageProvider);
             LoadProject(_projectService.CreateDemoProject());
             StatusText = "Demo project loaded";
+        }
+
+        partial void OnProjectExplorerDockSideChanged(ProjectExplorerDockSide value)
+        {
+            NotifyProjectExplorerLayoutProperties();
+        }
+
+        partial void OnIsProjectExplorerVisibleChanged(bool value)
+        {
+            NotifyProjectExplorerLayoutProperties();
+        }
+
+        private void NotifyProjectExplorerLayoutProperties()
+        {
+            OnPropertyChanged(nameof(IsProjectExplorerDockedLeft));
+            OnPropertyChanged(nameof(IsProjectExplorerDockedRight));
+            OnPropertyChanged(nameof(IsProjectExplorerVisibleLeft));
+            OnPropertyChanged(nameof(IsProjectExplorerVisibleRight));
+        }
+
+        [RelayCommand]
+        private void DockProjectExplorerLeft()
+        {
+            ProjectExplorerDockSide = ProjectExplorerDockSide.Left;
+            IsProjectExplorerVisible = true;
+            StatusText = "Project Explorer docked left.";
+        }
+
+        [RelayCommand]
+        private void DockProjectExplorerRight()
+        {
+            ProjectExplorerDockSide = ProjectExplorerDockSide.Right;
+            IsProjectExplorerVisible = true;
+            StatusText = "Project Explorer docked right.";
+        }
+
+        [RelayCommand]
+        private void ToggleProjectExplorer()
+        {
+            IsProjectExplorerVisible = !IsProjectExplorerVisible;
+            StatusText = IsProjectExplorerVisible
+                ? "Project Explorer shown."
+                : "Project Explorer hidden.";
+        }
+
+        [RelayCommand]
+        private void ResetLayout()
+        {
+            ProjectExplorerDockSide = ProjectExplorerDockSide.Left;
+            IsProjectExplorerVisible = true;
+            LayoutResetRevision++;
+            StatusText = "Layout reset.";
         }
 
         partial void OnCurrentProjectChanged(EffectProject value)

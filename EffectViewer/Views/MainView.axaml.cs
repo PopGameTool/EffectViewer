@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using EffectViewer.ViewModels;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -9,9 +10,103 @@ namespace EffectViewer.Views
 {
     public partial class MainView : UserControl
     {
+        private const double DefaultProjectExplorerWidth = 280d;
+        private const double MinimumProjectExplorerWidth = 180d;
+        private const double SplitterWidth = 5d;
+        private double _lastLeftProjectExplorerWidth = DefaultProjectExplorerWidth;
+        private double _lastRightProjectExplorerWidth = DefaultProjectExplorerWidth;
+        private MainViewModel _observedViewModel;
+
         public MainView()
         {
             InitializeComponent();
+            DataContextChanged += OnDataContextChanged;
+        }
+
+        private void OnDataContextChanged(object sender, System.EventArgs e)
+        {
+            if (_observedViewModel is not null)
+            {
+                _observedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            }
+
+            _observedViewModel = DataContext as MainViewModel;
+            if (_observedViewModel is not null)
+            {
+                _observedViewModel.PropertyChanged += OnViewModelPropertyChanged;
+            }
+
+            UpdateProjectExplorerLayout();
+        }
+
+        private void OnViewModelPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is nameof(MainViewModel.IsProjectExplorerVisibleLeft)
+                or nameof(MainViewModel.IsProjectExplorerVisibleRight)
+                or nameof(MainViewModel.IsProjectExplorerVisible))
+            {
+                UpdateProjectExplorerLayout();
+            }
+            else if (e.PropertyName == nameof(MainViewModel.LayoutResetRevision))
+            {
+                ResetProjectExplorerWidths();
+                UpdateProjectExplorerLayout(captureCurrentWidth: false);
+            }
+        }
+
+        private void CaptureVisibleProjectExplorerWidth()
+        {
+            ColumnDefinition leftColumn = WorkspaceGrid.ColumnDefinitions[0];
+            ColumnDefinition rightColumn = WorkspaceGrid.ColumnDefinitions[4];
+
+            if (_observedViewModel?.IsProjectExplorerVisibleLeft == true && leftColumn.ActualWidth > 0)
+            {
+                _lastLeftProjectExplorerWidth = leftColumn.ActualWidth;
+            }
+            else if (_observedViewModel?.IsProjectExplorerVisibleRight == true && rightColumn.ActualWidth > 0)
+            {
+                _lastRightProjectExplorerWidth = rightColumn.ActualWidth;
+            }
+        }
+
+        private void UpdateProjectExplorerLayout(bool captureCurrentWidth = true)
+        {
+            if (captureCurrentWidth)
+            {
+                CaptureVisibleProjectExplorerWidth();
+            }
+
+            bool showLeft = _observedViewModel?.IsProjectExplorerVisibleLeft == true;
+            bool showRight = _observedViewModel?.IsProjectExplorerVisibleRight == true;
+
+            ConfigureColumn(
+                WorkspaceGrid.ColumnDefinitions[0],
+                showLeft ? _lastLeftProjectExplorerWidth : 0d,
+                showLeft ? MinimumProjectExplorerWidth : 0d);
+            ConfigureColumn(
+                WorkspaceGrid.ColumnDefinitions[1],
+                showLeft ? SplitterWidth : 0d,
+                showLeft ? SplitterWidth : 0d);
+            ConfigureColumn(
+                WorkspaceGrid.ColumnDefinitions[3],
+                showRight ? SplitterWidth : 0d,
+                showRight ? SplitterWidth : 0d);
+            ConfigureColumn(
+                WorkspaceGrid.ColumnDefinitions[4],
+                showRight ? _lastRightProjectExplorerWidth : 0d,
+                showRight ? MinimumProjectExplorerWidth : 0d);
+        }
+
+        private void ResetProjectExplorerWidths()
+        {
+            _lastLeftProjectExplorerWidth = DefaultProjectExplorerWidth;
+            _lastRightProjectExplorerWidth = DefaultProjectExplorerWidth;
+        }
+
+        private static void ConfigureColumn(ColumnDefinition column, double width, double minWidth)
+        {
+            column.MinWidth = minWidth;
+            column.Width = new GridLength(width, GridUnitType.Pixel);
         }
 
         private async void ImportFolderMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)

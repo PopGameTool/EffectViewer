@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="EffectViewer.Controls.DockablePanelView">
+  <Grid x:Name="LayoutRoot">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*" MinWidth="260"/>
+      <ColumnDefinition Width="5" MinWidth="5"/>
+      <ColumnDefinition Width="320" MinWidth="180"/>
+    </Grid.ColumnDefinitions>
+
+    <ContentControl x:Name="PrimaryContentHost"
+                    Grid.Column="0"/>
+    <GridSplitter x:Name="SideSplitter"
+                  Grid.Column="1"
+                  HorizontalAlignment="Stretch"
+                  VerticalAlignment="Stretch"
+                  ResizeDirection="Columns"
+                  Classes="layout-splitter vertical-splitter"/>
+    <ContentControl x:Name="SideContentHost"
+                    Grid.Column="2"/>
+  </Grid>
+</UserControl>
