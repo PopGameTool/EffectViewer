@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
+using EffectViewer.Assets;
 using EffectViewer.Projects;
 using EffectViewer.Rendering;
 using EffectViewer.TodLib.Common;
@@ -55,7 +56,7 @@ namespace EffectViewer.Runtime.Showcase
         {
             EnsureAlive();
             ResourceHandler.SetProvider(_resourceProvider);
-            if (!_project.Assets.Reanims.TryGetValue(id, out EffectAsset asset))
+            if (!_project.Assets.Reanims.TryGetValue(id, out ReanimAsset asset))
             {
                 throw new InvalidOperationException($"Reanim '{id}' was not found in the current project.");
             }

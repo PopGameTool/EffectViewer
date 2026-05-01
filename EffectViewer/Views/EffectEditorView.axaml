@@ -356,6 +356,7 @@
                 BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                 Classes.reanim-frame-content="{Binding HasContent}"
+                Classes.reanim-frame-tweened="{Binding IsTweened}"
                 Classes.reanim-frame-playhead="{Binding IsPlayhead}"
                 Classes.reanim-frame-selected="{Binding IsSelected}">
           <TextBlock Text="{Binding Glyph}"
@@ -377,6 +378,10 @@
       <Setter Property="BorderBrush" Value="#FFD54F"/>
       <Setter Property="BorderThickness" Value="2"/>
     </Style>
+    <Style Selector="Border.reanim-frame-tweened">
+      <Setter Property="Background" Value="#4056B870"/>
+      <Setter Property="BorderBrush" Value="#75D88A"/>
+    </Style>
     <Style Selector="Border.reanim-frame-selected">
       <Setter Property="Background" Value="#5087D36C"/>
       <Setter Property="BorderBrush" Value="#9BE28F"/>
@@ -393,6 +398,27 @@
       <DockPanel LastChildFill="True">
         <Menu DockPanel.Dock="Right"
               Background="Transparent">
+          <MenuItem Header="_Animation"
+                    IsVisible="{Binding IsReanimEditor}">
+            <MenuItem Header="_Transform"
+                      IsEnabled="{Binding CanTransformSelectedReanimFrame}"
+                      Command="{Binding OpenReanimTransformDialogCommand}"/>
+            <Separator/>
+            <MenuItem Header="_Add Track"
+                      Command="{Binding AddReanimTrackCommand}"/>
+            <MenuItem Header="_Remove Track"
+                      IsEnabled="{Binding CanRemoveReanimTrack}"
+                      Command="{Binding RemoveReanimTrackCommand}"/>
+            <Separator/>
+            <MenuItem Header="Add _Frame"
+                      Command="{Binding AddReanimFrameCommand}"/>
+            <MenuItem Header="Remove Frame"
+                      IsEnabled="{Binding CanRemoveReanimFrame}"
+                      Command="{Binding RemoveReanimFrameCommand}"/>
+            <Separator/>
+            <MenuItem Header="_Detect Tweens"
+                      Command="{Binding RecognizeReanimTweensCommand}"/>
+          </MenuItem>
           <MenuItem Header="_Layout">
             <MenuItem Header="_Properties"
                       Command="{Binding ToggleSidePanelCommand}"
@@ -449,7 +475,7 @@
 
             <Expander Header="Structure" IsExpanded="True" HorizontalAlignment="Stretch">
               <StackPanel Spacing="8">
-                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6" IsVisible="{Binding IsReanimEditor}">
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6" IsVisible="{Binding IsReanimEditor}">
                   <TextBlock Text="Tracks"/>
                   <TextBlock Grid.Column="1" Text="{Binding ReanimTrackCount}"/>
                   <TextBlock Grid.Row="1" Text="Frames"/>
@@ -458,6 +484,8 @@
                   <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ReanimFps}"/>
                   <TextBlock Grid.Row="3" Text="Duration"/>
                   <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ReanimDurationSummary}"/>
+                  <TextBlock Grid.Row="4" Text="Tweens"/>
+                  <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ReanimTweenCount}"/>
                 </Grid>
                 <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6" IsVisible="{Binding IsParticleEditor}">
                   <TextBlock Text="Emitters"/>
@@ -604,7 +632,7 @@
                 <TextBlock Text="FPS"
                            VerticalAlignment="Center"/>
                 <NumericUpDown Value="{Binding ReanimFps}"
-                               Width="76"
+                               Width="112"
                                Minimum="1"
                                Maximum="240"
                                Increment="1"
@@ -612,17 +640,9 @@
                 <CheckBox Content="Play"
                           IsChecked="{Binding ReanimIsPlaying}"
                           VerticalAlignment="Center"/>
-                <Button Content="Transform"
-                        MinWidth="86"
-                        IsEnabled="{Binding CanTransformSelectedReanimFrame}"
-                        Command="{Binding OpenReanimTransformDialogCommand}"/>
-                <Button Content="Add Frame"
-                        MinWidth="86"
-                        Command="{Binding AddReanimFrameCommand}"/>
-                <Button Content="Remove Frame"
-                        MinWidth="110"
-                        IsEnabled="{Binding CanRemoveReanimFrame}"
-                        Command="{Binding RemoveReanimFrameCommand}"/>
+                <CheckBox Content="Pan"
+                          IsChecked="{Binding IsViewportPanModeEnabled}"
+                          VerticalAlignment="Center"/>
               </WrapPanel>
             </DockPanel>
 
@@ -631,29 +651,7 @@
                           VerticalScrollBarVisibility="Auto">
               <StackPanel Spacing="2">
                 <Grid ColumnDefinitions="150,*" ColumnSpacing="4">
-                  <StackPanel Orientation="Horizontal"
-                              Spacing="4"
-                              VerticalAlignment="Center">
-                    <Button Width="28"
-                            Height="24"
-                            Padding="0"
-                            Command="{Binding AddReanimTrackCommand}"
-                            ToolTip.Tip="Add Track">
-                      <PathIcon Width="14"
-                                Height="14"
-                                Data="M12,5 L12,19 M5,12 L19,12"/>
-                    </Button>
-                    <Button Width="28"
-                            Height="24"
-                            Padding="0"
-                            IsEnabled="{Binding CanRemoveReanimTrack}"
-                            Command="{Binding RemoveReanimTrackCommand}"
-                            ToolTip.Tip="Remove Track">
-                      <PathIcon Width="14"
-                                Height="14"
-                                Data="M3,6 L21,6 M8,6 L8,4 L16,4 L16,6 M7,6 L8,21 L16,21 L17,6 M10,10 L10,18 M14,10 L14,18"/>
-                    </Button>
-                  </StackPanel>
+                  <Border/>
                   <ItemsControl Grid.Column="1"
                                 ItemsSource="{Binding ReanimFrameHeaders}">
                     <ItemsControl.ItemsPanel>

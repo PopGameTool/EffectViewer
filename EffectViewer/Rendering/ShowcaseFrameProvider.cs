@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using EffectViewer.Assets;
 using EffectViewer.Projects;
 using EffectViewer.Runtime;
 
@@ -65,7 +66,7 @@ namespace EffectViewer.Rendering
             float y = (float)sceneObject.Y;
             return sceneObject.Kind switch
             {
-                EffectAssetKind.Reanim when project.Assets.Reanims.TryGetValue(sceneObject.Id, out EffectAsset reanim) =>
+                EffectAssetKind.Reanim when project.Assets.Reanims.TryGetValue(sceneObject.Id, out ReanimAsset reanim) =>
                     new ReanimPreviewSimulation(project, reanim.Path, x, y),
                 EffectAssetKind.Particle when project.Assets.Particles.TryGetValue(sceneObject.Id, out EffectAsset particle) =>
                     new ParticlePreviewSimulation(project, particle.Path, sceneObject.Id, x, y),

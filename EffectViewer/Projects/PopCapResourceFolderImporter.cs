@@ -49,7 +49,7 @@ namespace EffectViewer.Projects
             }
 
             AddImagesByConvention(sourceDirectory, projectDirectory, images, copiedProjectPaths, knownSourceFiles);
-            AddEffectFiles(sourceDirectory, projectDirectory, "reanim", ".reanim", ReanimsDirectory, manifest.Reanims, copiedProjectPaths);
+            AddReanimFiles(sourceDirectory, projectDirectory, "reanim", ".reanim", ReanimsDirectory, manifest.Reanims, copiedProjectPaths);
             AddEffectFiles(sourceDirectory, projectDirectory, "particles", ".xml", ParticlesDirectory, manifest.Particles, copiedProjectPaths);
             AddEffectFiles(sourceDirectory, projectDirectory, "particles", ".trail", TrailsDirectory, manifest.Trails, copiedProjectPaths);
             AddEffectFiles(sourceDirectory, projectDirectory, "trails", ".trail", TrailsDirectory, manifest.Trails, copiedProjectPaths);
@@ -210,6 +210,32 @@ namespace EffectViewer.Projects
             {
                 string id = Path.GetFileNameWithoutExtension(file);
                 target.Add(new EffectAsset
+                {
+                    Id = id,
+                    Path = CopyAssetFile(projectDirectory, file, assetDirectory, id, copiedProjectPaths)
+                });
+            }
+        }
+
+        private static void AddReanimFiles(
+            string sourceDirectory,
+            string projectDirectory,
+            string relativeDirectory,
+            string extension,
+            string assetDirectory,
+            IList<ReanimAsset> target,
+            HashSet<string> copiedProjectPaths)
+        {
+            string directory = Path.Combine(sourceDirectory, relativeDirectory);
+            if (!Directory.Exists(directory))
+            {
+                return;
+            }
+
+            foreach (string file in Directory.EnumerateFiles(directory, "*" + extension, SearchOption.TopDirectoryOnly))
+            {
+                string id = Path.GetFileNameWithoutExtension(file);
+                target.Add(new ReanimAsset
                 {
                     Id = id,
                     Path = CopyAssetFile(projectDirectory, file, assetDirectory, id, copiedProjectPaths)

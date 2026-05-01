@@ -129,8 +129,9 @@ namespace EffectViewer.Controls
             Focus();
             double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
             _lastPanPositionPixels = ToPixels(e.GetPosition(this), scaling);
-            _isDraggingContent = point.Properties.IsLeftButtonPressed && DragHandler?.CanDrag == true;
-            _isPanning = !_isDraggingContent;
+            bool forcePan = point.Properties.IsMiddleButtonPressed || DragHandler?.IsPanModeEnabled == true;
+            _isDraggingContent = point.Properties.IsLeftButtonPressed && !forcePan && DragHandler?.CanDrag == true;
+            _isPanning = forcePan || !_isDraggingContent;
             e.Pointer.Capture(this);
             e.Handled = true;
         }

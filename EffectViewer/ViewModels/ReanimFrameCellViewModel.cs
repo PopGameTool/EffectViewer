@@ -7,13 +7,14 @@ namespace EffectViewer.ViewModels
         private readonly System.Action<int, int> _select;
         private bool _hasContent;
         private bool _hasImage;
+        private bool _isTweened;
         private bool _isSelected;
         private bool _isPlayhead;
         private string _tooltipText = string.Empty;
 
         public int TrackIndex { get; }
         public int FrameIndex { get; }
-        public string Glyph => HasContent ? (HasImage ? "I" : "*") : string.Empty;
+        public string Glyph => IsTweened ? "T" : HasContent ? (HasImage ? "I" : "*") : string.Empty;
 
         public bool HasContent
         {
@@ -33,6 +34,18 @@ namespace EffectViewer.ViewModels
             private set
             {
                 if (SetProperty(ref _hasImage, value))
+                {
+                    OnPropertyChanged(nameof(Glyph));
+                }
+            }
+        }
+
+        public bool IsTweened
+        {
+            get => _isTweened;
+            private set
+            {
+                if (SetProperty(ref _isTweened, value))
                 {
                     OnPropertyChanged(nameof(Glyph));
                 }
@@ -64,13 +77,17 @@ namespace EffectViewer.ViewModels
             _select = select;
         }
 
-        public void Update(bool hasContent, string imageId)
+        public void Update(bool hasContent, string imageId, bool isTweened)
         {
             HasContent = hasContent;
             HasImage = hasContent && !string.IsNullOrWhiteSpace(imageId);
-            TooltipText = string.IsNullOrWhiteSpace(imageId)
-                ? $"Frame {FrameIndex + 1}: {(hasContent ? "Visible" : "Blank")}"
-                : $"Frame {FrameIndex + 1}: {imageId}";
+            IsTweened = isTweened;
+            string summary = string.IsNullOrWhiteSpace(imageId)
+                ? hasContent ? "Visible" : "Blank"
+                : imageId;
+            TooltipText = isTweened
+                ? $"Frame {FrameIndex + 1}: Tween, {summary}"
+                : $"Frame {FrameIndex + 1}: {summary}";
         }
 
         [RelayCommand]

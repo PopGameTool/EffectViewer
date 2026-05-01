@@ -106,7 +106,7 @@ namespace EffectViewer.Projects
                 ],
                 Reanims =
                 [
-                    new EffectAsset { Id = "sample_reanim", Path = "reanim/sample.reanim" }
+                    new ReanimAsset { Id = "sample_reanim", Path = "reanim/sample.reanim" }
                 ],
                 Particles =
                 [
@@ -428,6 +428,21 @@ namespace EffectViewer.Projects
             {
                 image.Rows = image.Rows < 1 ? 1 : image.Rows;
                 image.Cols = image.Cols < 1 ? 1 : image.Cols;
+            }
+
+            foreach (ReanimAsset reanim in manifest.Reanims)
+            {
+                reanim.Tweens ??= [];
+                foreach (ReanimTween tween in reanim.Tweens)
+                {
+                    tween.TrackIndex = tween.TrackIndex < 0 ? 0 : tween.TrackIndex;
+                    tween.TrackName ??= string.Empty;
+                    tween.StartFrame = tween.StartFrame < 0 ? 0 : tween.StartFrame;
+                    tween.EndFrame = tween.EndFrame < tween.StartFrame ? tween.StartFrame : tween.EndFrame;
+                    tween.Properties ??= [];
+                }
+
+                reanim.Tweens.RemoveAll(tween => tween.EndFrame <= tween.StartFrame);
             }
         }
     }
