@@ -38,7 +38,7 @@
           <TextBox Grid.Row="1"
                    Text="{Binding ScriptText}"
                    AcceptsReturn="True"
-                   FontFamily="Consolas"
+                   FontFamily="{StaticResource CodeFontFamily}"
                    FontSize="14"
                    TextWrapping="NoWrap"
                    ScrollViewer.HorizontalScrollBarVisibility="Auto"

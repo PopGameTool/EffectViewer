@@ -22,7 +22,7 @@
                    FontSize="16"
                    FontWeight="SemiBold"/>
         <TextBlock Text="images / reanim / particles / trails / scripts"
-                   FontFamily="Consolas"
+                   FontFamily="{StaticResource CodeFontFamily}"
                    Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
       </StackPanel>
     </Border>
