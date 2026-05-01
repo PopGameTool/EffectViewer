@@ -24,6 +24,7 @@ namespace EffectViewer.Rendering.OpenGl
         public const uint TextureMagFilter = 0x2800;
         public const uint TextureWrapS = 0x2802;
         public const uint TextureWrapT = 0x2803;
+        public const uint UnpackAlignment = 0x0CF5;
         public const int Linear = 0x2601;
         public const int ClampToEdge = 0x812F;
     }

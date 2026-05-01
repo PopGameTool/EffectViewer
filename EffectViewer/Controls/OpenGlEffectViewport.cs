@@ -5,6 +5,7 @@ using Avalonia.OpenGL;
 using Avalonia.OpenGL.Controls;
 using System.Numerics;
 using EffectViewer.Rendering;
+using EffectViewer.Rendering.Gl;
 using EffectViewer.Rendering.OpenGl;
 using EffectViewer.Rendering.TextureUpload;
 
@@ -20,6 +21,9 @@ namespace EffectViewer.Controls
 
         public static readonly StyledProperty<IRenderFrameProvider> FrameProviderProperty =
             AvaloniaProperty.Register<OpenGlEffectViewport, IRenderFrameProvider>(nameof(FrameProvider));
+
+        public static IEffectGlInterfaceFactory GlInterfaceFactory { get; set; } =
+            new ProcAddressEffectGlInterfaceFactory(EffectGlApi.OpenGl, "OpenGL");
 
         private readonly OpenGlRenderer _renderer = new();
         private DateTime _lastRenderUtc = DateTime.UtcNow;
@@ -54,7 +58,7 @@ namespace EffectViewer.Controls
         protected override void OnOpenGlInit(GlInterface gl)
         {
             base.OnOpenGlInit(gl);
-            _renderer.Initialize(gl);
+            _renderer.Initialize(GlInterfaceFactory.Create(gl));
         }
 
         protected override void OnOpenGlRender(GlInterface gl, int fb)

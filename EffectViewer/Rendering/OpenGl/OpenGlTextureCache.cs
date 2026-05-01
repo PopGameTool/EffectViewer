@@ -25,5 +25,7 @@ namespace EffectViewer.Rendering.OpenGl
         {
             _textures.Clear();
         }
+
+        public IReadOnlyCollection<int> Handles => _textures.Values;
     }
 }

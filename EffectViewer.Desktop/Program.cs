@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using EffectViewer.Controls;
 using System;
 
 namespace EffectViewer.Desktop
@@ -16,6 +17,7 @@ namespace EffectViewer.Desktop
         public static AppBuilder BuildAvaloniaApp()
         {
             App.ProjectStorageProvider = new DesktopProjectStorageProvider();
+            OpenGlEffectViewport.GlInterfaceFactory = new DesktopGlInterfaceFactory();
             return AppBuilder.Configure<App>()
                 .UsePlatformDetect()
 #if DEBUG

@@ -2,6 +2,7 @@
 using Android.Runtime;
 using Avalonia;
 using Avalonia.Android;
+using EffectViewer.Controls;
 
 namespace EffectViewer.Android
 {
@@ -15,6 +16,7 @@ namespace EffectViewer.Android
         protected override AppBuilder CustomizeAppBuilder(AppBuilder builder)
         {
             App.ProjectStorageProvider = new AndroidProjectStorageProvider(this);
+            OpenGlEffectViewport.GlInterfaceFactory = new AndroidGlInterfaceFactory();
             return base.CustomizeAppBuilder(builder)
             .WithInterFont();
         }
