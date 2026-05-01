@@ -751,11 +751,6 @@ namespace EffectViewer.ViewModels
 
         private static string ResolveEffectPath(EffectProject project, string path, EffectAsset asset)
         {
-            if (asset is not null && !string.IsNullOrWhiteSpace(asset.SourcePath) && File.Exists(asset.SourcePath))
-            {
-                return asset.SourcePath;
-            }
-
             string assetPath = asset?.Path;
             string effectivePath = string.IsNullOrWhiteSpace(assetPath) ? path : assetPath;
             return TrailPreviewFrameBuilder.ResolvePath(project, effectivePath);

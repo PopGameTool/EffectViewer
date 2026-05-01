@@ -17,6 +17,7 @@ namespace EffectViewer.iOS
     {
         protected override AppBuilder CustomizeAppBuilder(AppBuilder builder)
         {
+            App.ProjectStorageProvider = new IosProjectStorageProvider();
             return base.CustomizeAppBuilder(builder)
                 .WithInterFont();
         }

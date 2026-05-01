@@ -21,15 +21,6 @@ namespace EffectViewer.Views
             }
         }
 
-        private async void OpenProjectButton_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
-        {
-            string path = await PickFolderAsync("Open EffectViewer project folder");
-            if (!string.IsNullOrWhiteSpace(path) && DataContext is MainViewModel viewModel)
-            {
-                await viewModel.OpenProjectAsync(path);
-            }
-        }
-
         private async Task<string> PickFolderAsync(string title)
         {
             TopLevel topLevel = TopLevel.GetTopLevel(this);

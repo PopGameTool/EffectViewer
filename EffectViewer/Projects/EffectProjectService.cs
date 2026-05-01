@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using EffectViewer.Assets;
@@ -8,12 +11,20 @@ namespace EffectViewer.Projects
     public sealed class EffectProjectService
     {
         public const string ManifestFileName = "project.effectproj.json";
+        public const string AssetsDirectoryName = "assets";
 
         private static readonly JsonSerializerOptions SerializerOptions = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = true
         };
+
+        private readonly IProjectStorageProvider _storageProvider;
+
+        public EffectProjectService(IProjectStorageProvider storageProvider)
+        {
+            _storageProvider = storageProvider ?? new DefaultProjectStorageProvider();
+        }
 
         public async Task<EffectProject> LoadAsync(string projectDirectory)
         {
@@ -24,6 +35,50 @@ namespace EffectViewer.Projects
 
             Normalize(manifest);
             return new EffectProject(projectDirectory, manifest);
+        }
+
+        public async Task<IReadOnlyList<ProjectInfo>> ListProjectsAsync()
+        {
+            string projectsRoot = _storageProvider.ProjectsRootPath;
+            if (string.IsNullOrWhiteSpace(projectsRoot) || !Directory.Exists(projectsRoot))
+            {
+                return [];
+            }
+
+            List<ProjectInfo> projects = [];
+            foreach (string projectDirectory in Directory.EnumerateDirectories(projectsRoot))
+            {
+                string manifestPath = Path.Combine(projectDirectory, ManifestFileName);
+                if (!File.Exists(manifestPath))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await using FileStream stream = File.OpenRead(manifestPath);
+                    ProjectManifest manifest = await JsonSerializer.DeserializeAsync<ProjectManifest>(stream, SerializerOptions)
+                        ?? new ProjectManifest();
+
+                    projects.Add(new ProjectInfo
+                    {
+                        Name = string.IsNullOrWhiteSpace(manifest.Name)
+                            ? Path.GetFileName(projectDirectory)
+                            : manifest.Name,
+                        ProjectPath = projectDirectory,
+                        DirectoryName = Path.GetFileName(projectDirectory),
+                        LastModified = File.GetLastWriteTime(manifestPath)
+                    });
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+                {
+                }
+            }
+
+            return projects
+                .OrderByDescending(project => project.LastModified)
+                .ThenBy(project => project.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         public async Task SaveAsync(EffectProject project)
@@ -75,21 +130,48 @@ namespace EffectViewer.Projects
             return new EffectProject(string.Empty, manifest);
         }
 
-        public async Task<FolderImportResult> ImportFolderAsync(string sourceDirectory, string projectDirectory, ImportMode mode)
+        public async Task<FolderImportResult> ImportFolderAsync(string sourceDirectory)
         {
+            string projectDirectory = CreateUniqueProjectDirectory(sourceDirectory);
             PopCapResourceFolderImporter importer = new();
-            FolderImportResult result = importer.Import(sourceDirectory, projectDirectory, mode);
+            FolderImportResult result = importer.Import(sourceDirectory, projectDirectory);
 
-            if (!string.IsNullOrWhiteSpace(projectDirectory))
-            {
-                await SaveAsync(result.Project);
-            }
+            await SaveAsync(result.Project);
 
             return result;
         }
 
+        private string CreateUniqueProjectDirectory(string sourceDirectory)
+        {
+            string sourceName = Path.GetFileName(sourceDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            string baseName = ProjectPathUtility.CreateSafeName(sourceName, "project");
+            string projectsRoot = _storageProvider.ProjectsRootPath;
+            if (string.IsNullOrWhiteSpace(projectsRoot))
+            {
+                projectsRoot = new DefaultProjectStorageProvider().ProjectsRootPath;
+            }
+
+            Directory.CreateDirectory(projectsRoot);
+
+            string candidate = Path.Combine(projectsRoot, baseName);
+            if (!Directory.Exists(candidate) && !File.Exists(Path.Combine(candidate, ManifestFileName)))
+            {
+                return candidate;
+            }
+
+            for (int i = 2; ; i++)
+            {
+                candidate = Path.Combine(projectsRoot, $"{baseName}-{i}");
+                if (!Directory.Exists(candidate) && !File.Exists(Path.Combine(candidate, ManifestFileName)))
+                {
+                    return candidate;
+                }
+            }
+        }
+
         private static void Normalize(ProjectManifest manifest)
         {
+            manifest.Version = manifest.Version <= 0 ? 1 : manifest.Version;
             foreach (ImageAsset image in manifest.Images)
             {
                 image.Rows = image.Rows < 1 ? 1 : image.Rows;

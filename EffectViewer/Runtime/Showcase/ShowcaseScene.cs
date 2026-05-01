@@ -55,7 +55,7 @@ namespace EffectViewer.Runtime.Showcase
             Reanimation reanimation = EffectSystem.gEffectSystem.mReanimationHolder.mReanimations.DataArrayAlloc();
             reanimation.mReanimationHolder = EffectSystem.gEffectSystem.mReanimationHolder;
             reanimation.mRenderOrder = _reanims.Count + _particles.Count + _trails.Count;
-            InitializeReanimation(reanimation, id, ResolveAssetPath(asset.SourcePath, asset.Path), (float)x, (float)y);
+            InitializeReanimation(reanimation, id, ResolveAssetPath(asset.Path), (float)x, (float)y);
 
             ShowcaseReanimation instance = new(this, id, reanimation);
             _reanims.Add(instance);
@@ -317,7 +317,7 @@ namespace EffectViewer.Runtime.Showcase
 
         private TodParticleDefinition LoadParticleDefinition(EffectAsset asset)
         {
-            string fullPath = ResolveAssetPath(asset.SourcePath, asset.Path);
+            string fullPath = ResolveAssetPath(asset.Path);
             try
             {
                 if (!string.IsNullOrWhiteSpace(fullPath) &&
@@ -340,7 +340,7 @@ namespace EffectViewer.Runtime.Showcase
 
         private TrailDefinition LoadTrailDefinition(EffectAsset asset)
         {
-            string fullPath = ResolveAssetPath(asset.SourcePath, asset.Path);
+            string fullPath = ResolveAssetPath(asset.Path);
             try
             {
                 if (!string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath))
@@ -357,13 +357,8 @@ namespace EffectViewer.Runtime.Showcase
             return definition;
         }
 
-        private string ResolveAssetPath(string sourcePath, string assetPath)
+        private string ResolveAssetPath(string assetPath)
         {
-            if (!string.IsNullOrWhiteSpace(sourcePath) && File.Exists(sourcePath))
-            {
-                return sourcePath;
-            }
-
             if (string.IsNullOrWhiteSpace(assetPath))
             {
                 return string.Empty;

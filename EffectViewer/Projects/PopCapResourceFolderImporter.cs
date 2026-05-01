@@ -10,18 +10,27 @@ namespace EffectViewer.Projects
 {
     public sealed class PopCapResourceFolderImporter
     {
+        private const string ImagesDirectory = "assets/images";
+        private const string ReanimsDirectory = "assets/reanims";
+        private const string ParticlesDirectory = "assets/particles";
+        private const string TrailsDirectory = "assets/trails";
+
         private static readonly string[] ImageExtensions = [".png", ".jpg", ".jpeg", ".gif"];
-        public FolderImportResult Import(string sourceDirectory, string projectDirectory, ImportMode mode)
+
+        public FolderImportResult Import(string sourceDirectory, string projectDirectory)
         {
             if (string.IsNullOrWhiteSpace(sourceDirectory) || !Directory.Exists(sourceDirectory))
             {
                 throw new DirectoryNotFoundException(sourceDirectory);
             }
 
-            if (mode == ImportMode.CopyIntoProject && string.IsNullOrWhiteSpace(projectDirectory))
+            if (string.IsNullOrWhiteSpace(projectDirectory))
             {
-                throw new ArgumentException("Project directory is required when copying imported assets.", nameof(projectDirectory));
+                throw new ArgumentException("Project directory is required when importing assets.", nameof(projectDirectory));
             }
+
+            Directory.CreateDirectory(projectDirectory);
+            EnsureProjectDirectories(projectDirectory);
 
             ProjectManifest manifest = new()
             {
@@ -29,19 +38,21 @@ namespace EffectViewer.Projects
             };
 
             Dictionary<string, ImageAsset> images = new(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> copiedProjectPaths = new(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> knownSourceFiles = new(StringComparer.OrdinalIgnoreCase);
             int missingImages = 0;
 
             string resourcesPath = Path.Combine(sourceDirectory, "properties", "resources.xml");
             if (File.Exists(resourcesPath))
             {
-                missingImages += ImportResourcesXml(sourceDirectory, projectDirectory, mode, resourcesPath, images);
+                missingImages += ImportResourcesXml(sourceDirectory, projectDirectory, resourcesPath, images, copiedProjectPaths, knownSourceFiles);
             }
 
-            AddImagesByConvention(sourceDirectory, projectDirectory, mode, images);
-            AddEffectFiles(sourceDirectory, projectDirectory, mode, "reanim", ".reanim", manifest.Reanims);
-            AddEffectFiles(sourceDirectory, projectDirectory, mode, "particles", ".xml", manifest.Particles);
-            AddEffectFiles(sourceDirectory, projectDirectory, mode, "particles", ".trail", manifest.Trails);
-            AddEffectFiles(sourceDirectory, projectDirectory, mode, "trails", ".trail", manifest.Trails);
+            AddImagesByConvention(sourceDirectory, projectDirectory, images, copiedProjectPaths, knownSourceFiles);
+            AddEffectFiles(sourceDirectory, projectDirectory, "reanim", ".reanim", ReanimsDirectory, manifest.Reanims, copiedProjectPaths);
+            AddEffectFiles(sourceDirectory, projectDirectory, "particles", ".xml", ParticlesDirectory, manifest.Particles, copiedProjectPaths);
+            AddEffectFiles(sourceDirectory, projectDirectory, "particles", ".trail", TrailsDirectory, manifest.Trails, copiedProjectPaths);
+            AddEffectFiles(sourceDirectory, projectDirectory, "trails", ".trail", TrailsDirectory, manifest.Trails, copiedProjectPaths);
 
             manifest.Images = images.Values
                 .OrderBy(asset => asset.Id, StringComparer.OrdinalIgnoreCase)
@@ -57,12 +68,21 @@ namespace EffectViewer.Projects
                 missingImages);
         }
 
+        private static void EnsureProjectDirectories(string projectDirectory)
+        {
+            Directory.CreateDirectory(Path.Combine(projectDirectory, ImagesDirectory.Replace('/', Path.DirectorySeparatorChar)));
+            Directory.CreateDirectory(Path.Combine(projectDirectory, ReanimsDirectory.Replace('/', Path.DirectorySeparatorChar)));
+            Directory.CreateDirectory(Path.Combine(projectDirectory, ParticlesDirectory.Replace('/', Path.DirectorySeparatorChar)));
+            Directory.CreateDirectory(Path.Combine(projectDirectory, TrailsDirectory.Replace('/', Path.DirectorySeparatorChar)));
+        }
+
         private static int ImportResourcesXml(
             string sourceDirectory,
             string projectDirectory,
-            ImportMode mode,
             string resourcesPath,
-            Dictionary<string, ImageAsset> images)
+            Dictionary<string, ImageAsset> images,
+            HashSet<string> copiedProjectPaths,
+            HashSet<string> knownSourceFiles)
         {
             SexyXmlParser parser = SexyXmlParser.FromFile(resourcesPath);
             string currentPath = string.Empty;
@@ -105,12 +125,12 @@ namespace EffectViewer.Projects
                 ImageAsset asset = new()
                 {
                     Id = id,
-                    Path = PrepareAssetPath(sourceDirectory, projectDirectory, mode, sourceFile, currentPath),
-                    SourcePath = sourceFile,
+                    Path = CopyAssetFile(projectDirectory, sourceFile, ImagesDirectory, id, copiedProjectPaths),
                     Rows = ReadPositiveInt(element, "rows", 1),
                     Cols = ReadPositiveInt(element, "cols", 1)
                 };
-                AttachAlphaCompanion(sourceDirectory, projectDirectory, mode, asset);
+                knownSourceFiles.Add(Path.GetFullPath(sourceFile));
+                AttachAlphaCompanion(projectDirectory, asset, sourceFile, copiedProjectPaths, knownSourceFiles);
 
                 images[id] = asset;
             }
@@ -121,18 +141,10 @@ namespace EffectViewer.Projects
         private static void AddImagesByConvention(
             string sourceDirectory,
             string projectDirectory,
-            ImportMode mode,
-            Dictionary<string, ImageAsset> images)
+            Dictionary<string, ImageAsset> images,
+            HashSet<string> copiedProjectPaths,
+            HashSet<string> knownSourceFiles)
         {
-            HashSet<string> knownSourceFiles = images.Values
-                .Where(asset => !string.IsNullOrWhiteSpace(asset.SourcePath))
-                .Select(asset => Path.GetFullPath(asset.SourcePath))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            foreach (ImageAsset asset in images.Values.Where(asset => !string.IsNullOrWhiteSpace(asset.AlphaSourcePath)))
-            {
-                knownSourceFiles.Add(Path.GetFullPath(asset.AlphaSourcePath));
-            }
-
             foreach (string file in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories)
                          .Where(IsImageFile))
             {
@@ -142,12 +154,12 @@ namespace EffectViewer.Projects
                     continue;
                 }
 
-                string relativePath = Path.GetRelativePath(sourceDirectory, file);
                 if (IsAlphaCompanionFile(file) && TryFindAlphaBaseFile(file, out _))
                 {
                     continue;
                 }
 
+                string relativePath = Path.GetRelativePath(sourceDirectory, file);
                 string topDirectory = GetTopDirectory(relativePath);
                 string name = Path.GetFileNameWithoutExtension(file);
                 string id = string.Equals(topDirectory, "reanim", StringComparison.OrdinalIgnoreCase)
@@ -162,16 +174,12 @@ namespace EffectViewer.Projects
                 ImageAsset asset = new()
                 {
                     Id = id,
-                    Path = PrepareAssetPath(sourceDirectory, projectDirectory, mode, file, topDirectory),
-                    SourcePath = file,
+                    Path = CopyAssetFile(projectDirectory, file, ImagesDirectory, id, copiedProjectPaths),
                     Rows = 1,
                     Cols = 1
                 };
-                AttachAlphaCompanion(sourceDirectory, projectDirectory, mode, asset);
-                if (!string.IsNullOrWhiteSpace(asset.AlphaSourcePath))
-                {
-                    knownSourceFiles.Add(Path.GetFullPath(asset.AlphaSourcePath));
-                }
+                knownSourceFiles.Add(fullPath);
+                AttachAlphaCompanion(projectDirectory, asset, file, copiedProjectPaths, knownSourceFiles);
 
                 images[id] = asset;
             }
@@ -186,10 +194,11 @@ namespace EffectViewer.Projects
         private static void AddEffectFiles(
             string sourceDirectory,
             string projectDirectory,
-            ImportMode mode,
             string relativeDirectory,
             string extension,
-            IList<EffectAsset> target)
+            string assetDirectory,
+            IList<EffectAsset> target,
+            HashSet<string> copiedProjectPaths)
         {
             string directory = Path.Combine(sourceDirectory, relativeDirectory);
             if (!Directory.Exists(directory))
@@ -199,11 +208,11 @@ namespace EffectViewer.Projects
 
             foreach (string file in Directory.EnumerateFiles(directory, "*" + extension, SearchOption.TopDirectoryOnly))
             {
+                string id = Path.GetFileNameWithoutExtension(file);
                 target.Add(new EffectAsset
                 {
-                    Id = Path.GetFileNameWithoutExtension(file),
-                    Path = PrepareAssetPath(sourceDirectory, projectDirectory, mode, file, relativeDirectory),
-                    SourcePath = file
+                    Id = id,
+                    Path = CopyAssetFile(projectDirectory, file, assetDirectory, id, copiedProjectPaths)
                 });
             }
         }
@@ -232,20 +241,27 @@ namespace EffectViewer.Projects
         }
 
         private static void AttachAlphaCompanion(
-            string sourceDirectory,
             string projectDirectory,
-            ImportMode mode,
-            ImageAsset asset)
+            ImageAsset asset,
+            string sourceFile,
+            HashSet<string> copiedProjectPaths,
+            HashSet<string> knownSourceFiles)
         {
             if (asset is null ||
-                string.IsNullOrWhiteSpace(asset.SourcePath) ||
-                !TryFindAlphaCompanionFile(asset.SourcePath, out string alphaFile))
+                string.IsNullOrWhiteSpace(asset.Path) ||
+                string.IsNullOrWhiteSpace(sourceFile))
             {
                 return;
             }
 
-            asset.AlphaPath = PrepareAssetPath(sourceDirectory, projectDirectory, mode, alphaFile, GetTopDirectory(Path.GetRelativePath(sourceDirectory, alphaFile)));
-            asset.AlphaSourcePath = alphaFile;
+            if (!TryFindAlphaCompanionFile(sourceFile, out string alphaFile))
+            {
+                return;
+            }
+
+            string alphaId = asset.Id + ".alpha";
+            asset.AlphaPath = CopyAssetFile(projectDirectory, alphaFile, ImagesDirectory, alphaId, copiedProjectPaths);
+            knownSourceFiles.Add(Path.GetFullPath(alphaFile));
         }
 
         private static bool TryFindAlphaCompanionFile(string sourceFile, out string alphaFile)
@@ -300,23 +316,46 @@ namespace EffectViewer.Projects
             return false;
         }
 
-        private static string PrepareAssetPath(
-            string sourceDirectory,
+        private static string CopyAssetFile(
             string projectDirectory,
-            ImportMode mode,
             string sourceFile,
-            string preferredRelativeDirectory)
+            string assetDirectory,
+            string preferredName,
+            HashSet<string> copiedProjectPaths)
         {
-            if (mode == ImportMode.ReferenceSource)
-            {
-                return Path.GetRelativePath(sourceDirectory, sourceFile).Replace('\\', '/');
-            }
+            string extension = Path.GetExtension(sourceFile);
+            string safeName = ProjectPathUtility.CreateSafeName(preferredName, "asset");
+            string relativePath = ProjectPathUtility.ToProjectRelativePath(Path.Combine(assetDirectory, safeName + extension));
+            relativePath = EnsureUniquePath(relativePath, copiedProjectPaths);
 
-            string relativePath = Path.GetRelativePath(sourceDirectory, sourceFile);
-            string destination = Path.Combine(projectDirectory, relativePath);
+            string destination = Path.Combine(projectDirectory, relativePath.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             File.Copy(sourceFile, destination, overwrite: true);
-            return relativePath.Replace('\\', '/');
+            copiedProjectPaths.Add(relativePath);
+            return relativePath;
+        }
+
+        private static string EnsureUniquePath(string relativePath, HashSet<string> copiedProjectPaths)
+        {
+            if (!copiedProjectPaths.Contains(relativePath))
+            {
+                return relativePath;
+            }
+
+            string directory = Path.GetDirectoryName(relativePath)?.Replace('\\', '/') ?? string.Empty;
+            string name = Path.GetFileNameWithoutExtension(relativePath);
+            string extension = Path.GetExtension(relativePath);
+            for (int i = 2; ; i++)
+            {
+                string candidateName = $"{name}-{i}{extension}";
+                string candidate = string.IsNullOrWhiteSpace(directory)
+                    ? candidateName
+                    : $"{directory}/{candidateName}";
+                if (!copiedProjectPaths.Contains(candidate))
+                {
+                    return candidate;
+                }
+            }
         }
 
         private static string ReadAttribute(SexyXmlElement element, string name)

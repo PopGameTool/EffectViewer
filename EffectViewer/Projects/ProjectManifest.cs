@@ -5,7 +5,7 @@ namespace EffectViewer.Projects
 {
     public sealed class ProjectManifest
     {
-        public int Version { get; set; } = 1;
+        public int Version { get; set; } = 2;
         public string Name { get; set; } = "Untitled Effect Project";
         public List<ImageAsset> Images { get; set; } = [];
         public List<EffectAsset> Reanims { get; set; } = [];

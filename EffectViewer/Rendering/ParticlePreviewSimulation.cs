@@ -128,7 +128,7 @@ namespace EffectViewer.Rendering
             string fullPath = ResolvePath(_project, _path);
             if (_project.Assets.Particles.TryGetValue(_assetId, out EffectAsset asset))
             {
-                fullPath = ResolveAssetPath(_project, asset.SourcePath, asset.Path);
+                fullPath = ResolvePath(_project, asset.Path);
             }
 
             try
@@ -154,14 +154,5 @@ namespace EffectViewer.Rendering
                 : Path.Combine(project.RootPath, path);
         }
 
-        private static string ResolveAssetPath(EffectProject project, string sourcePath, string assetPath)
-        {
-            if (!string.IsNullOrWhiteSpace(sourcePath) && File.Exists(sourcePath))
-            {
-                return sourcePath;
-            }
-
-            return ResolvePath(project, assetPath);
-        }
     }
 }

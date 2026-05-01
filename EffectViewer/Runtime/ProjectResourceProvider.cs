@@ -41,7 +41,7 @@ namespace EffectViewer.Runtime
                 mNumCols = Math.Max(1, asset.Cols)
             };
 
-            string fullPath = ResolveAssetPath(asset.SourcePath, asset.Path);
+            string fullPath = ProjectPathUtility.ResolvePath(_project, asset.Path);
 
             if (ImageFileSizeReader.TryReadSize(fullPath, out int width, out int height))
             {
@@ -63,21 +63,5 @@ namespace EffectViewer.Runtime
             return null;
         }
 
-        private string ResolveAssetPath(string sourcePath, string assetPath)
-        {
-            if (!string.IsNullOrWhiteSpace(sourcePath) && File.Exists(sourcePath))
-            {
-                return sourcePath;
-            }
-
-            if (string.IsNullOrWhiteSpace(assetPath))
-            {
-                return string.Empty;
-            }
-
-            return Path.IsPathRooted(assetPath) || string.IsNullOrWhiteSpace(_project.RootPath)
-                ? assetPath
-                : Path.Combine(_project.RootPath, assetPath);
-        }
     }
 }

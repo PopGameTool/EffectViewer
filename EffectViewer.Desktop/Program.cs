@@ -14,12 +14,15 @@ namespace EffectViewer.Desktop
 
         // Avalonia configuration, don't remove; also used by visual designer.
         public static AppBuilder BuildAvaloniaApp()
-            => AppBuilder.Configure<App>()
+        {
+            App.ProjectStorageProvider = new DesktopProjectStorageProvider();
+            return AppBuilder.Configure<App>()
                 .UsePlatformDetect()
 #if DEBUG
                 .WithDeveloperTools()
 #endif
                 .WithInterFont()
                 .LogToTrace();
+        }
     }
 }

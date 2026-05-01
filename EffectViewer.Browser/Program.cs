@@ -1,7 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Browser;
 using EffectViewer;
-using System.Runtime.Versioning;
 using System.Threading.Tasks;
 
 internal sealed partial class Program
@@ -14,5 +13,8 @@ internal sealed partial class Program
             .StartBrowserAppAsync("out");
 
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>();
+    {
+        App.ProjectStorageProvider = new EffectViewer.Browser.BrowserProjectStorageProvider();
+        return AppBuilder.Configure<App>();
+    }
 }

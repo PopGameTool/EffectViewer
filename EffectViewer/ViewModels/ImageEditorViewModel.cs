@@ -129,11 +129,9 @@ namespace EffectViewer.ViewModels
         {
             width = 0;
             height = 0;
-            string fullPath = !string.IsNullOrWhiteSpace(asset.SourcePath) && File.Exists(asset.SourcePath)
-                ? asset.SourcePath
-                : System.IO.Path.IsPathRooted(asset.Path) || string.IsNullOrWhiteSpace(project.RootPath)
-                    ? asset.Path
-                    : System.IO.Path.Combine(project.RootPath, asset.Path);
+            string fullPath = System.IO.Path.IsPathRooted(asset.Path) || string.IsNullOrWhiteSpace(project.RootPath)
+                ? asset.Path
+                : System.IO.Path.Combine(project.RootPath, asset.Path);
 
             Runtime.ImageFileSizeReader.TryReadSize(fullPath, out width, out height);
         }

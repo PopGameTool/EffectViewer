@@ -15,13 +15,14 @@ namespace EffectViewer.ViewModels
 {
     public sealed partial class MainViewModel : ViewModelBase
     {
-        private readonly EffectProjectService _projectService = new();
+        private readonly EffectProjectService _projectService;
         private readonly EffectWorld _effectWorld = new();
         private LuaHost _luaHost;
         private TaskCompletionSource<UnsavedChangesChoice> _unsavedChangesCompletion;
 
         public ObservableCollection<ProjectExplorerItemViewModel> ProjectItems { get; } = [];
         public ObservableCollection<EditorViewModelBase> OpenEditors { get; } = [];
+        public ObservableCollection<ProjectListItemViewModel> AvailableProjects { get; } = [];
 
         [ObservableProperty]
         private EffectProject _currentProject;
@@ -44,6 +45,17 @@ namespace EffectViewer.ViewModels
         [ObservableProperty]
         private string _unsavedChangesMessage;
 
+        [ObservableProperty]
+        private bool _isOpenProjectDialogOpen;
+
+        [ObservableProperty]
+        private ProjectListItemViewModel _selectedAvailableProject;
+
+        [ObservableProperty]
+        private string _openProjectMessage;
+
+        public bool HasAvailableProjects => AvailableProjects.Count > 0;
+
         private enum UnsavedChangesChoice
         {
             Save,
@@ -51,8 +63,9 @@ namespace EffectViewer.ViewModels
             Cancel
         }
 
-        public MainViewModel()
+        public MainViewModel(IProjectStorageProvider storageProvider)
         {
+            _projectService = new EffectProjectService(storageProvider);
             LoadProject(_projectService.CreateDemoProject());
             StatusText = "Demo project loaded";
         }
@@ -113,32 +126,63 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
-            string projectDirectory = sourceDirectory;
-            FolderImportResult result = await _projectService.ImportFolderAsync(
-                sourceDirectory,
-                projectDirectory,
-                ImportMode.ReferenceSource);
+            FolderImportResult result = await _projectService.ImportFolderAsync(sourceDirectory);
 
             LoadProject(result.Project);
             StatusText = $"Imported {result.ImageCount} image(s), {result.ReanimCount} reanim(s), {result.ParticleCount} particle(s), {result.TrailCount} trail(s). Missing images: {result.MissingImageCount}.";
         }
 
-        public async Task OpenProjectAsync(string projectDirectory)
+        [RelayCommand]
+        private async Task ShowOpenProjectDialogAsync()
         {
-            if (string.IsNullOrWhiteSpace(projectDirectory))
+            AvailableProjects.Clear();
+            SelectedAvailableProject = null;
+
+            IReadOnlyList<ProjectInfo> projects = await _projectService.ListProjectsAsync();
+            foreach (ProjectInfo project in projects)
             {
+                AvailableProjects.Add(new ProjectListItemViewModel(project));
+            }
+
+            OnPropertyChanged(nameof(HasAvailableProjects));
+            OpenProjectMessage = HasAvailableProjects
+                ? "Select a project from the app private project folder."
+                : "No imported projects were found in the app private project folder.";
+            IsOpenProjectDialogOpen = true;
+            StatusText = HasAvailableProjects
+                ? $"Found {AvailableProjects.Count} project(s)."
+                : "No internal projects found.";
+        }
+
+        [RelayCommand]
+        private async Task OpenSelectedProjectAsync()
+        {
+            ProjectListItemViewModel projectItem = SelectedAvailableProject;
+            if (projectItem is null || string.IsNullOrWhiteSpace(projectItem.ProjectPath))
+            {
+                StatusText = "No project is selected.";
                 return;
             }
 
+            IsOpenProjectDialogOpen = false;
             if (!await ConfirmAllUnsavedChangesAsync())
             {
                 StatusText = "Canceled opening project.";
+                IsOpenProjectDialogOpen = true;
                 return;
             }
 
-            EffectProject project = await _projectService.LoadAsync(projectDirectory);
+            EffectProject project = await _projectService.LoadAsync(projectItem.ProjectPath);
             LoadProject(project);
             StatusText = $"Opened {project.Manifest.Name}.";
+        }
+
+        [RelayCommand]
+        private void CancelOpenProject()
+        {
+            IsOpenProjectDialogOpen = false;
+            SelectedAvailableProject = null;
+            StatusText = "Canceled opening project.";
         }
 
         private void LoadProject(EffectProject project)

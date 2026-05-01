@@ -23,11 +23,11 @@ namespace EffectViewer.Rendering.TextureUpload
                 return _fallback.TryLoad(texture, out data);
             }
 
-            string fullPath = ResolveAssetPath(asset.SourcePath, asset.Path);
+            string fullPath = ProjectPathUtility.ResolvePath(_project, asset.Path);
 
             if (AvaloniaBitmapTextureLoader.TryLoadFromFile(fullPath, out data))
             {
-                string alphaPath = ResolveAssetPath(asset.AlphaSourcePath, asset.AlphaPath);
+                string alphaPath = ProjectPathUtility.ResolvePath(_project, asset.AlphaPath);
                 if (AvaloniaBitmapTextureLoader.TryLoadFromFile(alphaPath, out TextureUploadData alphaData))
                 {
                     ApplyAlphaCompanion(data, alphaData);
@@ -37,23 +37,6 @@ namespace EffectViewer.Rendering.TextureUpload
             }
 
             return _fallback.TryLoad(texture, out data);
-        }
-
-        private string ResolveAssetPath(string sourcePath, string assetPath)
-        {
-            if (!string.IsNullOrWhiteSpace(sourcePath) && File.Exists(sourcePath))
-            {
-                return sourcePath;
-            }
-
-            if (string.IsNullOrWhiteSpace(assetPath))
-            {
-                return string.Empty;
-            }
-
-            return Path.IsPathRooted(assetPath) || string.IsNullOrWhiteSpace(_project.RootPath)
-                ? assetPath
-                : Path.Combine(_project.RootPath, assetPath);
         }
 
         private static void ApplyAlphaCompanion(TextureUploadData data, TextureUploadData alphaData)
