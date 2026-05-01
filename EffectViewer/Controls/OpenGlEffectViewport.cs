@@ -11,7 +11,7 @@ using EffectViewer.Rendering.TextureUpload;
 
 namespace EffectViewer.Controls
 {
-    public sealed class OpenGlEffectViewport : OpenGlControlBase
+    public sealed class OpenGlEffectViewport : OpenGlControlBase, IEffectViewport
     {
         public static readonly StyledProperty<RenderFrame> FrameProperty =
             AvaloniaProperty.Register<OpenGlEffectViewport, RenderFrame>(nameof(Frame), new RenderFrame());

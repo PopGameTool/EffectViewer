@@ -20,7 +20,10 @@ namespace EffectViewer.Controls
         public static readonly StyledProperty<IRenderFrameProvider> FrameProviderProperty =
             AvaloniaProperty.Register<InteractiveEffectViewport, IRenderFrameProvider>(nameof(FrameProvider));
 
-        private readonly OpenGlEffectViewport _viewport = new();
+        public static Func<Control> ViewportFactory { get; set; } = static () => new OpenGlEffectViewport();
+
+        private readonly Control _viewportControl;
+        private readonly IEffectViewport _viewport;
         private Vector2 _panPixels;
         private Vector2 _lastPanPositionPixels;
         private float _zoom = 1f;
@@ -32,9 +35,17 @@ namespace EffectViewer.Controls
             ClipToBounds = true;
             Background = Brushes.Transparent;
 
+            _viewportControl = ViewportFactory?.Invoke() ?? new OpenGlEffectViewport();
+            if (_viewportControl is not IEffectViewport viewport)
+            {
+                throw new InvalidOperationException($"{nameof(ViewportFactory)} must create a control that implements {nameof(IEffectViewport)}.");
+            }
+
+            _viewport = viewport;
+
             Grid root = new();
-            _viewport.IsHitTestVisible = false;
-            root.Children.Add(_viewport);
+            _viewportControl.IsHitTestVisible = false;
+            root.Children.Add(_viewportControl);
             Content = root;
         }
 
