@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using EffectViewer.Projects;
 using EffectViewer.Rendering;
 using EffectViewer.TodLib.Common;
+using EffectViewer.TodLib.Particle;
 using EffectViewer.TodLib.Trail;
 
 namespace EffectViewer.ViewModels
@@ -29,13 +30,18 @@ namespace EffectViewer.ViewModels
         private FloatParameterTrack _savedTrailWidthOverTime;
         private FloatParameterTrack _savedTrailAlphaOverTime;
         private FloatParameterTrack _savedTrailDuration;
+        private TodParticleDefinition _particleDefinition;
+        private TodParticleDefinition _savedParticleDefinition;
         private string _selectedReanimLayer;
+        private ParticleEmitterViewModel _selectedParticleEmitter;
         private string _trailImageId;
         private int _trailMaxPoints;
         private double _trailMinPointDistance;
         private bool _trailLoops;
         private string _trailDefinitionError;
+        private string _particleDefinitionError;
         private bool _suppressTrailPropertyChanges;
+        private bool _suppressParticlePropertyChanges;
 
         public string AssetId { get; }
         public string Path { get; }
@@ -43,11 +49,14 @@ namespace EffectViewer.ViewModels
         public EffectFileSummary FileSummary { get; }
         public ObservableCollection<string> ReanimLayers { get; } = [];
         public ObservableCollection<ReanimTrackViewModel> ReanimTracks { get; } = [];
+        public ObservableCollection<ParticleEmitterViewModel> ParticleEmitters { get; } = [];
         public bool IsReanimEditor => Kind == EffectAssetKind.Reanim;
         public bool IsParticleEditor => Kind == EffectAssetKind.Particle;
         public bool IsTrailEditor => Kind == EffectAssetKind.Trail;
         public bool HasReanimControls => Kind == EffectAssetKind.Reanim && ReanimTracks.Count > 0;
+        public bool HasParticleControls => Kind == EffectAssetKind.Particle && _particleDefinition is not null;
         public bool HasTrailControls => Kind == EffectAssetKind.Trail && _trailDefinition is not null;
+        public bool CanRemoveParticleEmitter => SelectedParticleEmitter is not null;
         public string TrailImageId
         {
             get => _trailImageId;
@@ -112,7 +121,27 @@ namespace EffectViewer.ViewModels
 
         public bool HasTrailDefinitionError => !string.IsNullOrWhiteSpace(TrailDefinitionError);
 
-        public override bool SupportsSave => Kind == EffectAssetKind.Trail;
+        public string ParticleDefinitionError
+        {
+            get => _particleDefinitionError;
+            private set => SetProperty(ref _particleDefinitionError, value);
+        }
+
+        public bool HasParticleDefinitionError => !string.IsNullOrWhiteSpace(ParticleDefinitionError);
+
+        public ParticleEmitterViewModel SelectedParticleEmitter
+        {
+            get => _selectedParticleEmitter;
+            set
+            {
+                if (SetProperty(ref _selectedParticleEmitter, value))
+                {
+                    OnPropertyChanged(nameof(CanRemoveParticleEmitter));
+                }
+            }
+        }
+
+        public override bool SupportsSave => Kind == EffectAssetKind.Trail || Kind == EffectAssetKind.Particle;
         public string SelectedReanimLayer
         {
             get => _selectedReanimLayer;
@@ -163,8 +192,8 @@ namespace EffectViewer.ViewModels
             }
             else if (kind == EffectAssetKind.Particle)
             {
-                PreviewFrameProvider = new ParticlePreviewSimulation(project, path, assetId);
                 PreviewFrame = EffectPreviewFrameBuilder.BuildPlaceholder(kind, assetId);
+                InitializeParticleEditor();
             }
             else if (kind == EffectAssetKind.Trail)
             {
@@ -193,6 +222,69 @@ namespace EffectViewer.ViewModels
             {
                 track.IsVisible = false;
             }
+        }
+
+        [RelayCommand]
+        private void AddParticleEmitter()
+        {
+            if (Kind != EffectAssetKind.Particle || _particleDefinition is null)
+            {
+                return;
+            }
+
+            if (!TryApplyParticleEmitters())
+            {
+                return;
+            }
+
+            TodEmitterDefinition[] emitters = _particleDefinition.mEmitterDefs ?? [];
+            int index = _particleDefinition.mEmitterDefCount;
+            System.Array.Resize(ref emitters, index + 1);
+            emitters[index] = CreateDefaultEmitter(index);
+            _particleDefinition.mEmitterDefs = emitters;
+            _particleDefinition.mEmitterDefCount = emitters.Length;
+            RebuildParticleEmitterViewModels(index);
+            ApplyParticlePropertyChanges();
+        }
+
+        [RelayCommand]
+        private void RemoveParticleEmitter()
+        {
+            if (Kind != EffectAssetKind.Particle ||
+                _particleDefinition?.mEmitterDefs is null ||
+                SelectedParticleEmitter is null)
+            {
+                return;
+            }
+
+            if (!TryApplyParticleEmitters())
+            {
+                return;
+            }
+
+            int removeIndex = SelectedParticleEmitter.Index;
+            int count = System.Math.Min(_particleDefinition.mEmitterDefCount, _particleDefinition.mEmitterDefs.Length);
+            if (removeIndex < 0 || removeIndex >= count)
+            {
+                return;
+            }
+
+            TodEmitterDefinition[] emitters = new TodEmitterDefinition[count - 1];
+            int targetIndex = 0;
+            for (int i = 0; i < count; i++)
+            {
+                if (i == removeIndex)
+                {
+                    continue;
+                }
+
+                emitters[targetIndex++] = _particleDefinition.mEmitterDefs[i];
+            }
+
+            _particleDefinition.mEmitterDefs = emitters;
+            _particleDefinition.mEmitterDefCount = emitters.Length;
+            RebuildParticleEmitterViewModels(System.Math.Min(removeIndex, emitters.Length - 1));
+            ApplyParticlePropertyChanges();
         }
 
         private void InitializeReanimControls()
@@ -231,8 +323,38 @@ namespace EffectViewer.ViewModels
             ApplyTrailPropertyChanges();
         }
 
+        private void OnParticleEmitterChanged(ParticleEmitterViewModel emitter)
+        {
+            ApplyParticlePropertyChanges();
+        }
+
         public override async Task SaveAsync(EffectProjectService projectService, EffectProject project)
         {
+            if (Kind == EffectAssetKind.Particle && _particleDefinition is not null)
+            {
+                string particleFullPath = ResolveEffectPath(project, Path, project.Assets.Particles.TryGetValue(AssetId, out EffectAsset asset) ? asset : null);
+                if (string.IsNullOrWhiteSpace(particleFullPath))
+                {
+                    return;
+                }
+
+                string particleDirectory = System.IO.Path.GetDirectoryName(particleFullPath);
+                if (!string.IsNullOrWhiteSpace(particleDirectory))
+                {
+                    Directory.CreateDirectory(particleDirectory);
+                }
+
+                if (!TryApplyParticleEmitters())
+                {
+                    throw new InvalidDataException(ParticleDefinitionError);
+                }
+
+                await using FileStream particleStream = File.Create(particleFullPath);
+                SexyParticleReader.Encode(particleStream, _particleDefinition);
+                AcceptSavedState();
+                return;
+            }
+
             if (Kind != EffectAssetKind.Trail || _trailDefinition is null)
             {
                 await base.SaveAsync(projectService, project);
@@ -275,6 +397,11 @@ namespace EffectViewer.ViewModels
                 _savedTrailAlphaOverTime = CloneTrack(_trailDefinition.mAlphaOverTime);
                 _savedTrailDuration = CloneTrack(_trailDefinition.mTrailDuration);
             }
+            else if (Kind == EffectAssetKind.Particle && _particleDefinition is not null)
+            {
+                TryApplyParticleEmitters();
+                _savedParticleDefinition = ParticleDefinitionUtility.Clone(_particleDefinition);
+            }
 
             base.AcceptSavedState();
         }
@@ -294,6 +421,10 @@ namespace EffectViewer.ViewModels
                     _savedTrailAlphaOverTime,
                     _savedTrailDuration,
                     markDirty: false);
+            }
+            else if (Kind == EffectAssetKind.Particle && _savedParticleDefinition is not null)
+            {
+                LoadParticleDefinition(ParticleDefinitionUtility.Clone(_savedParticleDefinition), markDirty: false);
             }
 
             base.DiscardChanges();
@@ -321,6 +452,94 @@ namespace EffectViewer.ViewModels
             AcceptSavedState();
             RefreshTrailPreview();
             OnPropertyChanged(nameof(HasTrailControls));
+        }
+
+        private void InitializeParticleEditor()
+        {
+            TodParticleDefinition definition = LoadParticleDefinitionFromFile();
+            LoadParticleDefinition(definition, markDirty: false);
+            AcceptSavedState();
+            RefreshParticlePreview();
+            OnPropertyChanged(nameof(HasParticleControls));
+        }
+
+        private TodParticleDefinition LoadParticleDefinitionFromFile()
+        {
+            string fullPath = ResolveEffectPath(_project, Path, _project.Assets.Particles.TryGetValue(AssetId, out EffectAsset asset) ? asset : null);
+            if (string.IsNullOrWhiteSpace(fullPath) || !File.Exists(fullPath))
+            {
+                return ParticleDefinitionUtility.CreateEmpty();
+            }
+
+            using FileStream stream = File.OpenRead(fullPath);
+            return SexyParticleReader.Decode(stream) ?? ParticleDefinitionUtility.CreateEmpty();
+        }
+
+        private void LoadParticleDefinition(TodParticleDefinition definition, bool markDirty)
+        {
+            _suppressParticlePropertyChanges = true;
+            _particleDefinition = definition ?? ParticleDefinitionUtility.CreateEmpty();
+            if (_particleDefinition.mEmitterDefs is null)
+            {
+                _particleDefinition.mEmitterDefs = [];
+                _particleDefinition.mEmitterDefCount = 0;
+            }
+
+            int count = System.Math.Min(_particleDefinition.mEmitterDefCount, _particleDefinition.mEmitterDefs.Length);
+            _particleDefinition.mEmitterDefCount = count;
+            RebuildParticleEmitterViewModels(0);
+            _suppressParticlePropertyChanges = false;
+            ParticleDefinitionError = string.Empty;
+            OnPropertyChanged(nameof(HasParticleDefinitionError));
+            OnPropertyChanged(nameof(HasParticleControls));
+
+            if (markDirty)
+            {
+                ApplyParticlePropertyChanges(markDirty: true);
+            }
+            else
+            {
+                RefreshParticlePreview();
+            }
+        }
+
+        private void RebuildParticleEmitterViewModels(int selectedIndex)
+        {
+            foreach (ParticleEmitterViewModel emitter in ParticleEmitters)
+            {
+                emitter.Changed -= OnParticleEmitterChanged;
+                emitter.Dispose();
+            }
+
+            ParticleEmitters.Clear();
+            if (_particleDefinition?.mEmitterDefs is null)
+            {
+                SelectedParticleEmitter = null;
+                return;
+            }
+
+            int count = System.Math.Min(_particleDefinition.mEmitterDefCount, _particleDefinition.mEmitterDefs.Length);
+            _particleDefinition.mEmitterDefCount = count;
+            for (int i = 0; i < count; i++)
+            {
+                ParticleEmitterViewModel emitter = new(i, _particleDefinition.mEmitterDefs[i]);
+                emitter.Changed += OnParticleEmitterChanged;
+                ParticleEmitters.Add(emitter);
+            }
+
+            SelectedParticleEmitter = ParticleEmitters.Count == 0
+                ? null
+                : ParticleEmitters[System.Math.Clamp(selectedIndex, 0, ParticleEmitters.Count - 1)];
+            OnPropertyChanged(nameof(CanRemoveParticleEmitter));
+            OnPropertyChanged(nameof(ParticleEmitters));
+        }
+
+        private static TodEmitterDefinition CreateDefaultEmitter(int index)
+        {
+            return new TodEmitterDefinition
+            {
+                mName = $"Emitter {index + 1}"
+            };
         }
 
         private void SetTrailProperties(
@@ -395,6 +614,77 @@ namespace EffectViewer.ViewModels
             PreviewFrame = TrailPreviewFrameBuilder.Build(_trailDefinition, AssetId);
         }
 
+        private void ApplyParticlePropertyChanges(bool markDirty = true)
+        {
+            if (_particleDefinition is null || _suppressParticlePropertyChanges)
+            {
+                return;
+            }
+
+            if (!TryApplyParticleEmitters())
+            {
+                if (markDirty)
+                {
+                    MarkDirty();
+                }
+
+                return;
+            }
+
+            RefreshParticlePreview();
+
+            if (markDirty)
+            {
+                MarkDirty();
+            }
+        }
+
+        private void RefreshParticlePreview()
+        {
+            if (Kind != EffectAssetKind.Particle || _particleDefinition is null)
+            {
+                return;
+            }
+
+            if (PreviewFrameProvider is System.IDisposable disposableProvider)
+            {
+                disposableProvider.Dispose();
+            }
+
+            PreviewFrameProvider = new ParticlePreviewSimulation(_project, _particleDefinition, AssetId);
+            PreviewFrame = EffectPreviewFrameBuilder.BuildPlaceholder(Kind, AssetId);
+        }
+
+        private bool TryApplyParticleEmitters()
+        {
+            if (_particleDefinition?.mEmitterDefs is null)
+            {
+                return true;
+            }
+
+            try
+            {
+                int count = System.Math.Min(_particleDefinition.mEmitterDefCount, _particleDefinition.mEmitterDefs.Length);
+                foreach (ParticleEmitterViewModel emitter in ParticleEmitters)
+                {
+                    if (emitter.Index >= 0 && emitter.Index < count)
+                    {
+                        emitter.ApplyTo(_particleDefinition.mEmitterDefs[emitter.Index]);
+                    }
+                }
+            }
+            catch (System.Exception ex) when (ex is System.FormatException or System.OverflowException)
+            {
+                ParticleDefinitionError = ex.Message;
+                OnPropertyChanged(nameof(HasParticleDefinitionError));
+                return false;
+            }
+
+            ParticleDefinitionError = string.Empty;
+            OnPropertyChanged(nameof(HasParticleDefinitionError));
+            return true;
+        }
+
         private bool TryApplyTrailTracks()
         {
             try
@@ -459,6 +749,18 @@ namespace EffectViewer.ViewModels
             return clone;
         }
 
+        private static string ResolveEffectPath(EffectProject project, string path, EffectAsset asset)
+        {
+            if (asset is not null && !string.IsNullOrWhiteSpace(asset.SourcePath) && File.Exists(asset.SourcePath))
+            {
+                return asset.SourcePath;
+            }
+
+            string assetPath = asset?.Path;
+            string effectivePath = string.IsNullOrWhiteSpace(assetPath) ? path : assetPath;
+            return TrailPreviewFrameBuilder.ResolvePath(project, effectivePath);
+        }
+
         public override void Dispose()
         {
             TrailWidthOverLength.Changed -= OnTrailTrackChanged;
@@ -466,6 +768,12 @@ namespace EffectViewer.ViewModels
             TrailWidthOverTime.Changed -= OnTrailTrackChanged;
             TrailAlphaOverTime.Changed -= OnTrailTrackChanged;
             TrailDuration.Changed -= OnTrailTrackChanged;
+            foreach (ParticleEmitterViewModel emitter in ParticleEmitters)
+            {
+                emitter.Changed -= OnParticleEmitterChanged;
+                emitter.Dispose();
+            }
+
             base.Dispose();
         }
     }

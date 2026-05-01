@@ -35,6 +35,21 @@ namespace EffectViewer.Rendering
             ResourceHandler.SetProvider(new ProjectResourceProvider(project));
             _holder.InitializeHolder();
             _definition = LoadDefinition();
+            ParticleDefinitionUtility.ApplyRuntimeDefaults(_definition);
+            Reset();
+        }
+
+        public ParticlePreviewSimulation(EffectProject project, TodParticleDefinition definition, string assetId, float x = 400f, float y = 300f)
+        {
+            _project = project;
+            _path = string.Empty;
+            _assetId = assetId;
+            _x = x;
+            _y = y;
+            ResourceHandler.SetProvider(new ProjectResourceProvider(project));
+            _holder.InitializeHolder();
+            _definition = ParticleDefinitionUtility.Clone(definition);
+            ParticleDefinitionUtility.ApplyRuntimeDefaults(_definition);
             Reset();
         }
 
@@ -129,11 +144,7 @@ namespace EffectViewer.Rendering
             {
             }
 
-            return new TodParticleDefinition
-            {
-                mEmitterDefs = [],
-                mEmitterDefCount = 0
-            };
+            return ParticleDefinitionUtility.CreateEmpty();
         }
 
         private static string ResolvePath(EffectProject project, string path)

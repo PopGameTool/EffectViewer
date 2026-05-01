@@ -8,20 +8,22 @@
     <DataTemplate x:Key="FloatParameterTrackEditorTemplate"
                   DataType="vm:FloatParameterTrackViewModel">
       <StackPanel Spacing="8">
-        <DockPanel LastChildFill="False">
+        <StackPanel Spacing="6">
           <TextBlock Text="{Binding Name}"
                      FontWeight="SemiBold"
-                     VerticalAlignment="Center"/>
-          <Button DockPanel.Dock="Right"
-                  Content="Add"
-                  MinWidth="64"
-                  Command="{Binding AddNodeCommand}"/>
-          <Button DockPanel.Dock="Right"
-                  Content="Reset"
-                  Margin="0,0,6,0"
-                  MinWidth="64"
-                  Command="{Binding ResetCommand}"/>
-        </DockPanel>
+                     VerticalAlignment="Center"
+                     TextWrapping="Wrap"/>
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="6">
+            <Button Content="Reset"
+                    MinWidth="64"
+                    Command="{Binding ResetCommand}"/>
+            <Button Content="Add"
+                    MinWidth="64"
+                    Command="{Binding AddNodeCommand}"/>
+          </StackPanel>
+        </StackPanel>
         <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                 BorderThickness="1"
                 CornerRadius="4"
@@ -84,6 +86,261 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ParticleFieldEditorTemplate"
+                  DataType="vm:ParticleFieldViewModel">
+      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+              BorderThickness="1"
+              CornerRadius="4"
+              Padding="8"
+              Margin="0,0,0,8">
+        <StackPanel Spacing="8">
+          <StackPanel Spacing="6">
+            <TextBlock Text="{Binding DisplayName}"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap"/>
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="6">
+              <Button Content="Remove"
+                      MinWidth="76"
+                      Command="{Binding RemoveCommand}"/>
+            </StackPanel>
+          </StackPanel>
+          <TextBlock Text="FieldType"/>
+          <ComboBox ItemsSource="{Binding FieldTypeOptions}"
+                    SelectedItem="{Binding FieldType}"
+                    HorizontalAlignment="Stretch"/>
+          <ContentControl Content="{Binding X}"
+                          ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+          <ContentControl Content="{Binding Y}"
+                          ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ParticleEmitterEditorTemplate"
+                  DataType="vm:ParticleEmitterViewModel">
+      <StackPanel Spacing="10" HorizontalAlignment="Stretch">
+        <Expander Header="General" IsExpanded="True" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Name"/>
+            <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                     PlaceholderText="Emitter name"/>
+            <TextBlock Text="Image ID"/>
+            <TextBox Text="{Binding ImageId, UpdateSourceTrigger=PropertyChanged}"
+                     PlaceholderText="Image resource ID"/>
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="8">
+              <StackPanel Spacing="4">
+                <TextBlock Text="ImageRow"/>
+                <NumericUpDown Value="{Binding ImageRow}"
+                               Minimum="0"
+                               Maximum="10000"
+                               Increment="1"
+                               FormatString="0"/>
+              </StackPanel>
+              <StackPanel Grid.Column="1" Spacing="4">
+                <TextBlock Text="ImageCol"/>
+                <NumericUpDown Value="{Binding ImageCol}"
+                               Minimum="0"
+                               Maximum="10000"
+                               Increment="1"
+                               FormatString="0"/>
+              </StackPanel>
+              <StackPanel Grid.Row="1" Spacing="4">
+                <TextBlock Text="ImageFrames"/>
+                <NumericUpDown Value="{Binding ImageFrames}"
+                               Minimum="1"
+                               Maximum="10000"
+                               Increment="1"
+                               FormatString="0"/>
+              </StackPanel>
+              <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                <TextBlock Text="EmitterType"/>
+                <ComboBox ItemsSource="{Binding EmitterTypeOptions}"
+                          SelectedItem="{Binding EmitterType}"
+                          HorizontalAlignment="Stretch"/>
+              </StackPanel>
+              <CheckBox Grid.Row="2"
+                        Grid.ColumnSpan="2"
+                        Content="Animated"
+                        IsChecked="{Binding Animated}"/>
+            </Grid>
+          </StackPanel>
+        </Expander>
+
+        <Expander Header="Flags" IsExpanded="False" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="4">
+            <CheckBox Content="RandomLaunchSpin" IsChecked="{Binding RandomLaunchSpin}"/>
+            <CheckBox Content="AlignLaunchSpin" IsChecked="{Binding AlignLaunchSpin}"/>
+            <CheckBox Content="AlignToPixels" IsChecked="{Binding AlignToPixels}"/>
+            <CheckBox Content="SystemLoops" IsChecked="{Binding SystemLoops}"/>
+            <CheckBox Content="ParticleLoops" IsChecked="{Binding ParticleLoops}"/>
+            <CheckBox Content="ParticlesDontFollow" IsChecked="{Binding ParticlesDontFollow}"/>
+            <CheckBox Content="DieIfOverloaded" IsChecked="{Binding DieIfOverloaded}"/>
+            <CheckBox Content="Additive" IsChecked="{Binding Additive}"/>
+            <CheckBox Content="Fullscreen" IsChecked="{Binding Fullscreen}"/>
+            <CheckBox Content="SoftwareOnly" IsChecked="{Binding SoftwareOnly}"/>
+            <CheckBox Content="HardwareOnly" IsChecked="{Binding HardwareOnly}"/>
+          </StackPanel>
+        </Expander>
+
+        <Expander Header="Lifetime" IsExpanded="True" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="10">
+            <ContentControl Content="{Binding SystemDuration}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding CrossFadeDuration}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding ParticleDuration}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+          </StackPanel>
+        </Expander>
+
+        <Expander Header="Spawn" IsExpanded="True" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="10">
+            <ContentControl Content="{Binding SpawnRate}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding SpawnMinActive}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding SpawnMaxActive}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding SpawnMaxLaunched}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+          </StackPanel>
+        </Expander>
+
+        <Expander Header="Emitter Shape" IsExpanded="False" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="10">
+            <ContentControl Content="{Binding EmitterRadius}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding EmitterOffsetX}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding EmitterOffsetY}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding EmitterBoxX}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding EmitterBoxY}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding EmitterSkewX}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding EmitterSkewY}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding EmitterPath}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+          </StackPanel>
+        </Expander>
+
+        <Expander Header="Launch" IsExpanded="False" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="10">
+            <ContentControl Content="{Binding LaunchSpeed}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding LaunchAngle}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+          </StackPanel>
+        </Expander>
+
+        <Expander Header="System Color" IsExpanded="False" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="10">
+            <ContentControl Content="{Binding SystemRed}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding SystemGreen}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding SystemBlue}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding SystemAlpha}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding SystemBrightness}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+          </StackPanel>
+        </Expander>
+
+        <Expander Header="Particle Color" IsExpanded="False" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="10">
+            <ContentControl Content="{Binding ParticleRed}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding ParticleGreen}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding ParticleBlue}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding ParticleAlpha}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding ParticleBrightness}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+          </StackPanel>
+        </Expander>
+
+        <Expander Header="Particle Transform" IsExpanded="False" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="10">
+            <ContentControl Content="{Binding ParticleScale}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding ParticleStretch}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding ParticleSpinAngle}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding ParticleSpinSpeed}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+          </StackPanel>
+        </Expander>
+
+        <Expander Header="Rendering" IsExpanded="False" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="10">
+            <ContentControl Content="{Binding AnimationRate}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding ClipTop}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding ClipBottom}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding ClipLeft}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding ClipRight}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+          </StackPanel>
+        </Expander>
+
+        <Expander Header="Collision" IsExpanded="False" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="10">
+            <ContentControl Content="{Binding CollisionReflect}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+            <ContentControl Content="{Binding CollisionSpin}"
+                            ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
+          </StackPanel>
+        </Expander>
+
+        <Expander Header="Particle Fields" IsExpanded="False" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="8">
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="6">
+              <Button Content="Add"
+                      MinWidth="58"
+                      Command="{Binding AddParticleFieldCommand}"/>
+            </StackPanel>
+            <ItemsControl ItemsSource="{Binding ParticleFields}">
+              <ItemsControl.ItemTemplate>
+                <StaticResource ResourceKey="ParticleFieldEditorTemplate"/>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Expander>
+
+        <Expander Header="System Fields" IsExpanded="False" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="8">
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="6">
+              <Button Content="Add"
+                      MinWidth="58"
+                      Command="{Binding AddSystemFieldCommand}"/>
+            </StackPanel>
+            <ItemsControl ItemsSource="{Binding SystemFields}">
+              <ItemsControl.ItemTemplate>
+                <StaticResource ResourceKey="ParticleFieldEditorTemplate"/>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Expander>
       </StackPanel>
     </DataTemplate>
   </UserControl.Resources>
@@ -156,7 +413,7 @@
                 </Grid>
                 <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6" IsVisible="{Binding IsParticleEditor}">
                   <TextBlock Text="Emitters"/>
-                  <TextBlock Grid.Column="1" Text="{Binding FileSummary.EmitterCount}"/>
+                  <TextBlock Grid.Column="1" Text="{Binding ParticleEmitters.Count}"/>
                   <TextBlock Grid.Row="1" Text="Fields"/>
                   <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FileSummary.FieldCount}"/>
                 </Grid>
@@ -166,6 +423,49 @@
                   <TextBlock Grid.Row="1" Text="MinDist"/>
                   <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TrailMinPointDistance}"/>
                 </Grid>
+              </StackPanel>
+            </Expander>
+
+            <Expander Header="Definition"
+                      IsExpanded="True"
+                      IsVisible="{Binding HasParticleControls}"
+                      HorizontalAlignment="Stretch">
+              <StackPanel Spacing="8">
+                <StackPanel Spacing="6">
+                  <ComboBox ItemsSource="{Binding ParticleEmitters}"
+                            SelectedItem="{Binding SelectedParticleEmitter}"
+                            HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate DataType="vm:ParticleEmitterViewModel">
+                        <StackPanel Spacing="2">
+                          <TextBlock Text="{Binding DisplayName}"
+                                     TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Text="{Binding Detail}"
+                                     FontSize="11"
+                                     TextTrimming="CharacterEllipsis"
+                                     Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+                        </StackPanel>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <StackPanel Orientation="Horizontal"
+                              HorizontalAlignment="Right"
+                              Spacing="6">
+                    <Button Content="Add"
+                            MinWidth="58"
+                            Command="{Binding AddParticleEmitterCommand}"/>
+                    <Button Content="Remove"
+                            MinWidth="76"
+                            IsEnabled="{Binding CanRemoveParticleEmitter}"
+                            Command="{Binding RemoveParticleEmitterCommand}"/>
+                  </StackPanel>
+                </StackPanel>
+                <ContentControl Content="{Binding SelectedParticleEmitter}"
+                                ContentTemplate="{StaticResource ParticleEmitterEditorTemplate}"/>
+                <TextBlock Text="{Binding ParticleDefinitionError}"
+                           IsVisible="{Binding HasParticleDefinitionError}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"/>
               </StackPanel>
             </Expander>
 
