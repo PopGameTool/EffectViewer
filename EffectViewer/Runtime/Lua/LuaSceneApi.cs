@@ -18,5 +18,10 @@ namespace EffectViewer.Runtime.Lua
             _world.Clear();
             _logs.Add("scene cleared");
         }
+
+        public int count()
+        {
+            return _world.Objects.Count;
+        }
     }
 }

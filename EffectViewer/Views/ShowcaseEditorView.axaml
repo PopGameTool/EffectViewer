@@ -46,14 +46,40 @@
 
           <TextBlock Grid.Row="2" Text="{Binding Status}" FontWeight="SemiBold"/>
           <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="8">
-            <ListBox ItemsSource="{Binding SceneObjects}">
-              <ListBox.ItemTemplate>
-                <DataTemplate>
-                  <TextBlock Text="{Binding Id}"/>
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
-            <ListBox Grid.Column="1" ItemsSource="{Binding Logs}"/>
+            <Grid RowDefinitions="Auto,*" RowSpacing="4">
+              <TextBlock Text="Objects" FontWeight="SemiBold"/>
+              <ListBox Grid.Row="1" ItemsSource="{Binding SceneObjects}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Id}"/>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+            <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto,72" RowSpacing="4">
+              <TextBlock Text="Logs" FontWeight="SemiBold"/>
+              <ListBox Grid.Row="1"
+                       ItemsSource="{Binding Logs}"
+                       SelectedItem="{Binding SelectedLog}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ShowcaseLogEntry">
+                    <TextBlock Text="{Binding Summary}"
+                               TextTrimming="CharacterEllipsis"/>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+              <TextBlock Grid.Row="2"
+                         Text="Details"
+                         FontWeight="SemiBold"/>
+              <TextBox Grid.Row="3"
+                       Text="{Binding SelectedLogDetail}"
+                       IsReadOnly="True"
+                       AcceptsReturn="True"
+                       FontFamily="{StaticResource CodeFontFamily}"
+                       FontSize="12"
+                       TextWrapping="Wrap"
+                       ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+            </Grid>
           </Grid>
         </Grid>
       </Border>

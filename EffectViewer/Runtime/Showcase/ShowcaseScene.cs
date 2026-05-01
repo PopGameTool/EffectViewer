@@ -22,6 +22,7 @@ namespace EffectViewer.Runtime.Showcase
         private readonly List<ShowcaseParticle> _particles = [];
         private readonly List<ShowcaseTrail> _trails = [];
         private readonly ProjectResourceProvider _resourceProvider;
+        private IShowcaseScriptCallbacks _scriptCallbacks;
         private double _accumulator;
         private bool _disposed;
 
@@ -42,6 +43,13 @@ namespace EffectViewer.Runtime.Showcase
         public IReadOnlyList<ShowcaseReanimation> Reanimations => _reanims;
         public IReadOnlyList<ShowcaseParticle> Particles => _particles;
         public IReadOnlyList<ShowcaseTrail> Trails => _trails;
+
+        internal void SetScriptCallbacks(IShowcaseScriptCallbacks callbacks)
+        {
+            EnsureAlive();
+            _scriptCallbacks?.Dispose();
+            _scriptCallbacks = callbacks;
+        }
 
         public ShowcaseReanimation AddReanimation(string id, double x, double y)
         {
@@ -131,7 +139,7 @@ namespace EffectViewer.Runtime.Showcase
             int guard = 0;
             while (_accumulator >= UpdateStepSeconds && guard++ < 20)
             {
-                Update();
+                Update(UpdateStepSeconds);
                 _accumulator -= UpdateStepSeconds;
             }
 
@@ -142,7 +150,11 @@ namespace EffectViewer.Runtime.Showcase
                 mDrawMode = DrawMode.Normal
             };
 
-            Draw(graphics);
+            if (_scriptCallbacks?.TryDraw(graphics) != true)
+            {
+                Draw(graphics);
+            }
+
             return graphics.Frame;
         }
 
@@ -154,6 +166,8 @@ namespace EffectViewer.Runtime.Showcase
             }
 
             _disposed = true;
+            _scriptCallbacks?.Dispose();
+            _scriptCallbacks = null;
             _reanims.Clear();
             _particles.Clear();
             _trails.Clear();
@@ -207,8 +221,9 @@ namespace EffectViewer.Runtime.Showcase
             GlobalMembersAttachment.AttachmentDetach(ref track.mAttachmentID);
         }
 
-        private void Update()
+        private void Update(double deltaSeconds)
         {
+            _scriptCallbacks?.Update(deltaSeconds);
             EffectSystem.gEffectSystem.Update();
             foreach (ShowcaseTrail trail in _trails)
             {

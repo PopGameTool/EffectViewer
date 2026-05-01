@@ -49,5 +49,10 @@ namespace EffectViewer.Runtime.Lua
         {
             _logs.Add(message);
         }
+
+        public void warn(string message)
+        {
+            _logs.Add($"warning: {message}");
+        }
     }
 }
