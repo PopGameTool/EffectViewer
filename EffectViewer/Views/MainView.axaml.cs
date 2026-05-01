@@ -142,6 +142,30 @@ namespace EffectViewer.Views
             await viewModel.ImportProjectZipAsync(stream);
         }
 
+        private async void ImportResourceFileMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            TopLevel topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.StorageProvider is null || DataContext is not MainViewModel viewModel)
+            {
+                return;
+            }
+
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new()
+            {
+                Title = "Import resource file",
+                AllowMultiple = false,
+                FileTypeFilter = [ResourceFileType]
+            });
+
+            if (files.Count == 0)
+            {
+                return;
+            }
+
+            await using Stream stream = await files[0].OpenReadAsync();
+            await viewModel.ImportResourceFileAsync(files[0].Name, stream);
+        }
+
         private async void ExportProjectMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             TopLevel topLevel = TopLevel.GetTopLevel(this);
@@ -232,6 +256,27 @@ namespace EffectViewer.Views
         {
             Patterns = ["*.zip"],
             MimeTypes = ["application/zip", "application/x-zip-compressed"]
+        };
+
+        private static FilePickerFileType ResourceFileType { get; } = new("Effect resources")
+        {
+            Patterns =
+            [
+                "*.png",
+                "*.jpg",
+                "*.jpeg",
+                "*.bmp",
+                "*.gif",
+                "*.webp",
+                "*.tga",
+                "*.reanim",
+                "*.reanim.compiled",
+                "*.xml",
+                "*.xml.compiled",
+                "*.trail",
+                "*.trail.compiled",
+                "*.lua"
+            ]
         };
 
         private static string CreateExportFileName(string projectName)

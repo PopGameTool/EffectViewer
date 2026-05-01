@@ -26,6 +26,9 @@
           <Menu DockPanel.Dock="Left"
                 Background="Transparent">
             <MenuItem Header="_File">
+              <MenuItem Header="_New Project..."
+                        Command="{Binding ShowNewProjectDialogCommand}"/>
+              <Separator/>
               <MenuItem Header="_Save Current File"
                         Command="{Binding SaveFileCommand}"
                         IsEnabled="{Binding CanSaveSelectedFile}"/>
@@ -49,6 +52,12 @@
                         Click="ImportProjectMenuItem_Click"/>
               <MenuItem Header="Import Resource _Folder..."
                         Click="ImportFolderMenuItem_Click"/>
+              <MenuItem Header="Import Resource _File..."
+                        Click="ImportResourceFileMenuItem_Click"
+                        IsEnabled="{Binding CanModifyCurrentProject}"/>
+              <MenuItem Header="_New Resource..."
+                        Command="{Binding ShowNewResourceDialogCommand}"
+                        IsEnabled="{Binding CanModifyCurrentProject}"/>
             </MenuItem>
             <MenuItem Header="_View">
               <MenuItem Header="_Project Explorer"
@@ -309,6 +318,76 @@
                     Command="{Binding CancelOpenProjectCommand}"/>
           </StackPanel>
         </Grid>
+      </Border>
+    </Border>
+
+    <Border Background="#80000000"
+            IsVisible="{Binding IsNewProjectDialogOpen}">
+      <Border Width="420"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="18">
+        <StackPanel Spacing="12">
+          <TextBlock Text="New Project"
+                     FontSize="18"
+                     FontWeight="SemiBold"/>
+          <StackPanel Spacing="4">
+            <TextBlock Text="Name"/>
+            <TextBox Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="8">
+            <Button Content="Create"
+                    MinWidth="80"
+                    Command="{Binding CreateProjectCommand}"/>
+            <Button Content="Cancel"
+                    MinWidth="80"
+                    Command="{Binding CancelNewProjectCommand}"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <Border Background="#80000000"
+            IsVisible="{Binding IsNewResourceDialogOpen}">
+      <Border Width="440"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="18">
+        <StackPanel Spacing="12">
+          <TextBlock Text="New Resource"
+                     FontSize="18"
+                     FontWeight="SemiBold"/>
+          <StackPanel Spacing="4">
+            <TextBlock Text="Type"/>
+            <ComboBox ItemsSource="{Binding NewResourceKinds}"
+                      SelectedItem="{Binding NewResourceKind}"
+                      HorizontalAlignment="Stretch"/>
+          </StackPanel>
+          <StackPanel Spacing="4">
+            <TextBlock Text="ID"/>
+            <TextBox Text="{Binding NewResourceId, UpdateSourceTrigger=PropertyChanged}"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="8">
+            <Button Content="Create"
+                    MinWidth="80"
+                    Command="{Binding CreateResourceCommand}"/>
+            <Button Content="Cancel"
+                    MinWidth="80"
+                    Command="{Binding CancelNewResourceCommand}"/>
+          </StackPanel>
+        </StackPanel>
       </Border>
     </Border>
 

@@ -6,6 +6,9 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using EffectViewer.Assets;
+using EffectViewer.TodLib.Particle;
+using EffectViewer.TodLib.Reanim;
+using EffectViewer.TodLib.Trail;
 
 namespace EffectViewer.Projects
 {
@@ -13,6 +16,11 @@ namespace EffectViewer.Projects
     {
         public const string ManifestFileName = "project.effectproj.json";
         public const string AssetsDirectoryName = "assets";
+        private const string ImagesDirectory = "assets/images";
+        private const string ReanimsDirectory = "assets/reanims";
+        private const string ParticlesDirectory = "assets/particles";
+        private const string TrailsDirectory = "assets/trails";
+        private const string ScriptsDirectory = "scripts";
 
         private readonly IProjectStorageProvider _storageProvider;
 
@@ -92,6 +100,17 @@ namespace EffectViewer.Projects
             };
 
             return new EffectProject(projectDirectory, manifest);
+        }
+
+        public async Task<EffectProject> CreateProjectAsync(string projectName)
+        {
+            string safeName = ProjectPathUtility.CreateSafeName(projectName, "untitled-project");
+            string projectDirectory = CreateUniqueProjectDirectory(safeName);
+            EffectProject project = CreateNew(
+                projectDirectory,
+                string.IsNullOrWhiteSpace(projectName) ? "Untitled Effect Project" : projectName.Trim());
+            await SaveAsync(project);
+            return await LoadAsync(projectDirectory);
         }
 
         public EffectProject CreateDemoProject()
@@ -324,6 +343,70 @@ namespace EffectViewer.Projects
             await source.CopyToAsync(outputStream);
         }
 
+        public async Task<ProjectResourceResult> ImportResourceFileAsync(
+            EffectProject project,
+            string sourceFileName,
+            Stream sourceStream)
+        {
+            EnsureWritableProject(project);
+            if (sourceStream is null)
+            {
+                throw new ArgumentNullException(nameof(sourceStream));
+            }
+
+            EffectAssetKind kind = DetectResourceKind(sourceFileName);
+            string baseName = GetResourceBaseName(sourceFileName, kind);
+            string assetId = CreateUniqueAssetId(project.Manifest, kind, baseName);
+            string suffix = GetResourceFileSuffix(sourceFileName, kind);
+            string relativePath = CreateUniqueAssetPath(project, GetResourceDirectory(kind), assetId, suffix);
+            string destinationPath = ResolveProjectFilePath(project, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+
+            await using (FileStream target = File.Create(destinationPath))
+            {
+                await sourceStream.CopyToAsync(target);
+            }
+
+            AddManifestAsset(project.Manifest, kind, assetId, relativePath);
+            await SaveAsync(project);
+
+            EffectProject updatedProject = await LoadAsync(project.RootPath);
+            return new ProjectResourceResult(updatedProject, kind, assetId, relativePath);
+        }
+
+        public async Task<ProjectResourceResult> CreateResourceAsync(
+            EffectProject project,
+            EffectAssetKind kind,
+            string requestedAssetId)
+        {
+            EnsureWritableProject(project);
+            if (kind == EffectAssetKind.Image)
+            {
+                throw new InvalidOperationException("New image resources are not supported yet. Import an image file instead.");
+            }
+
+            if (kind is not (EffectAssetKind.Reanim or EffectAssetKind.Particle or EffectAssetKind.Trail or EffectAssetKind.Showcase))
+            {
+                throw new InvalidOperationException("The selected resource type cannot be created.");
+            }
+
+            string assetId = CreateUniqueAssetId(project.Manifest, kind, requestedAssetId);
+            string relativePath = CreateUniqueAssetPath(project, GetResourceDirectory(kind), assetId, GetNewResourceSuffix(kind));
+            string destinationPath = ResolveProjectFilePath(project, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+
+            await using (FileStream stream = File.Create(destinationPath))
+            {
+                await WriteDefaultResourceAsync(kind, assetId, stream, destinationPath);
+            }
+
+            AddManifestAsset(project.Manifest, kind, assetId, relativePath);
+            await SaveAsync(project);
+
+            EffectProject updatedProject = await LoadAsync(project.RootPath);
+            return new ProjectResourceResult(updatedProject, kind, assetId, relativePath);
+        }
+
         private string CreateUniqueProjectDirectory(string sourceName)
         {
             string baseName = ProjectPathUtility.CreateSafeName(sourceName, "project");
@@ -349,6 +432,259 @@ namespace EffectViewer.Projects
                     return candidate;
                 }
             }
+        }
+
+        private static void EnsureWritableProject(EffectProject project)
+        {
+            if (project is null || string.IsNullOrWhiteSpace(project.RootPath))
+            {
+                throw new InvalidOperationException("Create or open an internal project before adding resources.");
+            }
+
+            Directory.CreateDirectory(project.RootPath);
+        }
+
+        private static EffectAssetKind DetectResourceKind(string fileName)
+        {
+            string normalized = (fileName ?? string.Empty).Replace('\\', '/');
+            string lower = Path.GetFileName(normalized).ToLowerInvariant();
+            if (lower.EndsWith(".reanim", StringComparison.OrdinalIgnoreCase) ||
+                lower.EndsWith(".reanim.compiled", StringComparison.OrdinalIgnoreCase))
+            {
+                return EffectAssetKind.Reanim;
+            }
+
+            if (lower.EndsWith(".trail", StringComparison.OrdinalIgnoreCase) ||
+                lower.EndsWith(".trail.compiled", StringComparison.OrdinalIgnoreCase))
+            {
+                return EffectAssetKind.Trail;
+            }
+
+            if (lower.EndsWith(".xml", StringComparison.OrdinalIgnoreCase) ||
+                lower.EndsWith(".xml.compiled", StringComparison.OrdinalIgnoreCase))
+            {
+                return EffectAssetKind.Particle;
+            }
+
+            if (lower.EndsWith(".lua", StringComparison.OrdinalIgnoreCase))
+            {
+                return EffectAssetKind.Showcase;
+            }
+
+            string extension = Path.GetExtension(lower);
+            if (extension is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".gif" or ".webp" or ".tga")
+            {
+                return EffectAssetKind.Image;
+            }
+
+            throw new InvalidDataException("Unsupported resource file type.");
+        }
+
+        private static string GetResourceBaseName(string fileName, EffectAssetKind kind)
+        {
+            string name = Path.GetFileName(fileName ?? string.Empty);
+            string lower = name.ToLowerInvariant();
+            string suffix = GetResourceFileSuffix(lower, kind);
+            if (!string.IsNullOrEmpty(suffix) && lower.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                name = name[..^suffix.Length];
+            }
+            else
+            {
+                name = Path.GetFileNameWithoutExtension(name);
+            }
+
+            return ProjectPathUtility.CreateSafeName(name, kind.ToString().ToLowerInvariant());
+        }
+
+        private static string GetResourceFileSuffix(string fileName, EffectAssetKind kind)
+        {
+            string lower = Path.GetFileName(fileName ?? string.Empty).ToLowerInvariant();
+            string[] suffixes = kind switch
+            {
+                EffectAssetKind.Reanim => [".reanim.compiled", ".reanim"],
+                EffectAssetKind.Particle => [".xml.compiled", ".xml"],
+                EffectAssetKind.Trail => [".trail.compiled", ".trail"],
+                EffectAssetKind.Showcase => [".lua"],
+                EffectAssetKind.Image => [],
+                _ => []
+            };
+
+            foreach (string suffix in suffixes)
+            {
+                if (lower.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return suffix;
+                }
+            }
+
+            string extension = Path.GetExtension(lower);
+            return string.IsNullOrWhiteSpace(extension) ? GetNewResourceSuffix(kind) : extension;
+        }
+
+        private static string GetNewResourceSuffix(EffectAssetKind kind)
+        {
+            return kind switch
+            {
+                EffectAssetKind.Reanim => ".reanim",
+                EffectAssetKind.Particle => ".xml",
+                EffectAssetKind.Trail => ".trail",
+                EffectAssetKind.Showcase => ".lua",
+                _ => string.Empty
+            };
+        }
+
+        private static string GetResourceDirectory(EffectAssetKind kind)
+        {
+            return kind switch
+            {
+                EffectAssetKind.Image => ImagesDirectory,
+                EffectAssetKind.Reanim => ReanimsDirectory,
+                EffectAssetKind.Particle => ParticlesDirectory,
+                EffectAssetKind.Trail => TrailsDirectory,
+                EffectAssetKind.Showcase => ScriptsDirectory,
+                _ => AssetsDirectoryName
+            };
+        }
+
+        private static string CreateUniqueAssetId(ProjectManifest manifest, EffectAssetKind kind, string requestedAssetId)
+        {
+            string baseId = ProjectPathUtility.CreateSafeName(requestedAssetId, kind.ToString().ToLowerInvariant());
+            string candidate = baseId;
+            for (int i = 2; AssetIdExists(manifest, kind, candidate); i++)
+            {
+                candidate = $"{baseId}_{i}";
+            }
+
+            return candidate;
+        }
+
+        private static bool AssetIdExists(ProjectManifest manifest, EffectAssetKind kind, string assetId)
+        {
+            StringComparer comparer = StringComparer.OrdinalIgnoreCase;
+            return kind switch
+            {
+                EffectAssetKind.Image => manifest.Images.Any(asset => comparer.Equals(asset.Id, assetId)),
+                EffectAssetKind.Reanim => manifest.Reanims.Any(asset => comparer.Equals(asset.Id, assetId)),
+                EffectAssetKind.Particle => manifest.Particles.Any(asset => comparer.Equals(asset.Id, assetId)),
+                EffectAssetKind.Trail => manifest.Trails.Any(asset => comparer.Equals(asset.Id, assetId)),
+                EffectAssetKind.Showcase => manifest.Showcases.Any(asset => comparer.Equals(asset.Id, assetId)),
+                _ => false
+            };
+        }
+
+        private static string CreateUniqueAssetPath(EffectProject project, string directory, string assetId, string suffix)
+        {
+            string baseName = ProjectPathUtility.CreateSafeName(assetId, "resource");
+            string candidate = ProjectPathUtility.ToProjectRelativePath(Path.Combine(directory, baseName + suffix));
+            for (int i = 2; File.Exists(ResolveProjectFilePath(project, candidate)); i++)
+            {
+                candidate = ProjectPathUtility.ToProjectRelativePath(Path.Combine(directory, $"{baseName}_{i}{suffix}"));
+            }
+
+            return candidate;
+        }
+
+        private static void AddManifestAsset(ProjectManifest manifest, EffectAssetKind kind, string assetId, string relativePath)
+        {
+            switch (kind)
+            {
+                case EffectAssetKind.Image:
+                    manifest.Images.Add(new ImageAsset { Id = assetId, Path = relativePath, Rows = 1, Cols = 1 });
+                    break;
+
+                case EffectAssetKind.Reanim:
+                    manifest.Reanims.Add(new ReanimAsset { Id = assetId, Path = relativePath });
+                    break;
+
+                case EffectAssetKind.Particle:
+                    manifest.Particles.Add(new EffectAsset { Id = assetId, Path = relativePath });
+                    break;
+
+                case EffectAssetKind.Trail:
+                    manifest.Trails.Add(new EffectAsset { Id = assetId, Path = relativePath });
+                    break;
+
+                case EffectAssetKind.Showcase:
+                    manifest.Showcases.Add(new ShowcaseAsset { Id = assetId, Path = relativePath });
+                    break;
+
+                default:
+                    throw new InvalidOperationException("The selected resource type cannot be added.");
+            }
+        }
+
+        private static async Task WriteDefaultResourceAsync(
+            EffectAssetKind kind,
+            string assetId,
+            Stream stream,
+            string targetFileName)
+        {
+            switch (kind)
+            {
+                case EffectAssetKind.Reanim:
+                    ReanimReader.Encode(stream, CreateDefaultReanimDefinition(), targetFileName);
+                    return;
+
+                case EffectAssetKind.Particle:
+                    SexyParticleReader.Encode(stream, ParticleDefinitionUtility.CreateEmpty(), targetFileName);
+                    return;
+
+                case EffectAssetKind.Trail:
+                    TrailDefinition trail = new();
+                    trail.ApplyDefaults();
+                    TrailReader.Encode(stream, trail, targetFileName);
+                    return;
+
+                case EffectAssetKind.Showcase:
+                    using (StreamWriter writer = new(stream, leaveOpen: true))
+                    {
+                        await writer.WriteAsync(CreateDefaultShowcaseScript(assetId));
+                    }
+
+                    return;
+
+                default:
+                    throw new InvalidOperationException("The selected resource type cannot be created.");
+            }
+        }
+
+        private static ReanimatorDefinition CreateDefaultReanimDefinition()
+        {
+            ReanimatorDefinition definition = new()
+            {
+                mFPS = 12f,
+                mTrackCount = 1,
+                mTracks =
+                [
+                    new ReanimatorTrack("track_1", 1)
+                ]
+            };
+            definition.mTracks[0].mTransforms[0] = new ReanimatorTransform
+            {
+                mTransX = 0f,
+                mTransY = 0f,
+                mSkewX = 0f,
+                mSkewY = 0f,
+                mScaleX = 1f,
+                mScaleY = 1f,
+                mFrame = 0f,
+                mAlpha = 1f,
+                mImage = null,
+                mFont = null,
+                mText = string.Empty
+            };
+            definition.Init();
+            return definition;
+        }
+
+        private static string CreateDefaultShowcaseScript(string assetId)
+        {
+            string safeId = string.IsNullOrWhiteSpace(assetId) ? "showcase" : assetId;
+            return $"""
+                scene.clear()
+                effect.log("{safeId} initialized")
+                """;
         }
 
         private static ZipArchiveEntry FindProjectManifestEntry(ZipArchive archive)
@@ -424,6 +760,12 @@ namespace EffectViewer.Projects
         private static void Normalize(ProjectManifest manifest)
         {
             manifest.Version = manifest.Version <= 0 ? 1 : manifest.Version;
+            manifest.Images ??= [];
+            manifest.Reanims ??= [];
+            manifest.Particles ??= [];
+            manifest.Trails ??= [];
+            manifest.Showcases ??= [];
+
             foreach (ImageAsset image in manifest.Images)
             {
                 image.Rows = image.Rows < 1 ? 1 : image.Rows;

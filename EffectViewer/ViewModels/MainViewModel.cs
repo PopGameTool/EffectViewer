@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using EffectViewer.Assets;
 using EffectViewer.Projects;
 using EffectViewer.Runtime;
 using EffectViewer.Runtime.Lua;
@@ -85,6 +86,29 @@ namespace EffectViewer.ViewModels
         [ObservableProperty]
         private int _layoutResetRevision;
 
+        [ObservableProperty]
+        private bool _isNewProjectDialogOpen;
+
+        [ObservableProperty]
+        private string _newProjectName = "Untitled Effect Project";
+
+        [ObservableProperty]
+        private bool _isNewResourceDialogOpen;
+
+        [ObservableProperty]
+        private EffectAssetKind _newResourceKind = EffectAssetKind.Reanim;
+
+        [ObservableProperty]
+        private string _newResourceId = "new_reanim";
+
+        public IReadOnlyList<EffectAssetKind> NewResourceKinds { get; } =
+        [
+            EffectAssetKind.Reanim,
+            EffectAssetKind.Particle,
+            EffectAssetKind.Trail,
+            EffectAssetKind.Showcase
+        ];
+
         public bool IsProjectExplorerDockedLeft => ProjectExplorerDockSide == ProjectExplorerDockSide.Left;
         public bool IsProjectExplorerDockedRight => ProjectExplorerDockSide == ProjectExplorerDockSide.Right;
         public bool IsProjectExplorerVisibleLeft => IsProjectExplorerVisible && IsProjectExplorerDockedLeft;
@@ -93,6 +117,7 @@ namespace EffectViewer.ViewModels
         public bool CanSaveCurrentProject => CurrentProject is not null && !string.IsNullOrWhiteSpace(CurrentProject.RootPath);
         public bool CanSaveSelectedFile => CanSaveCurrentProject && SelectedEditor?.SupportsSave == true;
         public bool CanExportSelectedFile => CanSaveCurrentProject && SelectedEditor?.SupportsFileExport == true;
+        public bool CanModifyCurrentProject => CanSaveCurrentProject;
 
         private enum UnsavedChangesChoice
         {
@@ -165,6 +190,23 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(CanSaveCurrentProject));
             OnPropertyChanged(nameof(CanSaveSelectedFile));
             OnPropertyChanged(nameof(CanExportSelectedFile));
+            OnPropertyChanged(nameof(CanModifyCurrentProject));
+        }
+
+        partial void OnNewResourceKindChanged(EffectAssetKind value)
+        {
+            if (string.IsNullOrWhiteSpace(NewResourceId) || NewResourceId == "new_reanim" ||
+                NewResourceId == "new_particle" || NewResourceId == "new_trail" ||
+                NewResourceId == "new_showcase")
+            {
+                NewResourceId = value switch
+                {
+                    EffectAssetKind.Particle => "new_particle",
+                    EffectAssetKind.Trail => "new_trail",
+                    EffectAssetKind.Showcase => "new_showcase",
+                    _ => "new_reanim"
+                };
+            }
         }
 
         [RelayCommand]
@@ -178,6 +220,48 @@ namespace EffectViewer.ViewModels
 
             LoadProject(_projectService.CreateDemoProject());
             StatusText = "Demo project loaded";
+        }
+
+        [RelayCommand]
+        private void ShowNewProjectDialog()
+        {
+            NewProjectName = "Untitled Effect Project";
+            IsNewProjectDialogOpen = true;
+            StatusText = "Creating new project.";
+        }
+
+        [RelayCommand]
+        private async Task CreateProjectAsync()
+        {
+            string projectName = string.IsNullOrWhiteSpace(NewProjectName)
+                ? "Untitled Effect Project"
+                : NewProjectName.Trim();
+
+            IsNewProjectDialogOpen = false;
+            if (!await ConfirmAllUnsavedChangesAsync())
+            {
+                StatusText = "Canceled creating project.";
+                IsNewProjectDialogOpen = true;
+                return;
+            }
+
+            try
+            {
+                EffectProject project = await _projectService.CreateProjectAsync(projectName);
+                LoadProject(project);
+                StatusText = $"Created project {project.Manifest.Name}.";
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                StatusText = $"Could not create project: {ex.Message}";
+            }
+        }
+
+        [RelayCommand]
+        private void CancelNewProject()
+        {
+            IsNewProjectDialogOpen = false;
+            StatusText = "Canceled creating project.";
         }
 
         [RelayCommand]
@@ -227,6 +311,94 @@ namespace EffectViewer.ViewModels
 
             LoadProject(result.Project);
             StatusText = $"Imported {result.ImageCount} image(s), {result.ReanimCount} reanim(s), {result.ParticleCount} particle(s), {result.TrailCount} trail(s). Missing images: {result.MissingImageCount}.";
+        }
+
+        public async Task ImportResourceFileAsync(string sourceFileName, Stream sourceStream)
+        {
+            if (sourceStream is null)
+            {
+                return;
+            }
+
+            if (!CanModifyCurrentProject)
+            {
+                StatusText = "Create or open a writable project before importing a resource.";
+                return;
+            }
+
+            if (!await ConfirmAllUnsavedChangesAsync())
+            {
+                StatusText = "Canceled resource import.";
+                return;
+            }
+
+            try
+            {
+                ProjectResourceResult result = await _projectService.ImportResourceFileAsync(CurrentProject, sourceFileName, sourceStream);
+                LoadProject(result.Project);
+                OpenResourceEditor(result.Kind, result.AssetId);
+                StatusText = $"Imported {result.Kind} {result.AssetId}.";
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
+            {
+                StatusText = $"Could not import resource: {ex.Message}";
+            }
+        }
+
+        [RelayCommand]
+        private void ShowNewResourceDialog()
+        {
+            if (!CanModifyCurrentProject)
+            {
+                StatusText = "Create or open a writable project before creating a resource.";
+                return;
+            }
+
+            NewResourceKind = EffectAssetKind.Reanim;
+            NewResourceId = "new_reanim";
+            IsNewResourceDialogOpen = true;
+            StatusText = "Creating new resource.";
+        }
+
+        [RelayCommand]
+        private async Task CreateResourceAsync()
+        {
+            if (!CanModifyCurrentProject)
+            {
+                StatusText = "Create or open a writable project before creating a resource.";
+                return;
+            }
+
+            string assetId = string.IsNullOrWhiteSpace(NewResourceId)
+                ? NewResourceKind.ToString().ToLowerInvariant()
+                : NewResourceId.Trim();
+
+            IsNewResourceDialogOpen = false;
+            if (!await ConfirmAllUnsavedChangesAsync())
+            {
+                StatusText = "Canceled creating resource.";
+                IsNewResourceDialogOpen = true;
+                return;
+            }
+
+            try
+            {
+                ProjectResourceResult result = await _projectService.CreateResourceAsync(CurrentProject, NewResourceKind, assetId);
+                LoadProject(result.Project);
+                OpenResourceEditor(result.Kind, result.AssetId);
+                StatusText = $"Created {result.Kind} {result.AssetId}.";
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
+            {
+                StatusText = $"Could not create resource: {ex.Message}";
+            }
+        }
+
+        [RelayCommand]
+        private void CancelNewResource()
+        {
+            IsNewResourceDialogOpen = false;
+            StatusText = "Canceled creating resource.";
         }
 
         public async Task ImportProjectZipAsync(Stream zipStream)
@@ -531,6 +703,36 @@ namespace EffectViewer.ViewModels
                         StatusText = "Editing showcases";
                     }
                     break;
+            }
+        }
+
+        private void OpenResourceEditor(EffectAssetKind kind, string assetId)
+        {
+            EffectAsset asset = kind switch
+            {
+                EffectAssetKind.Reanim when CurrentProject.Assets.Reanims.TryGetValue(assetId, out ReanimAsset reanim) => reanim,
+                EffectAssetKind.Particle when CurrentProject.Assets.Particles.TryGetValue(assetId, out EffectAsset particle) => particle,
+                EffectAssetKind.Trail when CurrentProject.Assets.Trails.TryGetValue(assetId, out EffectAsset trail) => trail,
+                _ => null
+            };
+
+            if (kind == EffectAssetKind.Image &&
+                CurrentProject.Assets.Images.TryGetValue(assetId, out ImageAsset image))
+            {
+                OpenOrSelectEditor(kind, assetId, () => new ImageEditorViewModel(image, CurrentProject));
+                return;
+            }
+
+            if (kind == EffectAssetKind.Showcase &&
+                CurrentProject.Assets.Showcases.TryGetValue(assetId, out ShowcaseAsset showcase))
+            {
+                OpenOrSelectEditor(kind, assetId, () => new ShowcaseEditorViewModel(showcase, _luaHost, CurrentProject));
+                return;
+            }
+
+            if (asset is not null)
+            {
+                OpenOrSelectEditor(kind, assetId, () => new EffectEditorViewModel(kind, assetId, asset.Path, CurrentProject));
             }
         }
 
