@@ -76,7 +76,7 @@ namespace EffectViewer.ViewModels
             double time = Nodes.Count == 0
                 ? 0d
                 : Math.Min(100d, Nodes[^1].TimePercent + 10d);
-            AddNode(new FloatParameterTrackNodeViewModel(RemoveNode, CopyNode, EqualizeNode)
+            AddNode(new FloatParameterTrackNodeViewModel(RemoveNode, CopyNode)
             {
                 TimePercent = time,
                 LowValue = _defaultValue,
@@ -115,7 +115,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
-            AddNode(new FloatParameterTrackNodeViewModel(RemoveNode, CopyNode, EqualizeNode)
+            AddNode(new FloatParameterTrackNodeViewModel(RemoveNode, CopyNode)
             {
                 TimePercent = Math.Min(100d, node.TimePercent + 1d),
                 LowValue = node.LowValue,
@@ -124,16 +124,6 @@ namespace EffectViewer.ViewModels
                 Distribution = node.Distribution
             });
             RaiseChanged();
-        }
-
-        private void EqualizeNode(FloatParameterTrackNodeViewModel node)
-        {
-            if (node is null)
-            {
-                return;
-            }
-
-            node.HighValue = node.LowValue;
         }
 
         private void RemoveNode(FloatParameterTrackNodeViewModel node)
@@ -177,7 +167,7 @@ namespace EffectViewer.ViewModels
 
         private FloatParameterTrackNodeViewModel CreateDefaultNode()
         {
-            return new FloatParameterTrackNodeViewModel(RemoveNode, CopyNode, EqualizeNode)
+            return new FloatParameterTrackNodeViewModel(RemoveNode, CopyNode)
             {
                 TimePercent = 0d,
                 LowValue = _defaultValue,
@@ -189,7 +179,7 @@ namespace EffectViewer.ViewModels
 
         private FloatParameterTrackNodeViewModel CreateNode(FloatParameterTrackNode node)
         {
-            return new FloatParameterTrackNodeViewModel(RemoveNode, CopyNode, EqualizeNode)
+            return new FloatParameterTrackNodeViewModel(RemoveNode, CopyNode)
             {
                 TimePercent = node.mTime * 100d,
                 LowValue = node.mLowValue,

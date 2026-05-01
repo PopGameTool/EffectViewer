@@ -8,7 +8,6 @@ namespace EffectViewer.ViewModels
     {
         private readonly Action<FloatParameterTrackNodeViewModel> _remove;
         private readonly Action<FloatParameterTrackNodeViewModel> _copy;
-        private readonly Action<FloatParameterTrackNodeViewModel> _equalize;
         private double _timePercent;
         private double _lowValue;
         private double _highValue;
@@ -84,12 +83,10 @@ namespace EffectViewer.ViewModels
 
         public FloatParameterTrackNodeViewModel(
             Action<FloatParameterTrackNodeViewModel> remove,
-            Action<FloatParameterTrackNodeViewModel> copy,
-            Action<FloatParameterTrackNodeViewModel> equalize)
+            Action<FloatParameterTrackNodeViewModel> copy)
         {
             _remove = remove;
             _copy = copy;
-            _equalize = equalize;
         }
 
         [RelayCommand]
@@ -102,12 +99,6 @@ namespace EffectViewer.ViewModels
         private void Copy()
         {
             _copy?.Invoke(this);
-        }
-
-        [RelayCommand]
-        private void Equalize()
-        {
-            _equalize?.Invoke(this);
         }
 
         private static double RoundToThreeDecimals(double value)

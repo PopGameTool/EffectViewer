@@ -68,19 +68,16 @@
                   <ComboBox ItemsSource="{Binding CurveOptions}"
                             SelectedItem="{Binding Distribution}"
                             HorizontalAlignment="Stretch"/>
-                  <StackPanel Orientation="Horizontal"
-                              HorizontalAlignment="Right"
-                              Spacing="6">
-                    <Button Content="Equal"
-                            MinWidth="64"
-                            Command="{Binding EqualizeCommand}"/>
+                  <WrapPanel HorizontalAlignment="Right"
+                             ItemSpacing="6"
+                             LineSpacing="6">
                     <Button Content="Copy"
                             MinWidth="64"
                             Command="{Binding CopyCommand}"/>
                     <Button Content="Remove"
                             MinWidth="76"
                             Command="{Binding RemoveCommand}"/>
-                  </StackPanel>
+                  </WrapPanel>
                 </StackPanel>
               </Border>
             </DataTemplate>
