@@ -20,6 +20,9 @@ namespace EffectViewer.Controls
         public static readonly StyledProperty<IRenderFrameProvider> FrameProviderProperty =
             AvaloniaProperty.Register<InteractiveEffectViewport, IRenderFrameProvider>(nameof(FrameProvider));
 
+        public static readonly StyledProperty<IViewportDragHandler> DragHandlerProperty =
+            AvaloniaProperty.Register<InteractiveEffectViewport, IViewportDragHandler>(nameof(DragHandler));
+
         public static Func<Control> ViewportFactory { get; set; } = static () => new OpenGlEffectViewport();
 
         private readonly Control _viewportControl;
@@ -28,6 +31,7 @@ namespace EffectViewer.Controls
         private Vector2 _lastPanPositionPixels;
         private float _zoom = 1f;
         private bool _isPanning;
+        private bool _isDraggingContent;
 
         public InteractiveEffectViewport()
         {
@@ -65,6 +69,12 @@ namespace EffectViewer.Controls
         {
             get => GetValue(FrameProviderProperty);
             set => SetValue(FrameProviderProperty, value);
+        }
+
+        public IViewportDragHandler DragHandler
+        {
+            get => GetValue(DragHandlerProperty);
+            set => SetValue(DragHandlerProperty, value);
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -119,7 +129,8 @@ namespace EffectViewer.Controls
             Focus();
             double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
             _lastPanPositionPixels = ToPixels(e.GetPosition(this), scaling);
-            _isPanning = true;
+            _isDraggingContent = point.Properties.IsLeftButtonPressed && DragHandler?.CanDrag == true;
+            _isPanning = !_isDraggingContent;
             e.Pointer.Capture(this);
             e.Handled = true;
         }
@@ -127,7 +138,7 @@ namespace EffectViewer.Controls
         protected override void OnPointerMoved(PointerEventArgs e)
         {
             base.OnPointerMoved(e);
-            if (!_isPanning)
+            if (!_isPanning && !_isDraggingContent)
             {
                 return;
             }
@@ -135,22 +146,31 @@ namespace EffectViewer.Controls
             PointerPoint point = e.GetCurrentPoint(this);
             if (!point.Properties.IsLeftButtonPressed && !point.Properties.IsMiddleButtonPressed)
             {
-                EndPan(e.Pointer);
+                EndPointerAction(e.Pointer);
                 return;
             }
 
             double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
             Vector2 positionPixels = ToPixels(e.GetPosition(this), scaling);
-            _panPixels += positionPixels - _lastPanPositionPixels;
+            Vector2 deltaPixels = positionPixels - _lastPanPositionPixels;
+            if (_isDraggingContent)
+            {
+                DragHandler?.DragBy(deltaPixels / _zoom);
+            }
+            else
+            {
+                _panPixels += deltaPixels;
+                ApplyViewTransform();
+            }
+
             _lastPanPositionPixels = positionPixels;
-            ApplyViewTransform();
             e.Handled = true;
         }
 
         protected override void OnPointerReleased(PointerReleasedEventArgs e)
         {
             base.OnPointerReleased(e);
-            EndPan(e.Pointer);
+            EndPointerAction(e.Pointer);
             e.Handled = true;
         }
 
@@ -158,6 +178,7 @@ namespace EffectViewer.Controls
         {
             base.OnPointerCaptureLost(e);
             _isPanning = false;
+            _isDraggingContent = false;
         }
 
         protected override void OnDoubleTapped(TappedEventArgs e)
@@ -174,14 +195,15 @@ namespace EffectViewer.Controls
             _viewport.SetViewTransform(_zoom, _panPixels);
         }
 
-        private void EndPan(IPointer pointer)
+        private void EndPointerAction(IPointer pointer)
         {
-            if (!_isPanning)
+            if (!_isPanning && !_isDraggingContent)
             {
                 return;
             }
 
             _isPanning = false;
+            _isDraggingContent = false;
             pointer.Capture(null);
         }
 

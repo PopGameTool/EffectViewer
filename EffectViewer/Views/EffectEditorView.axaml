@@ -340,54 +340,105 @@
         </Expander>
       </StackPanel>
     </DataTemplate>
+
+    <DataTemplate x:Key="ReanimFrameCellTemplate"
+                  DataType="vm:ReanimFrameCellViewModel">
+      <Button Width="28"
+              Height="26"
+              Padding="0"
+              Margin="0"
+              Command="{Binding SelectCommand}"
+              ToolTip.Tip="{Binding TooltipText}">
+        <Border Width="22"
+                Height="18"
+                CornerRadius="2"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                Classes.reanim-frame-content="{Binding HasContent}"
+                Classes.reanim-frame-playhead="{Binding IsPlayhead}"
+                Classes.reanim-frame-selected="{Binding IsSelected}">
+          <TextBlock Text="{Binding Glyph}"
+                     FontSize="10"
+                     FontWeight="SemiBold"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"/>
+        </Border>
+      </Button>
+    </DataTemplate>
   </UserControl.Resources>
 
-  <Grid RowDefinitions="Auto,*" Margin="24" RowSpacing="16">
-    <DockPanel LastChildFill="True">
-      <Menu DockPanel.Dock="Right"
-            Background="Transparent">
-        <MenuItem Header="_Layout">
-          <MenuItem Header="_Properties"
-                    Command="{Binding ToggleSidePanelCommand}"
-                    IsChecked="{Binding IsSidePanelVisible, Mode=OneWay}"
-                    ToggleType="CheckBox"/>
-          <Separator/>
-          <MenuItem Header="Dock Properties _Left"
-                    Command="{Binding DockSidePanelLeftCommand}"
-                    IsChecked="{Binding IsSidePanelOnLeft, Mode=OneWay}"
-                    ToggleType="Radio"/>
-          <MenuItem Header="Dock Properties _Right"
-                    Command="{Binding DockSidePanelRightCommand}"
-                    IsChecked="{Binding IsSidePanelOnRight, Mode=OneWay}"
-                    ToggleType="Radio"/>
-          <Separator/>
-          <MenuItem Header="_Reset Editor Layout"
-                    Command="{Binding ResetEditorLayoutCommand}"/>
-        </MenuItem>
-      </Menu>
-      <StackPanel Spacing="4">
-        <TextBlock Text="{Binding AssetId}" FontSize="24" FontWeight="SemiBold"/>
-        <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
-      </StackPanel>
-    </DockPanel>
+  <UserControl.Styles>
+    <Style Selector="Border.reanim-frame-content">
+      <Setter Property="Background" Value="#304EA6FF"/>
+      <Setter Property="BorderBrush" Value="#7BBEFF"/>
+    </Style>
+    <Style Selector="Border.reanim-frame-playhead">
+      <Setter Property="BorderBrush" Value="#FFD54F"/>
+      <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+    <Style Selector="Border.reanim-frame-selected">
+      <Setter Property="Background" Value="#5087D36C"/>
+      <Setter Property="BorderBrush" Value="#9BE28F"/>
+      <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+    <Style Selector="TextBlock.reanim-track-name.selected">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="#9BE28F"/>
+    </Style>
+  </UserControl.Styles>
 
-    <controls:DockablePanelView Grid.Row="1"
-                                IsSidePanelVisible="{Binding IsSidePanelVisible}"
-                                IsSidePanelOnLeft="{Binding IsSidePanelOnLeft}"
-                                LayoutResetRevision="{Binding LayoutResetRevision}"
-                                DefaultSidePanelWidth="320"
-                                MinimumSidePanelWidth="260">
-      <controls:DockablePanelView.PrimaryContent>
-        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-                BorderThickness="1"
-                CornerRadius="6">
-          <controls:InteractiveEffectViewport Frame="{Binding PreviewFrame}"
-                                              FrameProvider="{Binding PreviewFrameProvider}"
-                                              TextureSource="{Binding TextureSource}"/>
-        </Border>
-      </controls:DockablePanelView.PrimaryContent>
+  <Grid>
+    <Grid RowDefinitions="Auto,*" Margin="24" RowSpacing="16">
+      <DockPanel LastChildFill="True">
+        <Menu DockPanel.Dock="Right"
+              Background="Transparent">
+          <MenuItem Header="_Layout">
+            <MenuItem Header="_Properties"
+                      Command="{Binding ToggleSidePanelCommand}"
+                      IsChecked="{Binding IsSidePanelVisible, Mode=OneWay}"
+                      ToggleType="CheckBox"/>
+            <Separator/>
+            <MenuItem Header="Dock Properties _Left"
+                      Command="{Binding DockSidePanelLeftCommand}"
+                      IsChecked="{Binding IsSidePanelOnLeft, Mode=OneWay}"
+                      ToggleType="Radio"/>
+            <MenuItem Header="Dock Properties _Right"
+                      Command="{Binding DockSidePanelRightCommand}"
+                      IsChecked="{Binding IsSidePanelOnRight, Mode=OneWay}"
+                      ToggleType="Radio"/>
+            <Separator/>
+            <MenuItem Header="_Reset Editor Layout"
+                      Command="{Binding ResetEditorLayoutCommand}"/>
+          </MenuItem>
+        </Menu>
+        <StackPanel Spacing="4">
+          <TextBlock Text="{Binding AssetId}" FontSize="24" FontWeight="SemiBold"/>
+          <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+        </StackPanel>
+      </DockPanel>
 
-      <controls:DockablePanelView.SideContent>
+      <Grid x:Name="EditorContentGrid"
+            Grid.Row="1"
+            RowDefinitions="*,5,230">
+        <controls:DockablePanelView Grid.Row="0"
+                                    IsSidePanelVisible="{Binding IsSidePanelVisible}"
+                                    IsSidePanelOnLeft="{Binding IsSidePanelOnLeft}"
+                                    LayoutResetRevision="{Binding LayoutResetRevision}"
+                                    DefaultSidePanelWidth="320"
+                                    MinimumSidePanelWidth="260">
+          <controls:DockablePanelView.PrimaryContent>
+            <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6">
+              <controls:InteractiveEffectViewport Frame="{Binding PreviewFrame}"
+                                                  FrameProvider="{Binding PreviewFrameProvider}"
+                                                  TextureSource="{Binding TextureSource}"
+                                                  DragHandler="{Binding}"/>
+            </Border>
+          </controls:DockablePanelView.PrimaryContent>
+
+          <controls:DockablePanelView.SideContent>
         <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                 BorderThickness="1"
                 CornerRadius="6">
@@ -396,47 +447,17 @@
           <StackPanel Spacing="10" Margin="14" HorizontalAlignment="Stretch">
             <TextBlock Text="Properties" FontSize="16" FontWeight="SemiBold"/>
 
-            <Expander Header="Animation"
-                      IsExpanded="True"
-                      IsVisible="{Binding HasReanimControls}"
-                      HorizontalAlignment="Stretch">
-              <StackPanel Spacing="10">
-                <TextBlock Text="Layer" FontWeight="SemiBold"/>
-                <ComboBox ItemsSource="{Binding ReanimLayers}"
-                          SelectedItem="{Binding SelectedReanimLayer}"
-                          HorizontalAlignment="Stretch"/>
-                <DockPanel LastChildFill="False">
-                  <TextBlock Text="Tracks" FontWeight="SemiBold"/>
-                  <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
-                    <Button Content="Show all"
-                            Command="{Binding ShowAllTracksCommand}"
-                            MinWidth="76"/>
-                    <Button Content="Hide all"
-                            Command="{Binding HideAllTracksCommand}"
-                            MinWidth="76"/>
-                  </StackPanel>
-                </DockPanel>
-                <ItemsControl ItemsSource="{Binding ReanimTracks}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <CheckBox IsChecked="{Binding IsVisible}"
-                                Content="{Binding Name}"
-                                Margin="0,2"/>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </StackPanel>
-            </Expander>
-
             <Expander Header="Structure" IsExpanded="True" HorizontalAlignment="Stretch">
               <StackPanel Spacing="8">
-                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6" IsVisible="{Binding IsReanimEditor}">
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6" IsVisible="{Binding IsReanimEditor}">
                   <TextBlock Text="Tracks"/>
-                  <TextBlock Grid.Column="1" Text="{Binding FileSummary.TrackCount}"/>
+                  <TextBlock Grid.Column="1" Text="{Binding ReanimTrackCount}"/>
                   <TextBlock Grid.Row="1" Text="Frames"/>
-                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FileSummary.FrameCount}"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ReanimFrameCount}"/>
                   <TextBlock Grid.Row="2" Text="FPS"/>
-                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding FileSummary.Fps}"/>
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ReanimFps}"/>
+                  <TextBlock Grid.Row="3" Text="Duration"/>
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ReanimDurationSummary}"/>
                 </Grid>
                 <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6" IsVisible="{Binding IsParticleEditor}">
                   <TextBlock Text="Emitters"/>
@@ -551,7 +572,270 @@
           </StackPanel>
         </ScrollViewer>
       </Border>
-      </controls:DockablePanelView.SideContent>
-    </controls:DockablePanelView>
+        </controls:DockablePanelView.SideContent>
+      </controls:DockablePanelView>
+        <GridSplitter Grid.Row="1"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      ResizeDirection="Rows"
+                      Classes="layout-splitter horizontal-splitter"
+                      IsVisible="{Binding HasReanimControls}"/>
+
+        <Border Grid.Row="2"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                IsVisible="{Binding HasReanimControls}">
+          <Grid RowDefinitions="Auto,*"
+                Margin="10"
+                RowSpacing="8">
+            <DockPanel LastChildFill="False">
+              <TextBlock Text="Timeline"
+                         FontSize="16"
+                         FontWeight="SemiBold"
+                         VerticalAlignment="Center"/>
+              <WrapPanel DockPanel.Dock="Right"
+                         HorizontalAlignment="Right"
+                         ItemSpacing="6"
+                         LineSpacing="6">
+                <ComboBox ItemsSource="{Binding ReanimLayers}"
+                          SelectedItem="{Binding SelectedReanimLayer}"
+                          Width="150"/>
+                <TextBlock Text="FPS"
+                           VerticalAlignment="Center"/>
+                <NumericUpDown Value="{Binding ReanimFps}"
+                               Width="76"
+                               Minimum="1"
+                               Maximum="240"
+                               Increment="1"
+                               FormatString="0.###"/>
+                <CheckBox Content="Play"
+                          IsChecked="{Binding ReanimIsPlaying}"
+                          VerticalAlignment="Center"/>
+                <Button Content="Transform"
+                        MinWidth="86"
+                        IsEnabled="{Binding CanTransformSelectedReanimFrame}"
+                        Command="{Binding OpenReanimTransformDialogCommand}"/>
+                <Button Content="Add Frame"
+                        MinWidth="86"
+                        Command="{Binding AddReanimFrameCommand}"/>
+                <Button Content="Remove Frame"
+                        MinWidth="110"
+                        IsEnabled="{Binding CanRemoveReanimFrame}"
+                        Command="{Binding RemoveReanimFrameCommand}"/>
+              </WrapPanel>
+            </DockPanel>
+
+            <ScrollViewer Grid.Row="1"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto">
+              <StackPanel Spacing="2">
+                <Grid ColumnDefinitions="150,*" ColumnSpacing="4">
+                  <StackPanel Orientation="Horizontal"
+                              Spacing="4"
+                              VerticalAlignment="Center">
+                    <Button Width="28"
+                            Height="24"
+                            Padding="0"
+                            Command="{Binding AddReanimTrackCommand}"
+                            ToolTip.Tip="Add Track">
+                      <PathIcon Width="14"
+                                Height="14"
+                                Data="M12,5 L12,19 M5,12 L19,12"/>
+                    </Button>
+                    <Button Width="28"
+                            Height="24"
+                            Padding="0"
+                            IsEnabled="{Binding CanRemoveReanimTrack}"
+                            Command="{Binding RemoveReanimTrackCommand}"
+                            ToolTip.Tip="Remove Track">
+                      <PathIcon Width="14"
+                                Height="14"
+                                Data="M3,6 L21,6 M8,6 L8,4 L16,4 L16,6 M7,6 L8,21 L16,21 L17,6 M10,10 L10,18 M14,10 L14,18"/>
+                    </Button>
+                  </StackPanel>
+                  <ItemsControl Grid.Column="1"
+                                ItemsSource="{Binding ReanimFrameHeaders}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="vm:ReanimFrameHeaderViewModel">
+                        <Button Width="28"
+                                Height="24"
+                                Padding="0"
+                                Margin="0"
+                                Command="{Binding SelectCommand}">
+                          <TextBlock Text="{Binding Label}"
+                                     FontSize="10"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center"/>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </Grid>
+
+                <ItemsControl ItemsSource="{Binding ReanimTracks}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="vm:ReanimTrackViewModel">
+                      <Grid ColumnDefinitions="150,*"
+                            ColumnSpacing="4"
+                            MinHeight="28">
+                        <DockPanel LastChildFill="True">
+                          <CheckBox DockPanel.Dock="Left"
+                                    IsChecked="{Binding IsVisible}"
+                                    VerticalAlignment="Center"/>
+                          <TextBlock Text="{Binding DisplayName}"
+                                     Classes.reanim-track-name="True"
+                                     Classes.selected="{Binding IsSelected}"
+                                     TextTrimming="CharacterEllipsis"
+                                     VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <ItemsControl Grid.Column="1"
+                                      ItemsSource="{Binding Frames}"
+                                      ItemTemplate="{StaticResource ReanimFrameCellTemplate}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+    </Grid>
+    </Grid>
+
+    <Border Background="#80000000"
+            IsVisible="{Binding IsReanimTransformDialogOpen}">
+      <Border Width="480"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="18">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Transform"
+                     FontSize="18"
+                     FontWeight="SemiBold"/>
+          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto"
+                ColumnSpacing="10"
+                RowSpacing="8">
+            <StackPanel Grid.ColumnSpan="2" Spacing="4">
+              <TextBlock Text="Track Name"/>
+              <TextBox Text="{Binding ReanimTransformDialog.TrackName, UpdateSourceTrigger=PropertyChanged}"
+                       PlaceholderText="Track name"/>
+            </StackPanel>
+            <StackPanel Grid.Row="1" Spacing="4">
+              <TextBlock Text="Image ID"/>
+              <TextBox Text="{Binding ReanimTransformDialog.ImageId, UpdateSourceTrigger=PropertyChanged}"
+                       PlaceholderText="Image resource ID"/>
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+              <TextBlock Text="Font"/>
+              <TextBox Text="{Binding ReanimTransformDialog.FontId, UpdateSourceTrigger=PropertyChanged}"
+                       PlaceholderText="Font ID"/>
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Spacing="4">
+              <TextBlock Text="Text"/>
+              <TextBox Text="{Binding ReanimTransformDialog.Text, UpdateSourceTrigger=PropertyChanged}"
+                       PlaceholderText="Text"/>
+            </StackPanel>
+          </Grid>
+          <Separator/>
+          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto"
+                ColumnSpacing="10"
+                RowSpacing="8">
+            <StackPanel Spacing="4">
+              <TextBlock Text="X"/>
+              <NumericUpDown Value="{Binding ReanimTransformDialog.X}"
+                             Minimum="-10000"
+                             Maximum="10000"
+                             Increment="1"
+                             FormatString="0.###"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="4">
+              <TextBlock Text="Y"/>
+              <NumericUpDown Value="{Binding ReanimTransformDialog.Y}"
+                             Minimum="-10000"
+                             Maximum="10000"
+                             Increment="1"
+                             FormatString="0.###"/>
+            </StackPanel>
+            <StackPanel Grid.Row="1" Spacing="4">
+              <TextBlock Text="Scale X"/>
+              <NumericUpDown Value="{Binding ReanimTransformDialog.ScaleX}"
+                             Minimum="-20"
+                             Maximum="20"
+                             Increment="0.05"
+                             FormatString="0.###"/>
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+              <TextBlock Text="Scale Y"/>
+              <NumericUpDown Value="{Binding ReanimTransformDialog.ScaleY}"
+                             Minimum="-20"
+                             Maximum="20"
+                             Increment="0.05"
+                             FormatString="0.###"/>
+            </StackPanel>
+            <StackPanel Grid.Row="2" Spacing="4">
+              <TextBlock Text="Skew X"/>
+              <NumericUpDown Value="{Binding ReanimTransformDialog.SkewX}"
+                             Minimum="-360"
+                             Maximum="360"
+                             Increment="1"
+                             FormatString="0.###"/>
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
+              <TextBlock Text="Skew Y"/>
+              <NumericUpDown Value="{Binding ReanimTransformDialog.SkewY}"
+                             Minimum="-360"
+                             Maximum="360"
+                             Increment="1"
+                             FormatString="0.###"/>
+            </StackPanel>
+            <StackPanel Grid.Row="3" Spacing="4">
+              <TextBlock Text="Frame"/>
+              <NumericUpDown Value="{Binding ReanimTransformDialog.Frame}"
+                             Minimum="-1"
+                             Maximum="10000"
+                             Increment="1"
+                             FormatString="0.###"/>
+            </StackPanel>
+            <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
+              <TextBlock Text="Alpha"/>
+              <NumericUpDown Value="{Binding ReanimTransformDialog.Alpha}"
+                             Minimum="0"
+                             Maximum="1"
+                             Increment="0.05"
+                             FormatString="0.###"/>
+            </StackPanel>
+          </Grid>
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="8">
+            <Button Content="Reset Scale"
+                    MinWidth="92"
+                    Command="{Binding ReanimTransformDialog.ResetScaleCommand}"/>
+            <Button Content="Reset Skew"
+                    MinWidth="108"
+                    Command="{Binding ReanimTransformDialog.ResetSkewCommand}"/>
+            <Button Content="Close"
+                    MinWidth="80"
+                    Command="{Binding ReanimTransformDialog.CloseCommand}"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
   </Grid>
 </UserControl>

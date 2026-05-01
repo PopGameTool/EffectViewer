@@ -12,38 +12,78 @@ namespace EffectViewer.Rendering
     public sealed class ReanimPreviewSimulation : IRenderFrameProvider
     {
         private const double UpdateStepSeconds = 1.0 / TodLibConstants.TICKS_PER_SECOND;
-        private readonly Reanimation _reanimation;
+        private readonly Reanimation _reanimation = new();
         private readonly float _x;
         private readonly float _y;
+        private bool _isPaused;
         private double _accumulator;
 
-        public IReadOnlyList<string> TrackNames { get; }
-        public IReadOnlyList<string> LayerTrackNames { get; }
-        public IReadOnlyList<string> LayerNames { get; }
+        public IReadOnlyList<string> TrackNames { get; private set; }
+        public IReadOnlyList<string> LayerTrackNames { get; private set; }
+        public IReadOnlyList<string> LayerNames { get; private set; }
 
         public ReanimPreviewSimulation(EffectProject project, string path, float x = 0f, float y = 0f)
         {
             ResourceHandler.SetProvider(new ProjectResourceProvider(project));
             string fullPath = ResolvePath(project, path);
-            _reanimation = CreateReanimation(fullPath);
             _x = x;
             _y = y;
-            TrackNames = BuildTrackNames(_reanimation.mDefinition);
-            LayerTrackNames = BuildLayerTrackNames(_reanimation.mDefinition);
-            LayerNames = BuildLayerNames(LayerTrackNames);
+            SetDefinition(LoadDefinition(fullPath));
         }
 
         public RenderFrame GetFrame(double deltaSeconds)
         {
-            _accumulator += deltaSeconds;
-            int guard = 0;
-            while (_accumulator >= UpdateStepSeconds && guard++ < 20)
+            if (!_isPaused)
             {
-                Update();
-                _accumulator -= UpdateStepSeconds;
+                _accumulator += deltaSeconds;
+                int guard = 0;
+                while (_accumulator >= UpdateStepSeconds && guard++ < 20)
+                {
+                    Update();
+                    _accumulator -= UpdateStepSeconds;
+                }
             }
 
             return BuildFrame();
+        }
+
+        public void SetDefinition(ReanimatorDefinition definition)
+        {
+            InitializeReanimation(definition ?? new ReanimatorDefinition());
+            TrackNames = BuildTrackNames(_reanimation.mDefinition);
+            LayerTrackNames = BuildLayerTrackNames(_reanimation.mDefinition);
+            LayerNames = BuildLayerNames(LayerTrackNames);
+            _accumulator = 0d;
+        }
+
+        public void SetPaused(bool isPaused)
+        {
+            _isPaused = isPaused;
+            _accumulator = 0d;
+        }
+
+        public void SetAnimRate(float animRate)
+        {
+            _reanimation.mAnimRate = animRate;
+        }
+
+        public void SetFrameIndex(int frameIndex)
+        {
+            if (_reanimation.mFrameCount <= 0)
+            {
+                return;
+            }
+
+            int clampedFrame = Math.Clamp(
+                frameIndex,
+                _reanimation.mFrameStart,
+                _reanimation.mFrameStart + _reanimation.mFrameCount - 1);
+            int denominator = Math.Max(1, _reanimation.mFrameCount - 1);
+            _reanimation.mAnimTime = Math.Clamp(
+                (clampedFrame - _reanimation.mFrameStart) / (float)denominator,
+                0f,
+                1f);
+            _reanimation.mLastFrameTime = _reanimation.mAnimTime;
         }
 
         public void SetLayer(string trackName)
@@ -127,7 +167,7 @@ namespace EffectViewer.Rendering
             return graphics.Frame;
         }
 
-        private static Reanimation CreateReanimation(string fullPath)
+        private static ReanimatorDefinition LoadDefinition(string fullPath)
         {
             ReanimatorDefinition definition = null;
             if (!string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath))
@@ -135,29 +175,30 @@ namespace EffectViewer.Rendering
                 ReanimatorXnaHelpers.ReanimationLoadDefinition(fullPath, ref definition);
             }
 
-            Reanimation reanimation = new()
-            {
-                mDefinition = definition ?? new ReanimatorDefinition(),
-                mLoopType = ReanimLoopType.Loop,
-                mAnimRate = definition?.mFPS ?? 12f,
-                mLastFrameTime = -1f,
-                mOverlayMatrix = Matrix4x4.Identity,
-                mColorOverride = SexyColor.White,
-                mExtraAdditiveColor = SexyColor.White,
-                mExtraOverlayColor = SexyColor.White
-            };
+            return definition ?? new ReanimatorDefinition();
+        }
+
+        private void InitializeReanimation(ReanimatorDefinition definition)
+        {
+            _reanimation.Reset();
+            _reanimation.mDefinition = definition ?? new ReanimatorDefinition();
+            _reanimation.mLoopType = ReanimLoopType.Loop;
+            _reanimation.mAnimRate = definition?.mFPS ?? 12f;
+            _reanimation.mLastFrameTime = -1f;
+            _reanimation.mOverlayMatrix = Matrix4x4.Identity;
+            _reanimation.mColorOverride = SexyColor.White;
+            _reanimation.mExtraAdditiveColor = SexyColor.White;
+            _reanimation.mExtraOverlayColor = SexyColor.White;
 
             if (definition?.mTrackCount > 0)
             {
-                reanimation.mFrameCount = definition.mTracks[0].mTransformCount;
-                reanimation.mTrackInstances = new ReanimatorTrackInstance[definition.mTrackCount];
-                for (int i = 0; i < reanimation.mTrackInstances.Length; i++)
+                _reanimation.mFrameCount = definition.mTracks[0].mTransformCount;
+                _reanimation.mTrackInstances = new ReanimatorTrackInstance[definition.mTrackCount];
+                for (int i = 0; i < _reanimation.mTrackInstances.Length; i++)
                 {
-                    reanimation.mTrackInstances[i].Reset();
+                    _reanimation.mTrackInstances[i].Reset();
                 }
             }
-
-            return reanimation;
         }
 
         private void SetFullTimeline()
