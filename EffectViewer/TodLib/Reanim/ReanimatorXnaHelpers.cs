@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using EffectViewer.TodLib.Common;
 
 namespace EffectViewer.TodLib.Reanim
 {
     internal class ReanimatorXnaHelpers
     {
-        public static float DEFAULT_FIELD_PLACEHOLDER = -99999f;
+        public const float DEFAULT_FIELD_PLACEHOLDER = TodLibConstants.DEFAULT_FIELD_PLACEHOLDER;
 
         public static short NO_BASE_POSE = -2;
 
