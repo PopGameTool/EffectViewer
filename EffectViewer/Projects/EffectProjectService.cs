@@ -14,12 +14,6 @@ namespace EffectViewer.Projects
         public const string ManifestFileName = "project.effectproj.json";
         public const string AssetsDirectoryName = "assets";
 
-        private static readonly JsonSerializerOptions SerializerOptions = new()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = true
-        };
-
         private readonly IProjectStorageProvider _storageProvider;
 
         public EffectProjectService(IProjectStorageProvider storageProvider)
@@ -31,7 +25,7 @@ namespace EffectViewer.Projects
         {
             string manifestPath = System.IO.Path.Combine(projectDirectory, ManifestFileName);
             await using FileStream stream = File.OpenRead(manifestPath);
-            ProjectManifest manifest = await JsonSerializer.DeserializeAsync<ProjectManifest>(stream, SerializerOptions)
+            ProjectManifest manifest = await JsonSerializer.DeserializeAsync(stream, ProjectJsonSerializerContext.Default.ProjectManifest)
                 ?? new ProjectManifest();
 
             Normalize(manifest);
@@ -58,7 +52,7 @@ namespace EffectViewer.Projects
                 try
                 {
                     await using FileStream stream = File.OpenRead(manifestPath);
-                    ProjectManifest manifest = await JsonSerializer.DeserializeAsync<ProjectManifest>(stream, SerializerOptions)
+                    ProjectManifest manifest = await JsonSerializer.DeserializeAsync(stream, ProjectJsonSerializerContext.Default.ProjectManifest)
                         ?? new ProjectManifest();
 
                     projects.Add(new ProjectInfo
@@ -87,7 +81,7 @@ namespace EffectViewer.Projects
             Directory.CreateDirectory(project.RootPath);
             string manifestPath = System.IO.Path.Combine(project.RootPath, ManifestFileName);
             await using FileStream stream = File.Create(manifestPath);
-            await JsonSerializer.SerializeAsync(stream, project.Manifest, SerializerOptions);
+            await JsonSerializer.SerializeAsync(stream, project.Manifest, ProjectJsonSerializerContext.Default.ProjectManifest);
         }
 
         public EffectProject CreateNew(string projectDirectory, string projectName)
@@ -156,7 +150,11 @@ namespace EffectViewer.Projects
                 Message = "Reading archive"
             });
 
-            using ZipArchive archive = new(zipStream, ZipArchiveMode.Read, leaveOpen: true);
+            using MemoryStream archiveBuffer = new();
+            await zipStream.CopyToAsync(archiveBuffer);
+            archiveBuffer.Position = 0;
+
+            using ZipArchive archive = new(archiveBuffer, ZipArchiveMode.Read);
             ZipArchiveEntry manifestEntry = FindProjectManifestEntry(archive)
                 ?? throw new InvalidDataException("The zip file does not contain an EffectViewer project manifest.");
             List<ZipArchiveEntry> fileEntries = archive.Entries
@@ -166,7 +164,7 @@ namespace EffectViewer.Projects
             ProjectManifest manifest;
             await using (Stream manifestStream = manifestEntry.Open())
             {
-                manifest = await JsonSerializer.DeserializeAsync<ProjectManifest>(manifestStream, SerializerOptions)
+                manifest = await JsonSerializer.DeserializeAsync(manifestStream, ProjectJsonSerializerContext.Default.ProjectManifest)
                     ?? new ProjectManifest();
             }
 
