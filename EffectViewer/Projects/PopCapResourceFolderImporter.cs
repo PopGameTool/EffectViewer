@@ -5,6 +5,9 @@ using System.IO;
 using System.Linq;
 using EffectViewer.Assets;
 using EffectViewer.TodLib.Common;
+using EffectViewer.TodLib.Particle;
+using EffectViewer.TodLib.Reanim;
+using EffectViewer.TodLib.Trail;
 
 namespace EffectViewer.Projects
 {
@@ -49,10 +52,19 @@ namespace EffectViewer.Projects
             }
 
             AddImagesByConvention(sourceDirectory, projectDirectory, images, copiedProjectPaths, knownSourceFiles);
-            AddReanimFiles(sourceDirectory, projectDirectory, "reanim", ".reanim", ReanimsDirectory, manifest.Reanims, copiedProjectPaths);
-            AddEffectFiles(sourceDirectory, projectDirectory, "particles", ".xml", ParticlesDirectory, manifest.Particles, copiedProjectPaths);
-            AddEffectFiles(sourceDirectory, projectDirectory, "particles", ".trail", TrailsDirectory, manifest.Trails, copiedProjectPaths);
-            AddEffectFiles(sourceDirectory, projectDirectory, "trails", ".trail", TrailsDirectory, manifest.Trails, copiedProjectPaths);
+            if (Directory.Exists(Path.Combine(sourceDirectory, "compiled")))
+            {
+                AddCompiledReanimFiles(sourceDirectory, projectDirectory, "compiled/reanim", ReanimsDirectory, manifest.Reanims, copiedProjectPaths);
+                AddCompiledEffectFiles(sourceDirectory, projectDirectory, "compiled/particles", ".xml.compiled", ".xml", ParticlesDirectory, manifest.Particles, copiedProjectPaths);
+                AddCompiledEffectFiles(sourceDirectory, projectDirectory, "compiled/particles", ".trail.compiled", ".trail", TrailsDirectory, manifest.Trails, copiedProjectPaths);
+                AddCompiledEffectFiles(sourceDirectory, projectDirectory, "compiled/trails", ".trail.compiled", ".trail", TrailsDirectory, manifest.Trails, copiedProjectPaths);
+            }
+            else
+            {
+                AddReanimFiles(sourceDirectory, projectDirectory, "reanim", ".reanim", ReanimsDirectory, manifest.Reanims, copiedProjectPaths);
+                AddEffectFiles(sourceDirectory, projectDirectory, "particles", ".xml", ParticlesDirectory, manifest.Particles, copiedProjectPaths);
+                AddEffectFiles(sourceDirectory, projectDirectory, "particles", ".trail", TrailsDirectory, manifest.Trails, copiedProjectPaths);
+            }
 
             manifest.Images = images.Values
                 .OrderBy(asset => asset.Id, StringComparer.OrdinalIgnoreCase)
@@ -217,6 +229,41 @@ namespace EffectViewer.Projects
             }
         }
 
+        private static void AddCompiledEffectFiles(
+            string sourceDirectory,
+            string projectDirectory,
+            string relativeDirectory,
+            string suffix,
+            string sourceExtension,
+            string assetDirectory,
+            IList<EffectAsset> target,
+            HashSet<string> copiedProjectPaths)
+        {
+            string directory = Path.Combine(sourceDirectory, NormalizeRelativeDirectory(relativeDirectory));
+            if (!Directory.Exists(directory))
+            {
+                return;
+            }
+
+            foreach (string file in Directory.EnumerateFiles(directory, "*" + suffix, SearchOption.TopDirectoryOnly))
+            {
+                string id = Path.GetFileName(file);
+                id = id.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)
+                    ? id[..^suffix.Length]
+                    : Path.GetFileNameWithoutExtension(file);
+                if (ContainsAssetId(target, id))
+                {
+                    continue;
+                }
+
+                target.Add(new EffectAsset
+                {
+                    Id = id,
+                    Path = ConvertCompiledEffectFile(projectDirectory, file, assetDirectory, id, sourceExtension, copiedProjectPaths)
+                });
+            }
+        }
+
         private static void AddReanimFiles(
             string sourceDirectory,
             string projectDirectory,
@@ -239,6 +286,40 @@ namespace EffectViewer.Projects
                 {
                     Id = id,
                     Path = CopyAssetFile(projectDirectory, file, assetDirectory, id, copiedProjectPaths)
+                });
+            }
+        }
+
+        private static void AddCompiledReanimFiles(
+            string sourceDirectory,
+            string projectDirectory,
+            string relativeDirectory,
+            string assetDirectory,
+            IList<ReanimAsset> target,
+            HashSet<string> copiedProjectPaths)
+        {
+            string directory = Path.Combine(sourceDirectory, NormalizeRelativeDirectory(relativeDirectory));
+            if (!Directory.Exists(directory))
+            {
+                return;
+            }
+
+            const string suffix = ".reanim.compiled";
+            foreach (string file in Directory.EnumerateFiles(directory, "*" + suffix, SearchOption.TopDirectoryOnly))
+            {
+                string id = Path.GetFileName(file);
+                id = id.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)
+                    ? id[..^suffix.Length]
+                    : Path.GetFileNameWithoutExtension(file);
+                if (ContainsAssetId(target, id))
+                {
+                    continue;
+                }
+
+                target.Add(new ReanimAsset
+                {
+                    Id = id,
+                    Path = ConvertCompiledReanimFile(projectDirectory, file, assetDirectory, id, copiedProjectPaths)
                 });
             }
         }
@@ -350,15 +431,84 @@ namespace EffectViewer.Projects
             HashSet<string> copiedProjectPaths)
         {
             string extension = Path.GetExtension(sourceFile);
-            string safeName = ProjectPathUtility.CreateSafeName(preferredName, "asset");
-            string relativePath = ProjectPathUtility.ToProjectRelativePath(Path.Combine(assetDirectory, safeName + extension));
-            relativePath = EnsureUniquePath(relativePath, copiedProjectPaths);
+            string relativePath = CreateAssetRelativePath(assetDirectory, preferredName, extension, copiedProjectPaths);
 
             string destination = Path.Combine(projectDirectory, relativePath.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             File.Copy(sourceFile, destination, overwrite: true);
             copiedProjectPaths.Add(relativePath);
             return relativePath;
+        }
+
+        private static string ConvertCompiledEffectFile(
+            string projectDirectory,
+            string sourceFile,
+            string assetDirectory,
+            string preferredName,
+            string sourceExtension,
+            HashSet<string> copiedProjectPaths)
+        {
+            string relativePath = CreateAssetRelativePath(assetDirectory, preferredName, sourceExtension, copiedProjectPaths);
+            string destination = Path.Combine(projectDirectory, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+
+            using FileStream source = File.OpenRead(sourceFile);
+            using FileStream target = File.Create(destination);
+            if (string.Equals(sourceExtension, ".trail", StringComparison.OrdinalIgnoreCase))
+            {
+                TrailDefinition definition = TrailReader.Decode(source);
+                TrailReader.WriteXml(target, definition);
+            }
+            else
+            {
+                TodParticleDefinition definition = SexyParticleReader.Decode(source);
+                SexyParticleReader.WriteXml(target, definition);
+            }
+
+            copiedProjectPaths.Add(relativePath);
+            return relativePath;
+        }
+
+        private static string ConvertCompiledReanimFile(
+            string projectDirectory,
+            string sourceFile,
+            string assetDirectory,
+            string preferredName,
+            HashSet<string> copiedProjectPaths)
+        {
+            string relativePath = CreateAssetRelativePath(assetDirectory, preferredName, ".reanim", copiedProjectPaths);
+            string destination = Path.Combine(projectDirectory, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+
+            using FileStream source = File.OpenRead(sourceFile);
+            using FileStream target = File.Create(destination);
+            ReanimatorDefinition definition = ReanimReader.Decode(source);
+            ReanimReader.WriteXml(target, definition);
+
+            copiedProjectPaths.Add(relativePath);
+            return relativePath;
+        }
+
+        private static string CreateAssetRelativePath(
+            string assetDirectory,
+            string preferredName,
+            string extension,
+            HashSet<string> copiedProjectPaths)
+        {
+            string safeName = ProjectPathUtility.CreateSafeName(preferredName, "asset");
+            string relativePath = ProjectPathUtility.ToProjectRelativePath(Path.Combine(assetDirectory, safeName + extension));
+            return EnsureUniquePath(relativePath, copiedProjectPaths);
+        }
+
+        private static string NormalizeRelativeDirectory(string relativeDirectory)
+        {
+            return relativeDirectory.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+        }
+
+        private static bool ContainsAssetId<TAsset>(IEnumerable<TAsset> assets, string id)
+            where TAsset : EffectAsset
+        {
+            return assets.Any(asset => string.Equals(asset.Id, id, StringComparison.OrdinalIgnoreCase));
         }
 
         private static string EnsureUniquePath(string relativePath, HashSet<string> copiedProjectPaths)

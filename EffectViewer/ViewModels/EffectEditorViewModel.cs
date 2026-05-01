@@ -307,6 +307,44 @@ namespace EffectViewer.ViewModels
         public override bool SupportsSave => Kind == EffectAssetKind.Reanim || Kind == EffectAssetKind.Trail || Kind == EffectAssetKind.Particle;
         public override bool SupportsFileExport => true;
         public override string ExportPath => Path;
+
+        public override Task ExportAsync(EffectProjectService projectService, EffectProject project, Stream outputStream, string targetFileName)
+        {
+            if (Kind == EffectAssetKind.Reanim)
+            {
+                ReanimatorDefinition definition = _reanimDefinition ?? LoadReanimDefinitionFromFile();
+                NormalizeReanimDefinition(definition);
+                ReanimReader.Encode(outputStream, definition, targetFileName);
+                return Task.CompletedTask;
+            }
+
+            if (Kind == EffectAssetKind.Particle)
+            {
+                TodParticleDefinition definition = _particleDefinition ?? LoadParticleDefinitionFromFile();
+                if (_particleDefinition is not null && !TryApplyParticleEmitters())
+                {
+                    throw new InvalidDataException(ParticleDefinitionError);
+                }
+
+                SexyParticleReader.Encode(outputStream, definition, targetFileName);
+                return Task.CompletedTask;
+            }
+
+            if (Kind == EffectAssetKind.Trail)
+            {
+                TrailDefinition definition = _trailDefinition ?? new TrailDefinition();
+                if (_trailDefinition is not null && !TryApplyTrailTracks())
+                {
+                    throw new InvalidDataException(TrailDefinitionError);
+                }
+
+                TrailReader.Encode(outputStream, definition, targetFileName);
+                return Task.CompletedTask;
+            }
+
+            return base.ExportAsync(projectService, project, outputStream, targetFileName);
+        }
+
         public string SelectedReanimLayer
         {
             get => _selectedReanimLayer;
@@ -643,7 +681,7 @@ namespace EffectViewer.ViewModels
                 NormalizeReanimDefinition(_reanimDefinition);
                 NormalizeReanimTweenMetadata();
                 await using FileStream reanimStream = File.Create(reanimFullPath);
-                ReanimReader.Encode(reanimStream, _reanimDefinition);
+                ReanimReader.Encode(reanimStream, _reanimDefinition, reanimFullPath);
                 await projectService.SaveAsync(project);
                 AcceptSavedState();
                 return;
@@ -669,7 +707,7 @@ namespace EffectViewer.ViewModels
                 }
 
                 await using FileStream particleStream = File.Create(particleFullPath);
-                SexyParticleReader.Encode(particleStream, _particleDefinition);
+                SexyParticleReader.Encode(particleStream, _particleDefinition, particleFullPath);
                 AcceptSavedState();
                 return;
             }
@@ -698,7 +736,7 @@ namespace EffectViewer.ViewModels
             }
 
             await using FileStream stream = File.Create(fullPath);
-            TrailReader.Encode(stream, _trailDefinition);
+            TrailReader.Encode(stream, _trailDefinition, fullPath);
             AcceptSavedState();
         }
 

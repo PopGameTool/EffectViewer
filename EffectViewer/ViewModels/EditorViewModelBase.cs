@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -104,6 +105,11 @@ namespace EffectViewer.ViewModels
         {
             MarkClean();
             return Task.CompletedTask;
+        }
+
+        public virtual Task ExportAsync(EffectProjectService projectService, EffectProject project, Stream outputStream, string targetFileName)
+        {
+            return projectService.ExportProjectFileAsync(project, ExportPath, outputStream);
         }
 
         protected void MarkDirty()

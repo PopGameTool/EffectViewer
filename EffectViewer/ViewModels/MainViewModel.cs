@@ -301,6 +301,11 @@ namespace EffectViewer.ViewModels
 
         public string GetSelectedFileExportName()
         {
+            if (SelectedEditor is EffectEditorViewModel effectEditor)
+            {
+                return EffectFileFormatUtility.GetExportFileName(effectEditor.Kind, effectEditor.AssetId, EffectFileFormat.Source);
+            }
+
             string exportPath = SelectedEditor?.ExportPath;
             string fileName = string.IsNullOrWhiteSpace(exportPath)
                 ? SelectedEditor?.Title
@@ -313,6 +318,21 @@ namespace EffectViewer.ViewModels
         {
             string extension = Path.GetExtension(GetSelectedFileExportName());
             return string.IsNullOrWhiteSpace(extension) ? null : extension.TrimStart('.');
+        }
+
+        public IReadOnlyList<string> GetSelectedFileExportPatterns()
+        {
+            if (SelectedEditor is EffectEditorViewModel effectEditor)
+            {
+                return
+                [
+                    "*" + EffectFileFormatUtility.GetSourceExtension(effectEditor.Kind),
+                    "*" + EffectFileFormatUtility.GetCompiledSuffix(effectEditor.Kind)
+                ];
+            }
+
+            string extension = Path.GetExtension(GetSelectedFileExportName());
+            return string.IsNullOrWhiteSpace(extension) ? ["*.*"] : ["*" + extension];
         }
 
         public async Task<bool> PrepareSelectedFileExportAsync()
@@ -345,7 +365,7 @@ namespace EffectViewer.ViewModels
             return true;
         }
 
-        public async Task ExportSelectedFileAsync(Stream outputStream)
+        public async Task ExportSelectedFileAsync(Stream outputStream, string targetFileName)
         {
             if (outputStream is null || SelectedEditor is null)
             {
@@ -356,7 +376,7 @@ namespace EffectViewer.ViewModels
 
             try
             {
-                await _projectService.ExportProjectFileAsync(CurrentProject, editor.ExportPath, outputStream);
+                await editor.ExportAsync(_projectService, CurrentProject, outputStream, targetFileName);
                 StatusText = $"Exported {editor.Title}.";
             }
             catch (System.Exception ex) when (ex is IOException or System.UnauthorizedAccessException or System.InvalidOperationException)

@@ -183,11 +183,23 @@ namespace EffectViewer.Views
 
             string suggestedName = viewModel.GetSelectedFileExportName();
             string defaultExtension = viewModel.GetSelectedFileDefaultExtension();
+            IReadOnlyList<string> exportPatterns = viewModel.GetSelectedFileExportPatterns();
+            List<FilePickerFileType> fileTypeChoices = exportPatterns.Count == 2
+                ?
+                [
+                    new FilePickerFileType("Source") { Patterns = [exportPatterns[0]] },
+                    new FilePickerFileType("Compiled") { Patterns = [exportPatterns[1]] }
+                ]
+                :
+                [
+                    new FilePickerFileType("Supported formats") { Patterns = [.. exportPatterns] }
+                ];
             IStorageFile file = await topLevel.StorageProvider.SaveFilePickerAsync(new()
             {
                 Title = "Export current file",
                 SuggestedFileName = suggestedName,
-                DefaultExtension = defaultExtension
+                DefaultExtension = defaultExtension,
+                FileTypeChoices = fileTypeChoices
             });
 
             if (file is null)
@@ -196,7 +208,7 @@ namespace EffectViewer.Views
             }
 
             await using Stream stream = await file.OpenWriteAsync();
-            await viewModel.ExportSelectedFileAsync(stream);
+            await viewModel.ExportSelectedFileAsync(stream, file.Name);
         }
 
         private async Task<string> PickFolderAsync(string title)

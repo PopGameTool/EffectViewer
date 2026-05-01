@@ -2,34 +2,42 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace EffectViewer.TodLib.Common
 {
     internal enum DefFieldType
     {
-        Invalid,
-        Int,
-        Float,
-        String,
-        Enum,
-        Array,
-        TrackFloat,
-        Flags,
-        Image,
-        Font
+        Invalid = 0,
+        Int = 1,
+        Float = 2,
+        String = 3,
+        Enum = 4,
+        Array = 6,
+        TrackFloat = 7,
+        Flags = 8,
+        Image = 9,
+        Font = 10
     }
 
-    internal readonly record struct DefSymbol<T>(int Value, string Name);
+    internal readonly record struct DefSymbol(int Value, string Name);
 
     internal sealed class DefMap<T>
     {
         public DefMap(Func<T> constructor, params IDefField<T>[] fields)
+            : this(0, constructor, fields)
         {
+        }
+
+        public DefMap(int compiledSize, Func<T> constructor, params IDefField<T>[] fields)
+        {
+            CompiledSize = compiledSize;
             Constructor = constructor ?? throw new ArgumentNullException(nameof(constructor));
             Fields = fields ?? throw new ArgumentNullException(nameof(fields));
         }
 
+        public int CompiledSize { get; }
         public Func<T> Constructor { get; }
         public IReadOnlyList<IDefField<T>> Fields { get; }
     }
@@ -38,8 +46,13 @@ namespace EffectViewer.TodLib.Common
     {
         string Name { get; }
         DefFieldType FieldType { get; }
+        int CompiledOffset { get; }
         bool TryRead(SexyXmlParser parser, string elementName, ref T definition);
         void Write(SexyXmlWriter writer, ref T definition);
+        void ReadCompiled(CompiledDefinitionReader reader, ReadOnlySpan<byte> rawDefinition, ref T definition);
+        void WriteCompiledRaw(Span<byte> rawDefinition, ref T definition);
+        void WriteCompiledExtra(CompiledDefinitionWriter writer, ref T definition);
+        void AppendCompiledSchema(ref uint schemaHash, HashSet<object> progressMaps);
     }
 
     internal delegate void DefFieldSetter<T, in TValue>(ref T definition, TValue value);
@@ -63,6 +76,11 @@ namespace EffectViewer.TodLib.Common
 
         public static T Load<T>(Stream stream, DefMap<T> defMap, string fileName = "")
         {
+            if (CompiledDefinitionFormat.IsCompiled(stream))
+            {
+                return CompiledDefinitionFormat.Load(stream, defMap, fileName);
+            }
+
             return Load(SexyXmlParser.FromStream(stream, fileName), defMap);
         }
 
@@ -91,6 +109,22 @@ namespace EffectViewer.TodLib.Common
             Save(streamWriter, defMap, definition);
         }
 
+        public static void Save<T>(Stream stream, DefMap<T> defMap, T definition, string fileName)
+        {
+            if (IsCompiledFileName(fileName))
+            {
+                SaveCompiled(stream, defMap, definition);
+                return;
+            }
+
+            Save(stream, defMap, definition);
+        }
+
+        public static void SaveCompiled<T>(Stream stream, DefMap<T> defMap, T definition)
+        {
+            CompiledDefinitionFormat.Save(stream, defMap, definition);
+        }
+
         public static void Save<T>(TextWriter textWriter, DefMap<T> defMap, T definition)
         {
             SexyXmlWriter writer = new(textWriter);
@@ -101,7 +135,12 @@ namespace EffectViewer.TodLib.Common
         public static void SaveFile<T>(string fileName, DefMap<T> defMap, T definition)
         {
             using FileStream stream = File.Create(fileName);
-            Save(stream, defMap, definition);
+            Save(stream, defMap, definition, fileName);
+        }
+
+        public static bool IsCompiledFileName(string fileName)
+        {
+            return string.Equals(Path.GetExtension(fileName), ".compiled", StringComparison.OrdinalIgnoreCase);
         }
 
         public static void SaveMap<T>(SexyXmlWriter writer, DefMap<T> defMap, ref T definition)
@@ -117,11 +156,13 @@ namespace EffectViewer.TodLib.Common
             return Int(name, setter, null);
         }
 
-        public static IDefField<T> Int<T>(string name, DefFieldSetter<T, int> setter, DefFieldGetter<T, int> getter, DefValueShouldWrite<int> shouldWrite = null)
+        public static IDefField<T> Int<T>(string name, DefFieldSetter<T, int> setter, DefFieldGetter<T, int> getter, DefValueShouldWrite<int> shouldWrite = null, int compiledOffset = -1)
         {
             return new DefField<T, int>(
                 name,
                 DefFieldType.Int,
+                compiledOffset,
+                null,
                 (_, parser) => ReadIntField(parser),
                 setter,
                 getter,
@@ -134,11 +175,13 @@ namespace EffectViewer.TodLib.Common
             return Float(name, setter, null);
         }
 
-        public static IDefField<T> Float<T>(string name, DefFieldSetter<T, float> setter, DefFieldGetter<T, float> getter, DefValueShouldWrite<float> shouldWrite = null)
+        public static IDefField<T> Float<T>(string name, DefFieldSetter<T, float> setter, DefFieldGetter<T, float> getter, DefValueShouldWrite<float> shouldWrite = null, int compiledOffset = -1)
         {
             return new DefField<T, float>(
                 name,
                 DefFieldType.Float,
+                compiledOffset,
+                null,
                 (_, parser) => ReadFloatField(parser),
                 setter,
                 getter,
@@ -151,11 +194,13 @@ namespace EffectViewer.TodLib.Common
             return String(name, setter, null);
         }
 
-        public static IDefField<T> String<T>(string name, DefFieldSetter<T, string> setter, DefFieldGetter<T, string> getter, DefValueShouldWrite<string> shouldWrite = null)
+        public static IDefField<T> String<T>(string name, DefFieldSetter<T, string> setter, DefFieldGetter<T, string> getter, DefValueShouldWrite<string> shouldWrite = null, int compiledOffset = -1)
         {
             return new DefField<T, string>(
                 name,
                 DefFieldType.String,
+                compiledOffset,
+                null,
                 (_, parser) => ReadStringField(parser),
                 setter,
                 getter,
@@ -168,11 +213,13 @@ namespace EffectViewer.TodLib.Common
             return Image(name, setter, null);
         }
 
-        public static IDefField<T> Image<T>(string name, DefFieldSetter<T, string> setter, DefFieldGetter<T, string> getter, DefValueShouldWrite<string> shouldWrite = null)
+        public static IDefField<T> Image<T>(string name, DefFieldSetter<T, string> setter, DefFieldGetter<T, string> getter, DefValueShouldWrite<string> shouldWrite = null, int compiledOffset = -1)
         {
             return new DefField<T, string>(
                 name,
                 DefFieldType.Image,
+                compiledOffset,
+                null,
                 (_, parser) => ReadImageField(parser),
                 setter,
                 getter,
@@ -185,11 +232,13 @@ namespace EffectViewer.TodLib.Common
             return Font(name, setter, null);
         }
 
-        public static IDefField<T> Font<T>(string name, DefFieldSetter<T, string> setter, DefFieldGetter<T, string> getter, DefValueShouldWrite<string> shouldWrite = null)
+        public static IDefField<T> Font<T>(string name, DefFieldSetter<T, string> setter, DefFieldGetter<T, string> getter, DefValueShouldWrite<string> shouldWrite = null, int compiledOffset = -1)
         {
             return new DefField<T, string>(
                 name,
                 DefFieldType.Font,
+                compiledOffset,
+                null,
                 (_, parser) => ReadImageField(parser),
                 setter,
                 getter,
@@ -203,34 +252,50 @@ namespace EffectViewer.TodLib.Common
             return Enum(name, symbols, setter, null);
         }
 
-        public static IDefField<T> Enum<T, TEnum>(string name, IReadOnlyDictionary<string, TEnum> symbols, DefFieldSetter<T, TEnum> setter, DefFieldGetter<T, TEnum> getter, DefValueShouldWrite<TEnum> shouldWrite = null)
+        public static IDefField<T> Enum<T, TEnum>(
+            string name,
+            IReadOnlyDictionary<string, TEnum> symbols,
+            DefFieldSetter<T, TEnum> setter,
+            DefFieldGetter<T, TEnum> getter,
+            DefValueShouldWrite<TEnum> shouldWrite = null,
+            int compiledOffset = -1,
+            IReadOnlyList<DefSymbol> compiledSymbols = null)
             where TEnum : struct
         {
-            return new DefField<T, TEnum>(name, DefFieldType.Enum, (_, parser) =>
-            {
-                string value = ReadXmlString(parser);
-                if (symbols != null && symbols.TryGetValue(value, out TEnum symbolValue))
+            return new DefField<T, TEnum>(
+                name,
+                DefFieldType.Enum,
+                compiledOffset,
+                compiledSymbols ?? CreateCompiledSymbols(symbols),
+                (_, parser) =>
                 {
-                    return symbolValue;
-                }
+                    string value = ReadXmlString(parser);
+                    if (symbols != null && symbols.TryGetValue(value, out TEnum symbolValue))
+                    {
+                        return symbolValue;
+                    }
 
-                if (System.Enum.TryParse(value, ignoreCase: true, out TEnum enumValue))
-                {
-                    return enumValue;
-                }
+                    if (System.Enum.TryParse(value, ignoreCase: true, out TEnum enumValue))
+                    {
+                        return enumValue;
+                    }
 
-                throw parser.CreateError($"Can't parse enum value '{value}'");
-            }, setter, getter, value => FormatEnum(value, symbols), shouldWrite ?? (static value => !EqualityComparer<TEnum>.Default.Equals(value, default)));
+                    throw parser.CreateError($"Can't parse enum value '{value}'");
+                },
+                setter,
+                getter,
+                value => FormatEnum(value, symbols),
+                shouldWrite ?? (static value => !EqualityComparer<TEnum>.Default.Equals(value, default)));
         }
 
-        public static TrackFloatDefField<T> TrackFloat<T>(string name, DefTrackGetter<T> getter)
+        public static TrackFloatDefField<T> TrackFloat<T>(string name, DefTrackGetter<T> getter, int compiledOffset = -1)
         {
-            return new TrackFloatDefField<T>(name, getter, null);
+            return new TrackFloatDefField<T>(name, getter, null, compiledOffset);
         }
 
-        public static TrackFloatDefField<T> TrackFloat<T>(string name, DefTrackGetter<T> getter, float defaultValue)
+        public static TrackFloatDefField<T> TrackFloat<T>(string name, DefTrackGetter<T> getter, float defaultValue, int compiledOffset = -1)
         {
-            return new TrackFloatDefField<T>(name, getter, defaultValue);
+            return new TrackFloatDefField<T>(name, getter, defaultValue, compiledOffset);
         }
 
         public static ArrayDefField<T, TItem> Array<T, TItem>(string name, DefMap<TItem> itemMap, DefItemAppender<T, TItem> append)
@@ -243,9 +308,10 @@ namespace EffectViewer.TodLib.Common
             DefMap<TItem> itemMap,
             DefItemAppender<T, TItem> append,
             DefArrayCountGetter<T> countGetter,
-            DefArrayItemGetter<T, TItem> itemGetter)
+            DefArrayItemGetter<T, TItem> itemGetter,
+            int compiledOffset = -1)
         {
-            return new ArrayDefField<T, TItem>(name, itemMap, append, countGetter, itemGetter);
+            return new ArrayDefField<T, TItem>(name, itemMap, append, countGetter, itemGetter, compiledOffset);
         }
 
         public static FlagsDefField<T> Flags<T>(string name, IReadOnlyDictionary<string, int> symbols, DefFlagSetter<T> setter)
@@ -253,9 +319,15 @@ namespace EffectViewer.TodLib.Common
             return Flags(name, symbols, setter, null);
         }
 
-        public static FlagsDefField<T> Flags<T>(string name, IReadOnlyDictionary<string, int> symbols, DefFlagSetter<T> setter, DefFlagGetter<T> getter)
+        public static FlagsDefField<T> Flags<T>(
+            string name,
+            IReadOnlyDictionary<string, int> symbols,
+            DefFlagSetter<T> setter,
+            DefFlagGetter<T> getter,
+            int compiledOffset = -1,
+            IReadOnlyList<DefSymbol> compiledSymbols = null)
         {
-            return new FlagsDefField<T>(name, symbols, setter, getter);
+            return new FlagsDefField<T>(name, symbols, setter, getter, compiledOffset, compiledSymbols ?? CreateCompiledSymbols(symbols));
         }
 
         public static void ReadFloatTrackField(SexyXmlParser parser, FloatParameterTrack track)
@@ -677,6 +749,13 @@ namespace EffectViewer.TodLib.Common
             throw new FormatException($"Unknown curve '{value}'.");
         }
 
+        private static IReadOnlyList<DefSymbol> CreateCompiledSymbols<TValue>(IReadOnlyDictionary<string, TValue> symbols)
+        {
+            return symbols is null
+                ? []
+                : symbols.Select(static symbol => new DefSymbol(Convert.ToInt32(symbol.Value, CultureInfo.InvariantCulture), symbol.Key)).ToArray();
+        }
+
         private static void FillDefaultTrackTimes(FloatParameterTrack track)
         {
             if (track.mCountNodes == 0)
@@ -723,10 +802,13 @@ namespace EffectViewer.TodLib.Common
             private readonly DefFieldGetter<T, TValue> _getter;
             private readonly Func<TValue, string> _writer;
             private readonly DefValueShouldWrite<TValue> _shouldWrite;
+            private readonly IReadOnlyList<DefSymbol> _compiledSymbols;
 
             public DefField(
                 string name,
                 DefFieldType fieldType,
+                int compiledOffset,
+                IReadOnlyList<DefSymbol> compiledSymbols,
                 Func<string, SexyXmlParser, TValue> reader,
                 DefFieldSetter<T, TValue> setter,
                 DefFieldGetter<T, TValue> getter,
@@ -735,6 +817,8 @@ namespace EffectViewer.TodLib.Common
             {
                 Name = name;
                 FieldType = fieldType;
+                CompiledOffset = compiledOffset;
+                _compiledSymbols = compiledSymbols;
                 _reader = reader;
                 _setter = setter;
                 _getter = getter;
@@ -744,6 +828,7 @@ namespace EffectViewer.TodLib.Common
 
             public string Name { get; }
             public DefFieldType FieldType { get; }
+            public int CompiledOffset { get; }
 
             public bool TryRead(SexyXmlParser parser, string elementName, ref T definition)
             {
@@ -771,6 +856,97 @@ namespace EffectViewer.TodLib.Common
 
                 writer.WriteElement(Name, _writer(value));
             }
+
+            public void ReadCompiled(CompiledDefinitionReader reader, ReadOnlySpan<byte> rawDefinition, ref T definition)
+            {
+                EnsureCompiledOffset();
+                object value = FieldType switch
+                {
+                    DefFieldType.Int => CompiledDefinitionFormat.ReadInt32(rawDefinition, CompiledOffset),
+                    DefFieldType.Float => CompiledDefinitionFormat.ReadSingle(rawDefinition, CompiledOffset),
+                    DefFieldType.Enum => ReadCompiledEnum(rawDefinition),
+                    DefFieldType.String => reader.ReadString(),
+                    DefFieldType.Image or DefFieldType.Font => ReadCompiledResourceName(reader),
+                    _ => throw new InvalidDataException($"Compiled field '{Name}' has unsupported type '{FieldType}'.")
+                };
+
+                _setter(ref definition, (TValue)value);
+            }
+
+            public void WriteCompiledRaw(Span<byte> rawDefinition, ref T definition)
+            {
+                EnsureCompiledOffset();
+                if (_getter is null)
+                {
+                    throw new InvalidDataException($"Compiled field '{Name}' is missing a value getter.");
+                }
+
+                TValue value = _getter(ref definition);
+                switch (FieldType)
+                {
+                    case DefFieldType.Int:
+                        CompiledDefinitionFormat.WriteInt32(rawDefinition, CompiledOffset, Convert.ToInt32(value, CultureInfo.InvariantCulture));
+                        break;
+                    case DefFieldType.Float:
+                        CompiledDefinitionFormat.WriteSingle(rawDefinition, CompiledOffset, Convert.ToSingle(value, CultureInfo.InvariantCulture));
+                        break;
+                    case DefFieldType.Enum:
+                        CompiledDefinitionFormat.WriteInt32(rawDefinition, CompiledOffset, Convert.ToInt32(value, CultureInfo.InvariantCulture));
+                        break;
+                    case DefFieldType.String:
+                    case DefFieldType.Image:
+                    case DefFieldType.Font:
+                        CompiledDefinitionFormat.WriteInt32(rawDefinition, CompiledOffset, 0);
+                        break;
+                    default:
+                        throw new InvalidDataException($"Compiled field '{Name}' has unsupported type '{FieldType}'.");
+                }
+            }
+
+            public void WriteCompiledExtra(CompiledDefinitionWriter writer, ref T definition)
+            {
+                if (FieldType is not (DefFieldType.String or DefFieldType.Image or DefFieldType.Font))
+                {
+                    return;
+                }
+
+                if (_getter is null)
+                {
+                    throw new InvalidDataException($"Compiled field '{Name}' is missing a value getter.");
+                }
+
+                writer.WriteString(Convert.ToString(_getter(ref definition), CultureInfo.InvariantCulture) ?? string.Empty);
+            }
+
+            public void AppendCompiledSchema(ref uint schemaHash, HashSet<object> progressMaps)
+            {
+                CompiledDefinitionFormat.AppendFieldSchema(ref schemaHash, FieldType, CompiledOffset);
+                if (FieldType == DefFieldType.Enum && _compiledSymbols is not null)
+                {
+                    CompiledDefinitionFormat.AppendSymbolSchema(ref schemaHash, _compiledSymbols);
+                }
+            }
+
+            private object ReadCompiledEnum(ReadOnlySpan<byte> rawDefinition)
+            {
+                int value = CompiledDefinitionFormat.ReadInt32(rawDefinition, CompiledOffset);
+                Type type = typeof(TValue);
+                return type.IsEnum ? System.Enum.ToObject(type, value) : Convert.ChangeType(value, type, CultureInfo.InvariantCulture);
+            }
+
+            private static string ReadCompiledResourceName(CompiledDefinitionReader reader)
+            {
+                string value = reader.ReadString();
+                return value.Length == 0 ? null : value;
+            }
+
+            private void EnsureCompiledOffset()
+            {
+                if (CompiledOffset < 0)
+                {
+                    throw new InvalidDataException($"Compiled field '{Name}' is missing an original structure offset.");
+                }
+            }
         }
 
         internal sealed class TrackFloatDefField<T> : IDefField<T>
@@ -778,15 +954,17 @@ namespace EffectViewer.TodLib.Common
             private readonly DefTrackGetter<T> _getter;
             private readonly float? _defaultValue;
 
-            public TrackFloatDefField(string name, DefTrackGetter<T> getter, float? defaultValue)
+            public TrackFloatDefField(string name, DefTrackGetter<T> getter, float? defaultValue, int compiledOffset)
             {
                 Name = name;
                 _getter = getter;
                 _defaultValue = defaultValue;
+                CompiledOffset = compiledOffset;
             }
 
             public string Name { get; }
             public DefFieldType FieldType => DefFieldType.TrackFloat;
+            public int CompiledOffset { get; }
 
             public bool TryRead(SexyXmlParser parser, string elementName, ref T definition)
             {
@@ -810,6 +988,66 @@ namespace EffectViewer.TodLib.Common
                 writer.WriteElement(Name, WriteFloatTrack(track));
             }
 
+            public void ReadCompiled(CompiledDefinitionReader reader, ReadOnlySpan<byte> rawDefinition, ref T definition)
+            {
+                EnsureCompiledOffset();
+                FloatParameterTrack track = _getter(ref definition);
+                int count = reader.ReadInt32();
+                if (count < 0 || count > 100000)
+                {
+                    throw new InvalidDataException($"Compiled field '{Name}' has invalid float track node count {count}.");
+                }
+
+                track.mCountNodes = count;
+                if (count == 0)
+                {
+                    track.mNodes = null;
+                    return;
+                }
+
+                track.mNodes = new FloatParameterTrackNode[count];
+                for (int i = 0; i < count; i++)
+                {
+                    track.mNodes[i] = new FloatParameterTrackNode
+                    {
+                        mTime = reader.ReadSingle(),
+                        mLowValue = reader.ReadSingle(),
+                        mHighValue = reader.ReadSingle(),
+                        mCurveType = (TodCurves)reader.ReadInt32(),
+                        mDistribution = (TodCurves)reader.ReadInt32()
+                    };
+                }
+            }
+
+            public void WriteCompiledRaw(Span<byte> rawDefinition, ref T definition)
+            {
+                EnsureCompiledOffset();
+                FloatParameterTrack track = _getter(ref definition);
+                CompiledDefinitionFormat.WriteInt32(rawDefinition, CompiledOffset, 0);
+                CompiledDefinitionFormat.WriteInt32(rawDefinition, CompiledOffset + sizeof(int), SafeTrackCount(track));
+            }
+
+            public void WriteCompiledExtra(CompiledDefinitionWriter writer, ref T definition)
+            {
+                FloatParameterTrack track = _getter(ref definition);
+                int count = SafeTrackCount(track);
+                writer.WriteInt32(count);
+                for (int i = 0; i < count; i++)
+                {
+                    FloatParameterTrackNode node = track.mNodes[i];
+                    writer.WriteSingle(node.mTime);
+                    writer.WriteSingle(node.mLowValue);
+                    writer.WriteSingle(node.mHighValue);
+                    writer.WriteInt32((int)node.mCurveType);
+                    writer.WriteInt32((int)node.mDistribution);
+                }
+            }
+
+            public void AppendCompiledSchema(ref uint schemaHash, HashSet<object> progressMaps)
+            {
+                CompiledDefinitionFormat.AppendFieldSchema(ref schemaHash, FieldType, CompiledOffset);
+            }
+
             private static bool IsDefaultFloatTrack(FloatParameterTrack track, float? defaultValue)
             {
                 if (track.mCountNodes != 1 || track.mNodes.Length == 0)
@@ -829,6 +1067,19 @@ namespace EffectViewer.TodLib.Common
 
                 return !defaultValue.HasValue || Math.Abs(node.mLowValue - defaultValue.Value) < 0.0005f;
             }
+
+            private static int SafeTrackCount(FloatParameterTrack track)
+            {
+                return track?.mNodes is null ? 0 : Math.Min(track.mCountNodes, track.mNodes.Length);
+            }
+
+            private void EnsureCompiledOffset()
+            {
+                if (CompiledOffset < 0)
+                {
+                    throw new InvalidDataException($"Compiled field '{Name}' is missing an original structure offset.");
+                }
+            }
         }
 
         internal sealed class ArrayDefField<T, TItem> : IDefField<T>
@@ -843,17 +1094,20 @@ namespace EffectViewer.TodLib.Common
                 DefMap<TItem> itemMap,
                 DefItemAppender<T, TItem> append,
                 DefArrayCountGetter<T> countGetter,
-                DefArrayItemGetter<T, TItem> itemGetter)
+                DefArrayItemGetter<T, TItem> itemGetter,
+                int compiledOffset)
             {
                 Name = name;
                 _itemMap = itemMap;
                 _append = append;
                 _countGetter = countGetter;
                 _itemGetter = itemGetter;
+                CompiledOffset = compiledOffset;
             }
 
             public string Name { get; }
             public DefFieldType FieldType => DefFieldType.Array;
+            public int CompiledOffset { get; }
 
             public bool TryRead(SexyXmlParser parser, string elementName, ref T definition)
             {
@@ -884,6 +1138,85 @@ namespace EffectViewer.TodLib.Common
                     writer.WriteEndElement(Name);
                 }
             }
+
+            public void ReadCompiled(CompiledDefinitionReader reader, ReadOnlySpan<byte> rawDefinition, ref T definition)
+            {
+                EnsureCompiledOffset();
+                int count = CompiledDefinitionFormat.ReadInt32(rawDefinition, CompiledOffset + sizeof(int));
+                if (count < 0 || count > 100000)
+                {
+                    throw new InvalidDataException($"Compiled field '{Name}' has invalid array count {count}.");
+                }
+
+                int defSize = reader.ReadInt32();
+                if (defSize != _itemMap.CompiledSize)
+                {
+                    throw new InvalidDataException($"Compiled field '{Name}' has item size {defSize}, expected {_itemMap.CompiledSize}.");
+                }
+
+                if (count == 0)
+                {
+                    return;
+                }
+
+                byte[] rawItems = reader.ReadBytes(checked(count * defSize));
+                for (int i = 0; i < count; i++)
+                {
+                    TItem item = _itemMap.Constructor();
+                    ReadOnlySpan<byte> rawItem = rawItems.AsSpan(i * defSize, defSize);
+                    CompiledDefinitionFormat.ReadMapFromRaw(reader, _itemMap, rawItem, ref item);
+                    _append(ref definition, item);
+                }
+            }
+
+            public void WriteCompiledRaw(Span<byte> rawDefinition, ref T definition)
+            {
+                EnsureCompiledOffset();
+                CompiledDefinitionFormat.WriteInt32(rawDefinition, CompiledOffset, 0);
+                CompiledDefinitionFormat.WriteInt32(rawDefinition, CompiledOffset + sizeof(int), SafeArrayCount(ref definition));
+            }
+
+            public void WriteCompiledExtra(CompiledDefinitionWriter writer, ref T definition)
+            {
+                int count = SafeArrayCount(ref definition);
+                writer.WriteInt32(_itemMap.CompiledSize);
+
+                for (int i = 0; i < count; i++)
+                {
+                    TItem item = _itemGetter(ref definition, i);
+                    writer.Write(CompiledDefinitionFormat.CreateRawStruct(_itemMap, ref item));
+                }
+
+                for (int i = 0; i < count; i++)
+                {
+                    TItem item = _itemGetter(ref definition, i);
+                    CompiledDefinitionFormat.WriteMapExtra(writer, _itemMap, ref item);
+                }
+            }
+
+            public void AppendCompiledSchema(ref uint schemaHash, HashSet<object> progressMaps)
+            {
+                CompiledDefinitionFormat.AppendFieldSchema(ref schemaHash, FieldType, CompiledOffset);
+                CompiledDefinitionFormat.AppendMapSchema(ref schemaHash, _itemMap, progressMaps);
+            }
+
+            private int SafeArrayCount(ref T definition)
+            {
+                if (_countGetter is null || _itemGetter is null)
+                {
+                    throw new InvalidDataException($"Compiled field '{Name}' is missing array accessors.");
+                }
+
+                return _countGetter(ref definition);
+            }
+
+            private void EnsureCompiledOffset()
+            {
+                if (CompiledOffset < 0)
+                {
+                    throw new InvalidDataException($"Compiled field '{Name}' is missing an original structure offset.");
+                }
+            }
         }
 
         internal sealed class FlagsDefField<T> : IDefField<T>
@@ -891,17 +1224,27 @@ namespace EffectViewer.TodLib.Common
             private readonly IReadOnlyDictionary<string, int> _symbols;
             private readonly DefFlagSetter<T> _setter;
             private readonly DefFlagGetter<T> _getter;
+            private readonly IReadOnlyList<DefSymbol> _compiledSymbols;
 
-            public FlagsDefField(string name, IReadOnlyDictionary<string, int> symbols, DefFlagSetter<T> setter, DefFlagGetter<T> getter)
+            public FlagsDefField(
+                string name,
+                IReadOnlyDictionary<string, int> symbols,
+                DefFlagSetter<T> setter,
+                DefFlagGetter<T> getter,
+                int compiledOffset,
+                IReadOnlyList<DefSymbol> compiledSymbols)
             {
                 Name = name;
                 _symbols = symbols;
                 _setter = setter;
                 _getter = getter;
+                CompiledOffset = compiledOffset;
+                _compiledSymbols = compiledSymbols;
             }
 
             public string Name { get; }
             public DefFieldType FieldType => DefFieldType.Flags;
+            public int CompiledOffset { get; }
 
             public bool TryRead(SexyXmlParser parser, string elementName, ref T definition)
             {
@@ -929,6 +1272,45 @@ namespace EffectViewer.TodLib.Common
                     {
                         writer.WriteElement(symbol.Key, "1");
                     }
+                }
+            }
+
+            public void ReadCompiled(CompiledDefinitionReader reader, ReadOnlySpan<byte> rawDefinition, ref T definition)
+            {
+                EnsureCompiledOffset();
+                int flags = CompiledDefinitionFormat.ReadInt32(rawDefinition, CompiledOffset);
+                for (int i = 0; i < sizeof(int) * 8; i++)
+                {
+                    _setter(ref definition, i, (flags & (1 << i)) != 0);
+                }
+            }
+
+            public void WriteCompiledRaw(Span<byte> rawDefinition, ref T definition)
+            {
+                EnsureCompiledOffset();
+                if (_getter is null)
+                {
+                    throw new InvalidDataException($"Compiled field '{Name}' is missing a value getter.");
+                }
+
+                CompiledDefinitionFormat.WriteInt32(rawDefinition, CompiledOffset, _getter(ref definition));
+            }
+
+            public void WriteCompiledExtra(CompiledDefinitionWriter writer, ref T definition)
+            {
+            }
+
+            public void AppendCompiledSchema(ref uint schemaHash, HashSet<object> progressMaps)
+            {
+                CompiledDefinitionFormat.AppendFieldSchema(ref schemaHash, FieldType, CompiledOffset);
+                CompiledDefinitionFormat.AppendSymbolSchema(ref schemaHash, _compiledSymbols);
+            }
+
+            private void EnsureCompiledOffset()
+            {
+                if (CompiledOffset < 0)
+                {
+                    throw new InvalidDataException($"Compiled field '{Name}' is missing an original structure offset.");
                 }
             }
         }
