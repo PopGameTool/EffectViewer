@@ -341,57 +341,7 @@
       </StackPanel>
     </DataTemplate>
 
-    <DataTemplate x:Key="ReanimFrameCellTemplate"
-                  DataType="vm:ReanimFrameCellViewModel">
-      <Button Width="28"
-              Height="26"
-              Padding="0"
-              Margin="0"
-              Command="{Binding SelectCommand}"
-              ToolTip.Tip="{Binding TooltipText}">
-        <Border Width="22"
-                Height="18"
-                CornerRadius="2"
-                BorderThickness="1"
-                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-                Classes.reanim-frame-content="{Binding HasContent}"
-                Classes.reanim-frame-tweened="{Binding IsTweened}"
-                Classes.reanim-frame-playhead="{Binding IsPlayhead}"
-                Classes.reanim-frame-selected="{Binding IsSelected}">
-          <TextBlock Text="{Binding Glyph}"
-                     FontSize="10"
-                     FontWeight="SemiBold"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Center"/>
-        </Border>
-      </Button>
-    </DataTemplate>
   </UserControl.Resources>
-
-  <UserControl.Styles>
-    <Style Selector="Border.reanim-frame-content">
-      <Setter Property="Background" Value="#304EA6FF"/>
-      <Setter Property="BorderBrush" Value="#7BBEFF"/>
-    </Style>
-    <Style Selector="Border.reanim-frame-playhead">
-      <Setter Property="BorderBrush" Value="#FFD54F"/>
-      <Setter Property="BorderThickness" Value="2"/>
-    </Style>
-    <Style Selector="Border.reanim-frame-tweened">
-      <Setter Property="Background" Value="#4056B870"/>
-      <Setter Property="BorderBrush" Value="#75D88A"/>
-    </Style>
-    <Style Selector="Border.reanim-frame-selected">
-      <Setter Property="Background" Value="#5087D36C"/>
-      <Setter Property="BorderBrush" Value="#9BE28F"/>
-      <Setter Property="BorderThickness" Value="2"/>
-    </Style>
-    <Style Selector="TextBlock.reanim-track-name.selected">
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Foreground" Value="#9BE28F"/>
-    </Style>
-  </UserControl.Styles>
 
   <Grid>
     <Grid RowDefinitions="Auto,*" Margin="24" RowSpacing="16">
@@ -649,63 +599,7 @@
             <ScrollViewer Grid.Row="1"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto">
-              <StackPanel Spacing="2">
-                <Grid ColumnDefinitions="150,*" ColumnSpacing="4">
-                  <Border/>
-                  <ItemsControl Grid.Column="1"
-                                ItemsSource="{Binding ReanimFrameHeaders}">
-                    <ItemsControl.ItemsPanel>
-                      <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal"/>
-                      </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate DataType="vm:ReanimFrameHeaderViewModel">
-                        <Button Width="28"
-                                Height="24"
-                                Padding="0"
-                                Margin="0"
-                                Command="{Binding SelectCommand}">
-                          <TextBlock Text="{Binding Label}"
-                                     FontSize="10"
-                                     HorizontalAlignment="Center"
-                                     VerticalAlignment="Center"/>
-                        </Button>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                </Grid>
-
-                <ItemsControl ItemsSource="{Binding ReanimTracks}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="vm:ReanimTrackViewModel">
-                      <Grid ColumnDefinitions="150,*"
-                            ColumnSpacing="4"
-                            MinHeight="28">
-                        <DockPanel LastChildFill="True">
-                          <CheckBox DockPanel.Dock="Left"
-                                    IsChecked="{Binding IsVisible}"
-                                    VerticalAlignment="Center"/>
-                          <TextBlock Text="{Binding DisplayName}"
-                                     Classes.reanim-track-name="True"
-                                     Classes.selected="{Binding IsSelected}"
-                                     TextTrimming="CharacterEllipsis"
-                                     VerticalAlignment="Center"/>
-                        </DockPanel>
-                        <ItemsControl Grid.Column="1"
-                                      ItemsSource="{Binding Frames}"
-                                      ItemTemplate="{StaticResource ReanimFrameCellTemplate}">
-                          <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                              <StackPanel Orientation="Horizontal"/>
-                            </ItemsPanelTemplate>
-                          </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                      </Grid>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </StackPanel>
+              <controls:ReanimTimelineControl Editor="{Binding}"/>
             </ScrollViewer>
           </Grid>
         </Border>

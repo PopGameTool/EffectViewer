@@ -62,6 +62,7 @@ namespace EffectViewer.ViewModels
         private bool _suppressReanimPropertyChanges;
         private bool _suppressTrailPropertyChanges;
         private bool _suppressParticlePropertyChanges;
+        private int _reanimTimelineRevision;
 
         public string AssetId { get; }
         public string Path { get; }
@@ -69,7 +70,7 @@ namespace EffectViewer.ViewModels
         public EffectFileSummary FileSummary { get; }
         public ObservableCollection<string> ReanimLayers { get; } = [];
         public ObservableCollection<ReanimTrackViewModel> ReanimTracks { get; } = [];
-        public ObservableCollection<ReanimFrameHeaderViewModel> ReanimFrameHeaders { get; } = [];
+        public int ReanimTimelineRevision => _reanimTimelineRevision;
         public ObservableCollection<ParticleEmitterViewModel> ParticleEmitters { get; } = [];
         public bool IsReanimEditor => Kind == EffectAssetKind.Reanim;
         public bool IsParticleEditor => Kind == EffectAssetKind.Particle;
@@ -878,12 +879,7 @@ namespace EffectViewer.ViewModels
             }
 
             ReanimTracks.Clear();
-            ReanimFrameHeaders.Clear();
             int frameCount = ReanimFrameCount;
-            for (int i = 0; i < frameCount; i++)
-            {
-                ReanimFrameHeaders.Add(new ReanimFrameHeaderViewModel(i, SelectReanimFrame));
-            }
 
             if (_reanimDefinition?.mTracks is not null)
             {
@@ -894,13 +890,6 @@ namespace EffectViewer.ViewModels
                     ReanimTrackViewModel track = new(trackIndex, definitionTrack?.mName ?? string.Empty);
                     track.VisibilityChanged += OnReanimTrackVisibilityChanged;
                     track.NameChanged += OnReanimTrackNameChanged;
-                    for (int frameIndex = 0; frameIndex < frameCount; frameIndex++)
-                    {
-                        ReanimFrameCellViewModel cell = new(trackIndex, frameIndex, SelectReanimFrame);
-                        UpdateFrameCell(cell);
-                        track.Frames.Add(cell);
-                    }
-
                     ReanimTracks.Add(track);
                 }
             }
@@ -913,6 +902,7 @@ namespace EffectViewer.ViewModels
             UpdateSelectedReanimTrackState();
             UpdateReanimTimelineSelection();
             LoadSelectedReanimFrame();
+            RaiseReanimTimelineChanged();
             RaiseReanimStructureChanged();
         }
 
@@ -954,11 +944,21 @@ namespace EffectViewer.ViewModels
 
         private void SelectReanimFrame(int frameIndex)
         {
+            SelectReanimTimelineFrame(frameIndex);
+        }
+
+        public void SelectReanimTimelineFrame(int frameIndex)
+        {
             ReanimIsPlaying = false;
             SelectedReanimFrameIndex = frameIndex;
         }
 
         private void SelectReanimFrame(int trackIndex, int frameIndex)
+        {
+            SelectReanimTimelineCell(trackIndex, frameIndex);
+        }
+
+        public void SelectReanimTimelineCell(int trackIndex, int frameIndex)
         {
             ReanimIsPlaying = false;
             if (trackIndex >= 0 && trackIndex < ReanimTracks.Count)
@@ -967,6 +967,17 @@ namespace EffectViewer.ViewModels
             }
 
             SelectedReanimFrameIndex = frameIndex;
+        }
+
+        public void ToggleReanimTimelineTrackVisibility(int trackIndex)
+        {
+            if (trackIndex < 0 || trackIndex >= ReanimTracks.Count)
+            {
+                return;
+            }
+
+            ReanimTracks[trackIndex].IsVisible = !ReanimTracks[trackIndex].IsVisible;
+            RaiseReanimTimelineChanged();
         }
 
         private void LoadSelectedReanimFrame()
@@ -1218,44 +1229,36 @@ namespace EffectViewer.ViewModels
 
         private void RefreshSelectedFrameCell()
         {
-            if (SelectedReanimTrack is null ||
-                SelectedReanimFrameIndex < 0 ||
-                SelectedReanimFrameIndex >= SelectedReanimTrack.Frames.Count)
+            RaiseReanimTimelineChanged();
+        }
+
+        public void GetReanimTimelineFrameState(
+            int trackIndex,
+            int frameIndex,
+            out bool hasContent,
+            out bool hasImage,
+            out bool isTweened)
+        {
+            hasContent = false;
+            hasImage = false;
+            isTweened = IsFrameTweened(trackIndex, frameIndex);
+            if (_reanimDefinition?.mTracks is null ||
+                trackIndex < 0 ||
+                trackIndex >= _reanimDefinition.mTrackCount ||
+                frameIndex < 0 ||
+                frameIndex >= _reanimDefinition.mTracks[trackIndex].mTransformCount)
             {
                 return;
             }
 
-            UpdateFrameCell(SelectedReanimTrack.Frames[SelectedReanimFrameIndex]);
-        }
-
-        private void UpdateFrameCell(ReanimFrameCellViewModel cell)
-        {
-            bool hasContent = false;
-            string imageId = string.Empty;
-            bool isTweened = IsFrameTweened(cell.TrackIndex, cell.FrameIndex);
-            if (_reanimDefinition?.mTracks is not null &&
-                cell.TrackIndex >= 0 &&
-                cell.TrackIndex < _reanimDefinition.mTrackCount &&
-                cell.FrameIndex >= 0 &&
-                cell.FrameIndex < _reanimDefinition.mTracks[cell.TrackIndex].mTransformCount)
-            {
-                ReanimatorTransform transform = _reanimDefinition.mTracks[cell.TrackIndex].mTransforms[cell.FrameIndex];
-                hasContent = transform.mFrame >= 0f;
-                imageId = transform.mImage ?? string.Empty;
-            }
-
-            cell.Update(hasContent, imageId, isTweened);
+            ReanimatorTransform transform = _reanimDefinition.mTracks[trackIndex].mTransforms[frameIndex];
+            hasContent = transform.mFrame >= 0f;
+            hasImage = hasContent && !string.IsNullOrWhiteSpace(transform.mImage);
         }
 
         private void RefreshReanimTimelineCells()
         {
-            foreach (ReanimTrackViewModel track in ReanimTracks)
-            {
-                foreach (ReanimFrameCellViewModel cell in track.Frames)
-                {
-                    UpdateFrameCell(cell);
-                }
-            }
+            RaiseReanimTimelineChanged();
         }
 
         private void UpdateSelectedReanimTrackState()
@@ -1271,23 +1274,15 @@ namespace EffectViewer.ViewModels
 
         private void UpdateReanimTimelineSelection()
         {
-            foreach (ReanimFrameHeaderViewModel header in ReanimFrameHeaders)
-            {
-                header.IsPlayhead = header.FrameIndex == SelectedReanimFrameIndex;
-            }
-
-            foreach (ReanimTrackViewModel track in ReanimTracks)
-            {
-                foreach (ReanimFrameCellViewModel frame in track.Frames)
-                {
-                    frame.IsPlayhead = frame.FrameIndex == SelectedReanimFrameIndex;
-                    frame.IsSelected = ReferenceEquals(track, SelectedReanimTrack) &&
-                        frame.FrameIndex == SelectedReanimFrameIndex;
-                }
-            }
-
+            RaiseReanimTimelineChanged();
             OnPropertyChanged(nameof(CanRemoveReanimFrame));
             OnPropertyChanged(nameof(SelectedReanimFrameSummary));
+        }
+
+        private void RaiseReanimTimelineChanged()
+        {
+            _reanimTimelineRevision++;
+            OnPropertyChanged(nameof(ReanimTimelineRevision));
         }
 
         private void RaiseReanimStructureChanged()

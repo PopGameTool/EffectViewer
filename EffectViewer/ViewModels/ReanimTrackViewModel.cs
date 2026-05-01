@@ -1,5 +1,3 @@
-using System.Collections.ObjectModel;
-
 namespace EffectViewer.ViewModels
 {
     public sealed class ReanimTrackViewModel : ViewModelBase
@@ -9,7 +7,6 @@ namespace EffectViewer.ViewModels
         private bool _isSelected;
 
         public int Index { get; }
-        public ObservableCollection<ReanimFrameCellViewModel> Frames { get; } = [];
 
         public string Name
         {
