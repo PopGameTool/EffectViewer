@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -53,6 +54,21 @@ namespace EffectViewer.ViewModels
 
         [ObservableProperty]
         private string _openProjectMessage;
+
+        [ObservableProperty]
+        private bool _isProjectTransferInProgress;
+
+        [ObservableProperty]
+        private string _projectTransferTitle;
+
+        [ObservableProperty]
+        private string _projectTransferMessage;
+
+        [ObservableProperty]
+        private double _projectTransferProgressValue;
+
+        [ObservableProperty]
+        private string _projectTransferProgressText;
 
         public bool HasAvailableProjects => AvailableProjects.Count > 0;
 
@@ -130,6 +146,109 @@ namespace EffectViewer.ViewModels
 
             LoadProject(result.Project);
             StatusText = $"Imported {result.ImageCount} image(s), {result.ReanimCount} reanim(s), {result.ParticleCount} particle(s), {result.TrailCount} trail(s). Missing images: {result.MissingImageCount}.";
+        }
+
+        public async Task ImportProjectZipAsync(Stream zipStream)
+        {
+            if (zipStream is null)
+            {
+                return;
+            }
+
+            if (!await ConfirmAllUnsavedChangesAsync())
+            {
+                StatusText = "Canceled project import.";
+                return;
+            }
+
+            try
+            {
+                BeginProjectTransfer("Importing Project", "Reading archive");
+                Progress<ProjectTransferProgress> progress = new(UpdateProjectTransferProgress);
+                EffectProject project = await _projectService.ImportProjectZipAsync(zipStream, progress);
+                LoadProject(project);
+                StatusText = $"Imported project {project.Manifest.Name}.";
+            }
+            catch (System.Exception ex) when (ex is IOException or System.IO.InvalidDataException or System.Text.Json.JsonException or System.InvalidOperationException)
+            {
+                StatusText = $"Could not import project: {ex.Message}";
+            }
+            finally
+            {
+                EndProjectTransfer();
+            }
+        }
+
+        public async Task ExportCurrentProjectZipAsync(Stream outputStream)
+        {
+            if (outputStream is null)
+            {
+                return;
+            }
+
+            if (CurrentProject is null || string.IsNullOrWhiteSpace(CurrentProject.RootPath))
+            {
+                StatusText = "No internal project is loaded.";
+                return;
+            }
+
+            foreach (EditorViewModelBase editor in OpenEditors.Where(editor => editor.IsDirty).ToList())
+            {
+                if (!await SaveEditorAsync(editor))
+                {
+                    StatusText = $"Canceled exporting {CurrentProject.Manifest.Name}.";
+                    return;
+                }
+            }
+
+            try
+            {
+                BeginProjectTransfer("Exporting Project", "Preparing archive");
+                Progress<ProjectTransferProgress> progress = new(UpdateProjectTransferProgress);
+                await _projectService.ExportProjectZipAsync(CurrentProject, outputStream, progress);
+                StatusText = $"Exported {CurrentProject.Manifest.Name}.";
+            }
+            catch (System.Exception ex) when (ex is IOException or System.UnauthorizedAccessException or System.InvalidOperationException)
+            {
+                StatusText = $"Could not export project: {ex.Message}";
+            }
+            finally
+            {
+                EndProjectTransfer();
+            }
+        }
+
+        private void BeginProjectTransfer(string title, string message)
+        {
+            ProjectTransferTitle = title;
+            ProjectTransferMessage = message;
+            ProjectTransferProgressValue = 0d;
+            ProjectTransferProgressText = string.Empty;
+            IsProjectTransferInProgress = true;
+        }
+
+        private void UpdateProjectTransferProgress(ProjectTransferProgress progress)
+        {
+            if (progress is null)
+            {
+                return;
+            }
+
+            ProjectTransferTitle = string.IsNullOrWhiteSpace(progress.Operation)
+                ? ProjectTransferTitle
+                : progress.Operation;
+            ProjectTransferMessage = progress.Message;
+            ProjectTransferProgressValue = progress.Ratio * 100d;
+            ProjectTransferProgressText = progress.TotalItems <= 0
+                ? string.Empty
+                : $"{progress.CompletedItems} / {progress.TotalItems}";
+        }
+
+        private void EndProjectTransfer()
+        {
+            IsProjectTransferInProgress = false;
+            ProjectTransferProgressValue = 0d;
+            ProjectTransferProgressText = string.Empty;
         }
 
         [RelayCommand]

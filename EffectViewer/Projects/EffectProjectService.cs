@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO.Compression;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -132,7 +133,8 @@ namespace EffectViewer.Projects
 
         public async Task<FolderImportResult> ImportFolderAsync(string sourceDirectory)
         {
-            string projectDirectory = CreateUniqueProjectDirectory(sourceDirectory);
+            string sourceName = Path.GetFileName(sourceDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            string projectDirectory = CreateUniqueProjectDirectory(sourceName);
             PopCapResourceFolderImporter importer = new();
             FolderImportResult result = importer.Import(sourceDirectory, projectDirectory);
 
@@ -141,9 +143,164 @@ namespace EffectViewer.Projects
             return result;
         }
 
-        private string CreateUniqueProjectDirectory(string sourceDirectory)
+        public async Task<EffectProject> ImportProjectZipAsync(Stream zipStream, IProgress<ProjectTransferProgress> progress = null)
         {
-            string sourceName = Path.GetFileName(sourceDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (zipStream is null)
+            {
+                throw new ArgumentNullException(nameof(zipStream));
+            }
+
+            progress?.Report(new ProjectTransferProgress
+            {
+                Operation = "Importing Project",
+                Message = "Reading archive"
+            });
+
+            using ZipArchive archive = new(zipStream, ZipArchiveMode.Read, leaveOpen: true);
+            ZipArchiveEntry manifestEntry = FindProjectManifestEntry(archive)
+                ?? throw new InvalidDataException("The zip file does not contain an EffectViewer project manifest.");
+            List<ZipArchiveEntry> fileEntries = archive.Entries
+                .Where(entry => !string.IsNullOrWhiteSpace(entry.Name))
+                .ToList();
+
+            ProjectManifest manifest;
+            await using (Stream manifestStream = manifestEntry.Open())
+            {
+                manifest = await JsonSerializer.DeserializeAsync<ProjectManifest>(manifestStream, SerializerOptions)
+                    ?? new ProjectManifest();
+            }
+
+            Normalize(manifest);
+            string projectDirectory = CreateUniqueProjectDirectory(manifest.Name);
+            bool importCompleted = false;
+            try
+            {
+                int completed = 0;
+                foreach (ZipArchiveEntry entry in fileEntries)
+                {
+                    string relativePath = GetProjectRelativeZipPath(entry, manifestEntry);
+                    if (string.IsNullOrWhiteSpace(relativePath))
+                    {
+                        completed++;
+                        continue;
+                    }
+
+                    progress?.Report(new ProjectTransferProgress
+                    {
+                        Operation = "Importing Project",
+                        Message = $"Extracting {relativePath}",
+                        CompletedItems = completed,
+                        TotalItems = fileEntries.Count
+                    });
+
+                    string destination = GetSafeDestinationPath(projectDirectory, relativePath);
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    await using Stream source = entry.Open();
+                    await using FileStream target = File.Create(destination);
+                    await source.CopyToAsync(target);
+                    completed++;
+                    progress?.Report(new ProjectTransferProgress
+                    {
+                        Operation = "Importing Project",
+                        Message = $"Extracted {relativePath}",
+                        CompletedItems = completed,
+                        TotalItems = fileEntries.Count
+                    });
+                }
+
+                progress?.Report(new ProjectTransferProgress
+                {
+                    Operation = "Importing Project",
+                    Message = "Loading project",
+                    CompletedItems = fileEntries.Count,
+                    TotalItems = fileEntries.Count
+                });
+
+                EffectProject project = await LoadAsync(projectDirectory);
+                await SaveAsync(project);
+                importCompleted = true;
+                return project;
+            }
+            finally
+            {
+                if (!importCompleted && Directory.Exists(projectDirectory))
+                {
+                    Directory.Delete(projectDirectory, recursive: true);
+                }
+            }
+        }
+
+        public async Task ExportProjectZipAsync(EffectProject project, Stream outputStream, IProgress<ProjectTransferProgress> progress = null)
+        {
+            if (project is null)
+            {
+                throw new ArgumentNullException(nameof(project));
+            }
+
+            if (outputStream is null)
+            {
+                throw new ArgumentNullException(nameof(outputStream));
+            }
+
+            if (string.IsNullOrWhiteSpace(project.RootPath) || !Directory.Exists(project.RootPath))
+            {
+                throw new InvalidOperationException("Only projects stored in the app private project folder can be exported.");
+            }
+
+            progress?.Report(new ProjectTransferProgress
+            {
+                Operation = "Exporting Project",
+                Message = "Saving project"
+            });
+
+            await SaveAsync(project);
+
+            List<string> files = Directory.EnumerateFiles(project.RootPath, "*", SearchOption.AllDirectories)
+                .ToList();
+            using ZipArchive archive = new(outputStream, ZipArchiveMode.Create, leaveOpen: true);
+            int completed = 0;
+            foreach (string file in files)
+            {
+                string relativePath = Path.GetRelativePath(project.RootPath, file).Replace('\\', '/');
+                if (string.IsNullOrWhiteSpace(relativePath))
+                {
+                    completed++;
+                    continue;
+                }
+
+                progress?.Report(new ProjectTransferProgress
+                {
+                    Operation = "Exporting Project",
+                    Message = $"Compressing {relativePath}",
+                    CompletedItems = completed,
+                    TotalItems = files.Count
+                });
+
+                ZipArchiveEntry entry = archive.CreateEntry(relativePath, CompressionLevel.Optimal);
+                await using Stream entryStream = entry.Open();
+                await using FileStream source = File.OpenRead(file);
+                await source.CopyToAsync(entryStream);
+                completed++;
+                progress?.Report(new ProjectTransferProgress
+                {
+                    Operation = "Exporting Project",
+                    Message = $"Compressed {relativePath}",
+                    CompletedItems = completed,
+                    TotalItems = files.Count
+                });
+            }
+
+            progress?.Report(new ProjectTransferProgress
+            {
+                Operation = "Exporting Project",
+                Message = "Writing archive",
+                CompletedItems = files.Count,
+                TotalItems = files.Count
+            });
+        }
+
+        private string CreateUniqueProjectDirectory(string sourceName)
+        {
             string baseName = ProjectPathUtility.CreateSafeName(sourceName, "project");
             string projectsRoot = _storageProvider.ProjectsRootPath;
             if (string.IsNullOrWhiteSpace(projectsRoot))
@@ -167,6 +324,55 @@ namespace EffectViewer.Projects
                     return candidate;
                 }
             }
+        }
+
+        private static ZipArchiveEntry FindProjectManifestEntry(ZipArchive archive)
+        {
+            ZipArchiveEntry rootManifest = archive.Entries.FirstOrDefault(entry =>
+                string.Equals(entry.FullName.Replace('\\', '/'), ManifestFileName, StringComparison.OrdinalIgnoreCase));
+            if (rootManifest is not null)
+            {
+                return rootManifest;
+            }
+
+            return archive.Entries.FirstOrDefault(entry =>
+                string.Equals(Path.GetFileName(entry.FullName), ManifestFileName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string GetProjectRelativeZipPath(ZipArchiveEntry entry, ZipArchiveEntry manifestEntry)
+        {
+            string entryName = entry.FullName.Replace('\\', '/').TrimStart('/');
+            string manifestName = manifestEntry.FullName.Replace('\\', '/').TrimStart('/');
+            string manifestDirectory = Path.GetDirectoryName(manifestName)?.Replace('\\', '/') ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(manifestDirectory))
+            {
+                return entryName;
+            }
+
+            string prefix = manifestDirectory.TrimEnd('/') + "/";
+            return entryName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                ? entryName[prefix.Length..]
+                : string.Empty;
+        }
+
+        private static string GetSafeDestinationPath(string projectDirectory, string relativePath)
+        {
+            if (Path.IsPathRooted(relativePath) ||
+                relativePath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries).Any(part => part == ".."))
+            {
+                throw new InvalidDataException("The zip file contains an invalid project path.");
+            }
+
+            string normalizedRelativePath = relativePath.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+            string destination = Path.GetFullPath(Path.Combine(projectDirectory, normalizedRelativePath));
+            string projectRoot = Path.GetFullPath(projectDirectory);
+            if (!destination.StartsWith(projectRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(destination, projectRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException("The zip file contains an invalid project path.");
+            }
+
+            return destination;
         }
 
         private static void Normalize(ProjectManifest manifest)
