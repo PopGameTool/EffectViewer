@@ -957,22 +957,9 @@ namespace EffectViewer.TodLib.Reanim
             {
                 ParseAttacherTrack(aTransform, out aAttacherInfo);
                 cachedAttacherInfo.Add(aKey, aAttacherInfo);
-                aAttacherInfo.mReanimationType = null;
-                if (aAttacherInfo.mReanimName.Length != 0)
-                {
-                    string aReanimFileName = $"reanim/{aAttacherInfo.mReanimName}";
-                    foreach ((_, ReanimationParams aParams) in ReanimatorXnaHelpers.gReanimationParamArray)
-                    {
-                        if (string.Compare(aReanimFileName, aParams.mReanimFileName, StringComparison.OrdinalIgnoreCase) == 0)
-                        {
-                            aAttacherInfo.mReanimationType = aParams.mReanimationType;
-                            break;
-                        }
-                    }
-                }
             }
 
-            string aReanimationType = aAttacherInfo.mReanimationType;
+            string aReanimationType = GetAttacherReanimationType(aAttacherInfo);
             if (string.IsNullOrEmpty(aReanimationType))  // 如果没有设定当前附属动画名称，或未找到相应的动画
             {
                 GlobalMembersAttachment.AttachmentDie(mEffectSystem, ref aTrackInstance.mAttachmentID);  // 清除附件
@@ -1017,6 +1004,26 @@ namespace EffectViewer.TodLib.Reanim
             SexyColor aColor = TodCommon.ColorsMultiply(mColorOverride, aTrackInstance.mTrackColor);
             aColor.mAlpha = TodCommon.ClampInt(TodCommon.FloatRoundToInt(aTransform.mAlpha * aColor.mAlpha), 0, 255);
             GlobalMembersAttachment.AttachmentPropogateColor(mEffectSystem, aTrackInstance.mAttachmentID, aColor, mEnableExtraAdditiveDraw, mExtraAdditiveColor, mEnableExtraOverlayDraw, mExtraOverlayColor);
+        }
+
+        private static string GetAttacherReanimationType(AttacherInfo theAttacherInfo)
+        {
+            if (theAttacherInfo.mReanimName.Length == 0 ||
+                ReanimatorXnaHelpers.gReanimationParamArray is null)
+            {
+                return null;
+            }
+
+            string aReanimFileName = $"reanim/{theAttacherInfo.mReanimName}";
+            foreach ((_, ReanimationParams aParams) in ReanimatorXnaHelpers.gReanimationParamArray)
+            {
+                if (string.Compare(aReanimFileName, aParams.mReanimFileName, StringComparison.OrdinalIgnoreCase) == 0)
+                {
+                    return aParams.mReanimationType;
+                }
+            }
+
+            return null;
         }
 
         public static void ParseAttacherTrack(in ReanimatorTransform theTransform, out AttacherInfo theAttacherInfo)

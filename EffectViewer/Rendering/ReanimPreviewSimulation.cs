@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using EffectViewer.Assets;
 using EffectViewer.Projects;
 using EffectViewer.Runtime;
 using EffectViewer.TodLib.Common;
@@ -9,14 +10,21 @@ using EffectViewer.TodLib.Reanim;
 
 namespace EffectViewer.Rendering
 {
-    public sealed class ReanimPreviewSimulation : IRenderFrameProvider
+    public sealed class ReanimPreviewSimulation : IRenderFrameProvider, IDisposable
     {
         private const double UpdateStepSeconds = 1.0 / TodLibConstants.TICKS_PER_SECOND;
-        private readonly Reanimation _reanimation = new();
+        private readonly EffectSystem _effectSystem = new();
+        private readonly ProjectResourceProvider _resourceProvider;
+        private readonly Dictionary<string, ReanimationParams> _reanimationParams;
+        private readonly Dictionary<string, ReanimatorDefinition> _reanimationDefinitions;
+        private readonly string _reanimationType;
+        private Reanimation _reanimation;
         private readonly float _x;
         private readonly float _y;
         private bool _isPaused;
+        private bool _needsAttachmentRefresh;
         private double _accumulator;
+        private bool _disposed;
 
         public IReadOnlyList<string> TrackNames { get; private set; }
         public IReadOnlyList<string> LayerTrackNames { get; private set; }
@@ -24,8 +32,13 @@ namespace EffectViewer.Rendering
 
         public ReanimPreviewSimulation(EffectProject project, string path, float x = 0f, float y = 0f)
         {
-            ResourceHandler.SetProvider(new ProjectResourceProvider(project));
+            _resourceProvider = new ProjectResourceProvider(project);
+            ResourceHandler.SetProvider(_resourceProvider);
+            _effectSystem.EffectSystemInitialize();
+            (_reanimationParams, _reanimationDefinitions) = BuildProjectReanimations(project);
+            ApplyProjectReanimations();
             string fullPath = ResolvePath(project, path);
+            _reanimationType = ResolveReanimationType(project, path);
             _x = x;
             _y = y;
             SetDefinition(LoadDefinition(fullPath));
@@ -33,6 +46,18 @@ namespace EffectViewer.Rendering
 
         public RenderFrame GetFrame(double deltaSeconds)
         {
+            if (_disposed)
+            {
+                return new RenderFrame();
+            }
+
+            ResourceHandler.SetProvider(_resourceProvider);
+            ApplyProjectReanimations();
+            if (_needsAttachmentRefresh)
+            {
+                RefreshAttachments();
+            }
+
             if (!_isPaused)
             {
                 _accumulator += deltaSeconds;
@@ -47,29 +72,58 @@ namespace EffectViewer.Rendering
             return BuildFrame();
         }
 
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            _effectSystem.EffectSystemDispose();
+            _reanimation = null;
+        }
+
         public void SetDefinition(ReanimatorDefinition definition)
         {
+            if (_disposed)
+            {
+                return;
+            }
+
+            ApplyProjectReanimations();
+            _effectSystem.EffectSystemFreeAll();
+            _reanimation = _effectSystem.mReanimationHolder.mReanimations.DataArrayAlloc();
+            _reanimation.mReanimationHolder = _effectSystem.mReanimationHolder;
             InitializeReanimation(definition ?? new ReanimatorDefinition());
             TrackNames = BuildTrackNames(_reanimation.mDefinition);
             LayerTrackNames = BuildLayerTrackNames(_reanimation.mDefinition);
             LayerNames = BuildLayerNames(LayerTrackNames);
             _accumulator = 0d;
+            _needsAttachmentRefresh = true;
         }
 
         public void SetPaused(bool isPaused)
         {
             _isPaused = isPaused;
             _accumulator = 0d;
+            _needsAttachmentRefresh = true;
         }
 
         public void SetAnimRate(float animRate)
         {
+            if (_reanimation is null)
+            {
+                return;
+            }
+
             _reanimation.mAnimRate = animRate;
+            _needsAttachmentRefresh = true;
         }
 
         public void SetFrameIndex(int frameIndex)
         {
-            if (_reanimation.mFrameCount <= 0)
+            if (_reanimation is null || _reanimation.mFrameCount <= 0)
             {
                 return;
             }
@@ -84,11 +138,12 @@ namespace EffectViewer.Rendering
                 0f,
                 1f);
             _reanimation.mLastFrameTime = _reanimation.mAnimTime;
+            _needsAttachmentRefresh = true;
         }
 
         public void SetLayer(string trackName)
         {
-            if (_reanimation.mDefinition?.mTrackCount <= 0)
+            if (_reanimation?.mDefinition?.mTrackCount <= 0)
             {
                 return;
             }
@@ -96,6 +151,7 @@ namespace EffectViewer.Rendering
             if (string.IsNullOrWhiteSpace(trackName))
             {
                 SetFullTimeline();
+                _needsAttachmentRefresh = true;
                 return;
             }
 
@@ -107,11 +163,12 @@ namespace EffectViewer.Rendering
             _reanimation.mDead = false;
             _reanimation.mLoopType = ReanimLoopType.Loop;
             _reanimation.SetFramesForLayer(trackName);
+            _needsAttachmentRefresh = true;
         }
 
         public void SetTrackVisible(int trackIndex, bool visible)
         {
-            if (_reanimation.mTrackInstances is null ||
+            if (_reanimation?.mTrackInstances is null ||
                 trackIndex < 0 ||
                 trackIndex >= _reanimation.mTrackInstances.Length)
             {
@@ -125,7 +182,7 @@ namespace EffectViewer.Rendering
 
         public void SetAllTracksVisible(bool visible)
         {
-            if (_reanimation.mTrackInstances is null)
+            if (_reanimation?.mTrackInstances is null)
             {
                 return;
             }
@@ -138,18 +195,53 @@ namespace EffectViewer.Rendering
 
         private void Update()
         {
-            if (_reanimation.mFrameCount == 0 || _reanimation.mDead)
+            if (_reanimation is null || _reanimation.mFrameCount == 0 || _reanimation.mDead)
             {
                 return;
             }
 
-            _reanimation.mLastFrameTime = _reanimation.mAnimTime;
-            _reanimation.mAnimTime += ReanimatorXnaHelpers.SECONDS_PER_UPDATE * _reanimation.mAnimRate / _reanimation.mFrameCount;
-            while (_reanimation.mAnimTime >= 1f)
+            _effectSystem.Update();
+            _effectSystem.ProcessDeleteQueue();
+            _needsAttachmentRefresh = false;
+        }
+
+        private void RefreshAttachments()
+        {
+            if (_reanimation is null ||
+                _reanimation.mFrameCount == 0 ||
+                _reanimation.mDead ||
+                _reanimation.mTrackInstances is null)
             {
-                _reanimation.mLoopCount++;
-                _reanimation.mAnimTime -= 1f;
+                return;
             }
+
+            for (int i = 0; i < _reanimation.mTrackInstances.Length; i++)
+            {
+                ref ReanimatorTrackInstance track = ref _reanimation.mTrackInstances[i];
+                track.mBlendCounter = 0;
+                if (track.mIsAttacher)
+                {
+                    _reanimation.UpdateAttacherTrack(i);
+                }
+
+                if (track.mAttachmentID != AttachmentID.Null)
+                {
+                    _reanimation.GetAttachmentOverlayMatrix(i, out Matrix4x4 matrix);
+                    Attachment attachment = _effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(track.mAttachmentID);
+                    if (attachment != null)
+                    {
+                        attachment.SetMatrix(matrix);
+                    }
+                    else
+                    {
+                        track.mAttachmentID = AttachmentID.Null;
+                    }
+                }
+            }
+
+            _effectSystem.ProcessDeleteQueue();
+            _reanimation.mLastFrameTime = _reanimation.mAnimTime;
+            _needsAttachmentRefresh = false;
         }
 
         private RenderFrame BuildFrame()
@@ -163,7 +255,7 @@ namespace EffectViewer.Rendering
                 mTransY = _y
             };
 
-            _reanimation.Draw(graphics);
+            _reanimation?.Draw(graphics);
             return graphics.Frame;
         }
 
@@ -172,7 +264,13 @@ namespace EffectViewer.Rendering
             ReanimatorDefinition definition = null;
             if (!string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath))
             {
-                ReanimatorXnaHelpers.ReanimationLoadDefinition(fullPath, ref definition);
+                try
+                {
+                    ReanimatorXnaHelpers.ReanimationLoadDefinition(fullPath, ref definition);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or FormatException or ArgumentException)
+                {
+                }
             }
 
             return definition ?? new ReanimatorDefinition();
@@ -181,6 +279,8 @@ namespace EffectViewer.Rendering
         private void InitializeReanimation(ReanimatorDefinition definition)
         {
             _reanimation.Reset();
+            _reanimation.mReanimationHolder = _effectSystem.mReanimationHolder;
+            _reanimation.mReanimationType = _reanimationType;
             _reanimation.mDefinition = definition ?? new ReanimatorDefinition();
             _reanimation.mLoopType = ReanimLoopType.Loop;
             _reanimation.mAnimRate = definition?.mFPS ?? 12f;
@@ -197,7 +297,17 @@ namespace EffectViewer.Rendering
                 for (int i = 0; i < _reanimation.mTrackInstances.Length; i++)
                 {
                     _reanimation.mTrackInstances[i].Reset();
+                    string trackName = definition.mTracks[i].mName;
+                    _reanimation.mTrackInstances[i].mIsAttacher =
+                        ReanimatorXnaHelpers.gReanimationParamArray != null &&
+                        !string.IsNullOrEmpty(trackName) &&
+                        trackName.StartsWith(Reanimation.Attacher, StringComparison.OrdinalIgnoreCase);
                 }
+            }
+            else
+            {
+                _reanimation.mFrameCount = 0;
+                _reanimation.mTrackInstances = [];
             }
         }
 
@@ -261,6 +371,111 @@ namespace EffectViewer.Rendering
             return Path.IsPathRooted(path) || string.IsNullOrWhiteSpace(project.RootPath)
                 ? path
                 : Path.Combine(project.RootPath, path);
+        }
+
+        private void ApplyProjectReanimations()
+        {
+            ReanimatorXnaHelpers.gReanimationParamArray = _reanimationParams;
+            ReanimatorXnaHelpers.gReanimatorDefArray = _reanimationDefinitions;
+        }
+
+        private static (Dictionary<string, ReanimationParams> Parameters, Dictionary<string, ReanimatorDefinition> Definitions) BuildProjectReanimations(EffectProject project)
+        {
+            Dictionary<string, ReanimationParams> parameters = new(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, ReanimatorDefinition> definitions = new(StringComparer.OrdinalIgnoreCase);
+
+            if (project?.Assets?.Reanims is not null)
+            {
+                foreach ((_, ReanimAsset asset) in project.Assets.Reanims)
+                {
+                    ReanimatorDefinition definition = LoadDefinition(ResolvePath(project, asset.Path));
+                    if (definition.mTrackCount <= 0)
+                    {
+                        continue;
+                    }
+
+                    foreach (string alias in BuildReanimationAliases(asset))
+                    {
+                        if (parameters.ContainsKey(alias))
+                        {
+                            continue;
+                        }
+
+                        parameters[alias] = new ReanimationParams(alias, $"reanim/{alias}");
+                        definitions[alias] = definition;
+                    }
+                }
+            }
+
+            return (parameters, definitions);
+        }
+
+        private static IEnumerable<string> BuildReanimationAliases(ReanimAsset asset)
+        {
+            if (!string.IsNullOrWhiteSpace(asset.Id))
+            {
+                yield return asset.Id.Trim();
+            }
+
+            string fileName = Path.GetFileName(asset.Path);
+            string baseName = StripReanimExtension(fileName);
+            if (!string.IsNullOrWhiteSpace(baseName) &&
+                !string.Equals(baseName, asset.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                yield return baseName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(fileName) &&
+                !string.Equals(fileName, asset.Id, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(fileName, baseName, StringComparison.OrdinalIgnoreCase))
+            {
+                yield return fileName;
+            }
+        }
+
+        private static string StripReanimExtension(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return string.Empty;
+            }
+
+            const string compiledSuffix = ".reanim.compiled";
+            if (fileName.EndsWith(compiledSuffix, StringComparison.OrdinalIgnoreCase))
+            {
+                return fileName[..^compiledSuffix.Length];
+            }
+
+            const string reanimSuffix = ".reanim";
+            if (fileName.EndsWith(reanimSuffix, StringComparison.OrdinalIgnoreCase))
+            {
+                return fileName[..^reanimSuffix.Length];
+            }
+
+            return Path.GetFileNameWithoutExtension(fileName);
+        }
+
+        private static string ResolveReanimationType(EffectProject project, string path)
+        {
+            if (project?.Assets?.Reanims is not null)
+            {
+                foreach ((_, ReanimAsset asset) in project.Assets.Reanims)
+                {
+                    if (PathsEqual(asset.Path, path))
+                    {
+                        return asset.Id;
+                    }
+                }
+            }
+
+            return StripReanimExtension(Path.GetFileName(path));
+        }
+
+        private static bool PathsEqual(string left, string right)
+        {
+            string normalizedLeft = (left ?? string.Empty).Replace('\\', '/').Trim();
+            string normalizedRight = (right ?? string.Empty).Replace('\\', '/').Trim();
+            return string.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase);
         }
     }
 }
