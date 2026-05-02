@@ -58,6 +58,8 @@
             <StackPanel Spacing="12" Margin="14">
               <TextBlock Text="Properties" FontSize="16" FontWeight="SemiBold"/>
               <TextBlock Text="Metadata" FontWeight="SemiBold"/>
+              <TextBlock Text="ID"/>
+              <TextBox Text="{Binding AssetId, UpdateSourceTrigger=LostFocus}"/>
               <TextBlock Text="Rows"/>
               <NumericUpDown Value="{Binding Rows}" Minimum="1" Maximum="128" Increment="1"/>
               <TextBlock Text="Cols"/>

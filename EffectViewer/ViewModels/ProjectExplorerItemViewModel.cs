@@ -6,9 +6,28 @@ namespace EffectViewer.ViewModels
 {
     public sealed partial class ProjectExplorerItemViewModel : ViewModelBase
     {
-        public string Title { get; }
-        public string Path { get; }
-        public string AssetId { get; }
+        private string _title;
+        private string _path;
+        private string _assetId;
+
+        public string Title
+        {
+            get => _title;
+            set => SetProperty(ref _title, value ?? string.Empty);
+        }
+
+        public string Path
+        {
+            get => _path;
+            set => SetProperty(ref _path, value ?? string.Empty);
+        }
+
+        public string AssetId
+        {
+            get => _assetId;
+            set => SetProperty(ref _assetId, value ?? string.Empty);
+        }
+
         public EffectAssetKind Kind { get; }
         public ObservableCollection<ProjectExplorerItemViewModel> Children { get; } = [];
 

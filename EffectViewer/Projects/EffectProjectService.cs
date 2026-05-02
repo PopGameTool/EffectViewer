@@ -356,7 +356,10 @@ namespace EffectViewer.Projects
 
             EffectAssetKind kind = DetectResourceKind(sourceFileName);
             string baseName = GetResourceBaseName(sourceFileName, kind);
-            string assetId = CreateUniqueAssetId(project.Manifest, kind, baseName);
+            string requestedAssetId = kind == EffectAssetKind.Image
+                ? CreateImageAssetId(baseName)
+                : baseName;
+            string assetId = CreateUniqueAssetId(project.Manifest, kind, requestedAssetId);
             string suffix = GetResourceFileSuffix(sourceFileName, kind);
             string relativePath = CreateUniqueAssetPath(project, GetResourceDirectory(kind), assetId, suffix);
             string destinationPath = ResolveProjectFilePath(project, relativePath);
@@ -369,9 +372,8 @@ namespace EffectViewer.Projects
 
             AddManifestAsset(project.Manifest, kind, assetId, relativePath);
             await SaveAsync(project);
-
-            EffectProject updatedProject = await LoadAsync(project.RootPath);
-            return new ProjectResourceResult(updatedProject, kind, assetId, relativePath);
+            project.RebuildAssetIndex();
+            return new ProjectResourceResult(project, kind, assetId, relativePath);
         }
 
         public async Task<ProjectResourceResult> CreateResourceAsync(
@@ -402,9 +404,8 @@ namespace EffectViewer.Projects
 
             AddManifestAsset(project.Manifest, kind, assetId, relativePath);
             await SaveAsync(project);
-
-            EffectProject updatedProject = await LoadAsync(project.RootPath);
-            return new ProjectResourceResult(updatedProject, kind, assetId, relativePath);
+            project.RebuildAssetIndex();
+            return new ProjectResourceResult(project, kind, assetId, relativePath);
         }
 
         private string CreateUniqueProjectDirectory(string sourceName)
@@ -549,7 +550,9 @@ namespace EffectViewer.Projects
 
         private static string CreateUniqueAssetId(ProjectManifest manifest, EffectAssetKind kind, string requestedAssetId)
         {
-            string baseId = ProjectPathUtility.CreateSafeName(requestedAssetId, kind.ToString().ToLowerInvariant());
+            string baseId = kind == EffectAssetKind.Image
+                ? CreateSafeImageAssetId(requestedAssetId)
+                : ProjectPathUtility.CreateSafeName(requestedAssetId, kind.ToString().ToLowerInvariant());
             string candidate = baseId;
             for (int i = 2; AssetIdExists(manifest, kind, candidate); i++)
             {
@@ -557,6 +560,25 @@ namespace EffectViewer.Projects
             }
 
             return candidate;
+        }
+
+        public static string CreateImageAssetId(string name)
+        {
+            return "IMAGE_" + CreateImageIdName(name);
+        }
+
+        public static string CreateSafeImageAssetId(string requestedAssetId)
+        {
+            string id = requestedAssetId ?? string.Empty;
+            return id.StartsWith("IMAGE_", StringComparison.OrdinalIgnoreCase)
+                ? "IMAGE_" + CreateImageIdName(id[6..])
+                : CreateImageAssetId(id);
+        }
+
+        private static string CreateImageIdName(string name)
+        {
+            string safeName = ProjectPathUtility.CreateSafeName(name, "image");
+            return safeName.ToUpperInvariant();
         }
 
         private static bool AssetIdExists(ProjectManifest manifest, EffectAssetKind kind, string assetId)

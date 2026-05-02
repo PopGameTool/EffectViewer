@@ -18,9 +18,27 @@ namespace EffectViewer.ViewModels
         private bool _isSidePanelOnLeft;
         private bool _isSidePanelVisible = true;
 
-        public string Title { get; }
+        private string _title;
+        private string _documentId;
+
+        public string Title
+        {
+            get => _title;
+            protected set
+            {
+                string newTitle = value ?? string.Empty;
+                if (SetProperty(ref _title, newTitle))
+                {
+                    OnPropertyChanged(nameof(TabTitle));
+                }
+            }
+        }
         public string TabTitle => IsDirty ? $"{Title}*" : Title;
-        public string DocumentId { get; }
+        public string DocumentId
+        {
+            get => _documentId;
+            protected set => SetProperty(ref _documentId, value ?? string.Empty);
+        }
         private bool _isSelected;
 
         public bool IsSelected
@@ -89,8 +107,8 @@ namespace EffectViewer.ViewModels
 
         protected EditorViewModelBase(string title, EffectAssetKind kind)
         {
-            Title = title;
             Kind = kind;
+            Title = title;
             DocumentId = CreateDocumentId(kind, title);
             PreviewFrame = EffectPreviewFrameBuilder.BuildPlaceholder(kind, title);
             TextureSource = new GeneratedTextureSource();

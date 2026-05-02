@@ -171,12 +171,8 @@ namespace EffectViewer.Projects
                     continue;
                 }
 
-                string relativePath = Path.GetRelativePath(sourceDirectory, file);
-                string topDirectory = GetTopDirectory(relativePath);
                 string name = Path.GetFileNameWithoutExtension(file);
-                string id = string.Equals(topDirectory, "reanim", StringComparison.OrdinalIgnoreCase)
-                    ? "IMAGE_REANIM_" + name.ToUpperInvariant()
-                    : "IMAGE_" + name.ToUpperInvariant();
+                string id = EffectProjectService.CreateImageAssetId(name);
 
                 if (images.ContainsKey(id))
                 {
@@ -195,12 +191,6 @@ namespace EffectViewer.Projects
 
                 images[id] = asset;
             }
-        }
-
-        private static string GetTopDirectory(string relativePath)
-        {
-            int separator = relativePath.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
-            return separator < 0 ? string.Empty : relativePath[..separator];
         }
 
         private static void AddEffectFiles(

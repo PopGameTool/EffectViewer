@@ -273,6 +273,15 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            foreach (ImageEditorViewModel imageEditor in OpenEditors.OfType<ImageEditorViewModel>())
+            {
+                if (!imageEditor.ApplyPendingAssetId())
+                {
+                    StatusText = $"Could not save {imageEditor.Title}: Image ID cannot be empty.";
+                    return;
+                }
+            }
+
             await _projectService.SaveAsync(CurrentProject);
             foreach (EditorViewModelBase editor in OpenEditors.Where(editor => editor.SavesWithProjectManifest))
             {
@@ -335,7 +344,7 @@ namespace EffectViewer.ViewModels
             try
             {
                 ProjectResourceResult result = await _projectService.ImportResourceFileAsync(CurrentProject, sourceFileName, sourceStream);
-                LoadProject(result.Project);
+                RefreshCurrentProject();
                 OpenResourceEditor(result.Kind, result.AssetId);
                 StatusText = $"Imported {result.Kind} {result.AssetId}.";
             }
@@ -384,7 +393,7 @@ namespace EffectViewer.ViewModels
             try
             {
                 ProjectResourceResult result = await _projectService.CreateResourceAsync(CurrentProject, NewResourceKind, assetId);
-                LoadProject(result.Project);
+                RefreshCurrentProject();
                 OpenResourceEditor(result.Kind, result.AssetId);
                 StatusText = $"Created {result.Kind} {result.AssetId}.";
             }
@@ -652,6 +661,16 @@ namespace EffectViewer.ViewModels
             RebuildProjectTree();
             CloseAllEditors();
             OpenEditorTab(new WelcomeEditorViewModel());
+        }
+
+        private void RefreshCurrentProject()
+        {
+            CurrentProject?.RebuildAssetIndex();
+            _effectWorld.LoadProject(CurrentProject);
+            _luaHost = new LuaHost(_effectWorld);
+            SelectedProjectItem = null;
+            RebuildProjectTree();
+            OnPropertyChanged(nameof(CurrentProject));
         }
 
         partial void OnSelectedProjectItemChanged(ProjectExplorerItemViewModel value)
@@ -951,6 +970,62 @@ namespace EffectViewer.ViewModels
                     ? $"Editing {editor.Title} (unsaved)."
                     : $"Editing {editor.Title}.";
             }
+
+            if (editor is ImageEditorViewModel imageEditor &&
+                e.PropertyName == nameof(ImageEditorViewModel.AssetId))
+            {
+                UpdateProjectExplorerItemIdentity(
+                    EffectAssetKind.Image,
+                    imageEditor.SavedAssetId,
+                    imageEditor.AssetId,
+                    imageEditor.Path);
+            }
+        }
+
+        private void UpdateProjectExplorerItemIdentity(
+            EffectAssetKind kind,
+            string oldAssetId,
+            string newAssetId,
+            string path)
+        {
+            ProjectExplorerItemViewModel item = FindProjectExplorerItem(ProjectItems, kind, oldAssetId, path);
+            if (item is null)
+            {
+                return;
+            }
+
+            item.Title = newAssetId;
+            item.AssetId = newAssetId;
+            item.Path = path;
+            if (ReferenceEquals(SelectedProjectItem, item))
+            {
+                OnPropertyChanged(nameof(SelectedProjectItem));
+            }
+        }
+
+        private static ProjectExplorerItemViewModel FindProjectExplorerItem(
+            IEnumerable<ProjectExplorerItemViewModel> items,
+            EffectAssetKind kind,
+            string assetId,
+            string path)
+        {
+            foreach (ProjectExplorerItemViewModel item in items)
+            {
+                if (item.Kind == kind &&
+                    (string.Equals(item.AssetId, assetId, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(item.Path, path, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return item;
+                }
+
+                ProjectExplorerItemViewModel child = FindProjectExplorerItem(item.Children, kind, assetId, path);
+                if (child is not null)
+                {
+                    return child;
+                }
+            }
+
+            return null;
         }
 
         private void RebuildProjectTree()
