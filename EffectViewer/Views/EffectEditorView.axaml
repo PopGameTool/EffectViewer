@@ -118,6 +118,74 @@
       </Border>
     </DataTemplate>
 
+    <DataTemplate x:Key="ReanimTweenEditorTemplate"
+                  DataType="vm:ReanimTweenViewModel">
+      <StackPanel Spacing="8">
+        <TextBlock Text="{Binding DisplayName}"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap"/>
+        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto"
+              ColumnSpacing="8"
+              RowSpacing="8">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Track"/>
+            <NumericUpDown Value="{Binding TrackNumber}"
+                           Minimum="1"
+                           Maximum="{Binding TrackCount}"
+                           Increment="1"
+                           FormatString="0"/>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Spacing="4">
+            <TextBlock Text="Track Name"/>
+            <TextBox Text="{Binding TrackName, Mode=OneWay}"
+                     IsReadOnly="True"/>
+          </StackPanel>
+          <StackPanel Grid.Row="1" Spacing="4">
+            <TextBlock Text="Start Frame"/>
+            <NumericUpDown Value="{Binding StartFrameNumber}"
+                           Minimum="1"
+                           Maximum="{Binding StartFrameMaximum}"
+                           Increment="1"
+                           FormatString="0"/>
+          </StackPanel>
+          <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+            <TextBlock Text="End Frame"/>
+            <NumericUpDown Value="{Binding EndFrameNumber}"
+                           Minimum="{Binding EndFrameMinimum}"
+                           Maximum="{Binding FrameCount}"
+                           Increment="1"
+                           FormatString="0"/>
+          </StackPanel>
+          <WrapPanel Grid.Row="2"
+                     Grid.ColumnSpan="2"
+                     ItemSpacing="10"
+                     LineSpacing="6">
+            <CheckBox Content="X" IsChecked="{Binding TweenX}"/>
+            <CheckBox Content="Y" IsChecked="{Binding TweenY}"/>
+            <CheckBox Content="Skew X" IsChecked="{Binding TweenSkewX}"/>
+            <CheckBox Content="Skew Y" IsChecked="{Binding TweenSkewY}"/>
+            <CheckBox Content="Scale X" IsChecked="{Binding TweenScaleX}"/>
+            <CheckBox Content="Scale Y" IsChecked="{Binding TweenScaleY}"/>
+            <CheckBox Content="Alpha" IsChecked="{Binding TweenAlpha}"/>
+          </WrapPanel>
+        </Grid>
+        <WrapPanel HorizontalAlignment="Right"
+                   ItemSpacing="6"
+                   LineSpacing="6">
+          <Button Content="Keyframe"
+                  MinWidth="82"
+                  IsEnabled="{Binding $parent[UserControl].DataContext.CanMakeSelectedReanimFrameKeyframe}"
+                  Command="{Binding $parent[UserControl].DataContext.MakeSelectedReanimFrameKeyframeCommand}"/>
+          <Button Content="Bake"
+                  MinWidth="64"
+                  Command="{Binding $parent[UserControl].DataContext.BakeSelectedReanimTweenCommand}"/>
+          <Button Content="Remove"
+                  MinWidth="76"
+                  Command="{Binding $parent[UserControl].DataContext.RemoveReanimTweenCommand}"/>
+        </WrapPanel>
+      </StackPanel>
+    </DataTemplate>
+
     <DataTemplate x:Key="ParticleEmitterEditorTemplate"
                   DataType="vm:ParticleEmitterViewModel">
       <StackPanel Spacing="10" HorizontalAlignment="Stretch">
@@ -368,6 +436,18 @@
             <Separator/>
             <MenuItem Header="_Detect Tweens"
                       Command="{Binding RecognizeReanimTweensCommand}"/>
+            <MenuItem Header="_Create Tween"
+                      IsEnabled="{Binding CanEditReanimTweens}"
+                      Command="{Binding AddReanimTweenCommand}"/>
+            <MenuItem Header="_Keyframe Tween Cell"
+                      IsEnabled="{Binding CanMakeSelectedReanimFrameKeyframe}"
+                      Command="{Binding MakeSelectedReanimFrameKeyframeCommand}"/>
+            <MenuItem Header="_Bake Selected Tween"
+                      IsEnabled="{Binding HasSelectedReanimTween}"
+                      Command="{Binding BakeSelectedReanimTweenCommand}"/>
+            <MenuItem Header="Bake _All Tweens"
+                      IsEnabled="{Binding HasReanimTweenMetadata}"
+                      Command="{Binding BakeAllReanimTweensCommand}"/>
           </MenuItem>
           <MenuItem Header="_Layout">
             <MenuItem Header="_Properties"
@@ -449,6 +529,55 @@
                   <TextBlock Grid.Row="1" Text="MinDist"/>
                   <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TrailMinPointDistance}"/>
                 </Grid>
+              </StackPanel>
+            </Expander>
+
+            <Expander Header="Tweens"
+                      IsExpanded="True"
+                      IsVisible="{Binding IsReanimEditor}"
+                      HorizontalAlignment="Stretch">
+              <StackPanel Spacing="8">
+                <WrapPanel HorizontalAlignment="Right"
+                           ItemSpacing="6"
+                           LineSpacing="6">
+                  <Button Content="Detect"
+                          MinWidth="64"
+                          Command="{Binding RecognizeReanimTweensCommand}"/>
+                  <Button Content="Add"
+                          MinWidth="58"
+                          IsEnabled="{Binding CanEditReanimTweens}"
+                          Command="{Binding AddReanimTweenCommand}"/>
+                  <Button Content="Bake All"
+                          MinWidth="78"
+                          IsEnabled="{Binding HasReanimTweenMetadata}"
+                          Command="{Binding BakeAllReanimTweensCommand}"/>
+                </WrapPanel>
+                <ComboBox ItemsSource="{Binding ReanimTweens}"
+                          SelectedItem="{Binding SelectedReanimTween}"
+                          HorizontalAlignment="Stretch"
+                          IsVisible="{Binding HasReanimTweenMetadata}">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate DataType="vm:ReanimTweenViewModel">
+                      <StackPanel Spacing="2">
+                        <TextBlock Text="{Binding DisplayName}"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Detail}"
+                                   FontSize="11"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+                      </StackPanel>
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="{Binding SelectedReanimTweenSummary}"
+                           IsVisible="{Binding HasReanimTweenMetadata}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+                <TextBlock Text="No tweens"
+                           IsVisible="{Binding HasNoReanimTweenMetadata}"
+                           Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+                <ContentControl Content="{Binding SelectedReanimTween}"
+                                ContentTemplate="{StaticResource ReanimTweenEditorTemplate}"/>
               </StackPanel>
             </Expander>
 
