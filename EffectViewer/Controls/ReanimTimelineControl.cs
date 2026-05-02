@@ -38,7 +38,7 @@ namespace EffectViewer.Controls
         private static readonly Pen ContentPen = new(new SolidColorBrush(Color.FromRgb(123, 190, 255)), 1);
         private static readonly Pen TweenPen = new(new SolidColorBrush(Color.FromRgb(245, 194, 74)), 1);
         private static readonly Pen SelectedPen = new(new SolidColorBrush(Color.FromRgb(255, 255, 255)), 2);
-        private static readonly Typeface TextTypeface = new("Inter");
+        private static readonly FontFamily TextFontFamily = new("avares://EffectViewer/Assets/Fonts#MiSans");
 
         private ScrollViewer _scrollViewer;
         private EffectEditorViewModel _subscribedEditor;
@@ -454,7 +454,7 @@ namespace EffectViewer.Controls
                 text,
                 CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
-                new Typeface(TextTypeface.FontFamily, FontStyle.Normal, fontWeight == default ? FontWeight.Normal : fontWeight),
+                new Typeface(TextFontFamily, FontStyle.Normal, fontWeight == default ? FontWeight.Normal : fontWeight),
                 fontSize,
                 brush);
             context.DrawText(formattedText, origin);
