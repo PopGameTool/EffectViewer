@@ -25,39 +25,42 @@
         <DockPanel Margin="12,0">
           <Menu DockPanel.Dock="Left"
                 Background="Transparent">
-            <MenuItem Header="_File">
+            <MenuItem Header="_Project">
               <MenuItem Header="_New Project..."
                         Command="{Binding ShowNewProjectDialogCommand}"/>
+              <MenuItem Header="_Open Project..."
+                        Command="{Binding ShowOpenProjectDialogCommand}"/>
+              <MenuItem Header="_Demo Project"
+                        Command="{Binding LoadDemoProjectCommand}"/>
               <Separator/>
+              <MenuItem Header="Save _Project"
+                        Command="{Binding SaveProjectCommand}"
+                        IsEnabled="{Binding CanSaveCurrentProject}"/>
+              <Separator/>
+              <MenuItem Header="_Import Project Zip..."
+                        Click="ImportProjectMenuItem_Click"/>
+              <MenuItem Header="Export Project _Zip..."
+                        Click="ExportProjectMenuItem_Click"
+                        IsEnabled="{Binding CanSaveCurrentProject}"/>
+            </MenuItem>
+            <MenuItem Header="_Resource">
+              <MenuItem Header="_New Resource..."
+                        Command="{Binding ShowNewResourceDialogCommand}"
+                        IsEnabled="{Binding CanModifyCurrentProject}"/>
+              <Separator/>
+              <MenuItem Header="Import Resource _File..."
+                        Click="ImportResourceFileMenuItem_Click"
+                        IsEnabled="{Binding CanModifyCurrentProject}"/>
+              <MenuItem Header="Import Resource _Folder..."
+                        Click="ImportFolderMenuItem_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Document">
               <MenuItem Header="_Save Current File"
                         Command="{Binding SaveFileCommand}"
                         IsEnabled="{Binding CanSaveSelectedFile}"/>
               <MenuItem Header="_Export Current File..."
                         Click="ExportFileMenuItem_Click"
                         IsEnabled="{Binding CanExportSelectedFile}"/>
-              <Separator/>
-              <MenuItem Header="Save _Project"
-                        Command="{Binding SaveProjectCommand}"
-                        IsEnabled="{Binding CanSaveCurrentProject}"/>
-              <MenuItem Header="Export Project _Zip..."
-                        Click="ExportProjectMenuItem_Click"
-                        IsEnabled="{Binding CanSaveCurrentProject}"/>
-            </MenuItem>
-            <MenuItem Header="_Project">
-              <MenuItem Header="_Demo Project"
-                        Command="{Binding LoadDemoProjectCommand}"/>
-              <MenuItem Header="_Open Project..."
-                        Command="{Binding ShowOpenProjectDialogCommand}"/>
-              <MenuItem Header="_Import Project Zip..."
-                        Click="ImportProjectMenuItem_Click"/>
-              <MenuItem Header="Import Resource _Folder..."
-                        Click="ImportFolderMenuItem_Click"/>
-              <MenuItem Header="Import Resource _File..."
-                        Click="ImportResourceFileMenuItem_Click"
-                        IsEnabled="{Binding CanModifyCurrentProject}"/>
-              <MenuItem Header="_New Resource..."
-                        Command="{Binding ShowNewResourceDialogCommand}"
-                        IsEnabled="{Binding CanModifyCurrentProject}"/>
             </MenuItem>
             <MenuItem Header="_View">
               <MenuItem Header="_Project Explorer"
