@@ -1,5 +1,5 @@
+using Avalonia.OpenGL;
 using System;
-using System.Reflection;
 
 namespace EffectViewer.Rendering.Gl
 {
@@ -14,32 +14,19 @@ namespace EffectViewer.Rendering.Gl
             _backendName = backendName;
         }
 
-        public virtual IEffectGlInterface Create(object platformGlInterface)
+        public virtual IEffectGlInterface Create(GlInterface platformGlInterface)
         {
             ArgumentNullException.ThrowIfNull(platformGlInterface);
 
-            MethodInfo getProcAddress = platformGlInterface.GetType().GetMethod(
-                "GetProcAddress",
-                BindingFlags.Public | BindingFlags.Instance,
-                binder: null,
-                types: [typeof(string)],
-                modifiers: null);
-
-            if (getProcAddress == null || getProcAddress.ReturnType != typeof(IntPtr))
-            {
-                throw new InvalidOperationException(
-                    $"Platform GL interface '{platformGlInterface.GetType().FullName}' does not expose GetProcAddress(string).");
-            }
-
-            return new ReflectionProcAddressEffectGlInterface(
+            return new AvaloniaProcAddressEffectGlInterface(
                 _api,
                 _backendName,
-                name => (IntPtr)getProcAddress.Invoke(platformGlInterface, [name]));
+                platformGlInterface.GetProcAddress);
         }
 
-        private sealed class ReflectionProcAddressEffectGlInterface : ProcAddressEffectGlInterface
+        private sealed class AvaloniaProcAddressEffectGlInterface : ProcAddressEffectGlInterface
         {
-            public ReflectionProcAddressEffectGlInterface(
+            public AvaloniaProcAddressEffectGlInterface(
                 EffectGlApi api,
                 string backendName,
                 Func<string, IntPtr> getProcAddress)
