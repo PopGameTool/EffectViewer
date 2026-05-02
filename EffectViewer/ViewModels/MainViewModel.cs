@@ -325,10 +325,23 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
-            FolderImportResult result = await _projectService.ImportFolderAsync(sourceDirectory);
+            try
+            {
+                BeginProjectTransfer("Importing Resource Folder", "Scanning resource folder");
+                Progress<ProjectTransferProgress> progress = new(UpdateProjectTransferProgress);
+                FolderImportResult result = await _projectService.ImportFolderAsync(sourceDirectory, progress);
 
-            LoadProject(result.Project);
-            StatusText = $"Imported {result.ImageCount} image(s), {result.ReanimCount} reanim(s), {result.ParticleCount} particle(s), {result.TrailCount} trail(s). Missing images: {result.MissingImageCount}.";
+                LoadProject(result.Project);
+                StatusText = $"Imported {result.ImageCount} image(s), {result.ReanimCount} reanim(s), {result.ParticleCount} particle(s), {result.TrailCount} trail(s). Missing images: {result.MissingImageCount}.";
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
+            {
+                StatusText = $"Could not import folder: {ex.Message}";
+            }
+            finally
+            {
+                EndProjectTransfer();
+            }
         }
 
         public async Task ImportResourceFileAsync(string sourceFileName, Stream sourceStream)

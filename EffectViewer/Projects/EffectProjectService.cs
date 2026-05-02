@@ -144,12 +144,14 @@ namespace EffectViewer.Projects
             return new EffectProject(string.Empty, manifest);
         }
 
-        public async Task<FolderImportResult> ImportFolderAsync(string sourceDirectory)
+        public async Task<FolderImportResult> ImportFolderAsync(
+            string sourceDirectory,
+            IProgress<ProjectTransferProgress> progress = null)
         {
             string sourceName = Path.GetFileName(sourceDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
             string projectDirectory = CreateUniqueProjectDirectory(sourceName);
             PopCapResourceFolderImporter importer = new();
-            FolderImportResult result = importer.Import(sourceDirectory, projectDirectory);
+            FolderImportResult result = await Task.Run(() => importer.Import(sourceDirectory, projectDirectory, progress));
 
             await SaveAsync(result.Project);
 
