@@ -1926,15 +1926,15 @@ namespace EffectViewer.ViewModels
                 transform.mScaleX = Lerp(start.mScaleX, end.mScaleX, fraction);
                 transform.mScaleY = Lerp(start.mScaleY, end.mScaleY, fraction);
                 transform.mAlpha = Lerp(start.mAlpha, end.mAlpha, fraction);
+                transform.mFrame = start.mFrame;
+                transform.mImage = start.mImage;
+                transform.mFont = start.mFont;
+                transform.mText = start.mText;
                 Vector2 expectedPoint = Vector2.Lerp(startPoint, endPoint, fraction);
                 Vector2 transformPoint = ResolveAnchorTransformPoint(transform, anchor);
                 Vector2 transformedPointOffset = TransformPointOffset(transform, transformPoint);
                 transform.mTransX = expectedPoint.X - transformedPointOffset.X;
                 transform.mTransY = expectedPoint.Y - transformedPointOffset.Y;
-                transform.mFrame = start.mFrame;
-                transform.mImage = start.mImage;
-                transform.mFont = start.mFont;
-                transform.mText = start.mText;
                 track.mTransforms[frameIndex] = transform;
             }
         }
@@ -2070,8 +2070,7 @@ namespace EffectViewer.ViewModels
                     continue;
                 }
 
-                Vector2 anchor = new(0.5f, 0.5f);
-                int end = FindLinearTweenRunEnd(track.mTransforms, count, start, anchor, transformPointResolver);
+                int end = FindLinearTweenRunEnd(track.mTransforms, count, start, transformPointResolver, out Vector2 anchor);
                 if (end > start + 1 &&
                     HasConstantTweenResourceFields(track.mTransforms, start, end))
                 {
@@ -2081,6 +2080,8 @@ namespace EffectViewer.ViewModels
                         TrackName = track.mName ?? string.Empty,
                         StartFrame = start,
                         EndFrame = end,
+                        AnchorX = anchor.X,
+                        AnchorY = anchor.Y,
                         Properties = ReanimTween.CreateTweenedProperties()
                     });
                     start = end;
@@ -2096,11 +2097,12 @@ namespace EffectViewer.ViewModels
             ReanimatorTransform[] transforms,
             int count,
             int start,
-            Vector2 anchor,
-            Func<ReanimatorTransform, Vector2> transformPointResolver)
+            Func<ReanimatorTransform, Vector2> transformPointResolver,
+            out Vector2 anchor)
         {
             ReanimatorTransform first = transforms[start];
 
+            anchor = new Vector2(0.5f, 0.5f);
             int end = start + 1;
             for (int candidateEnd = start + 2; candidateEnd < count; candidateEnd++)
             {
@@ -2114,9 +2116,10 @@ namespace EffectViewer.ViewModels
                     break;
                 }
 
-                if (IsLinearTweenRun(transforms, start, candidateEnd, anchor, transformPointResolver))
+                if (TryFitLinearTweenAnchor(transforms, start, candidateEnd, transformPointResolver, out Vector2 fittedAnchor))
                 {
                     end = candidateEnd;
+                    anchor = fittedAnchor;
                 }
             }
 
@@ -2134,6 +2137,127 @@ namespace EffectViewer.ViewModels
                 string.Equals(second.mImage ?? string.Empty, first.mImage ?? string.Empty, System.StringComparison.Ordinal) &&
                 string.Equals(second.mFont ?? string.Empty, first.mFont ?? string.Empty, System.StringComparison.Ordinal) &&
                 string.Equals(second.mText ?? string.Empty, first.mText ?? string.Empty, System.StringComparison.Ordinal);
+        }
+
+        private static bool TryFitLinearTweenAnchor(
+            ReanimatorTransform[] transforms,
+            int startFrame,
+            int endFrame,
+            Func<ReanimatorTransform, Vector2> transformPointResolver,
+            out Vector2 anchor)
+        {
+            anchor = new Vector2(0.5f, 0.5f);
+            if (IsLinearTweenRun(transforms, startFrame, endFrame, anchor, transformPointResolver))
+            {
+                return true;
+            }
+
+            if (!TrySolveTweenAnchor(transforms, startFrame, endFrame, transformPointResolver, out anchor))
+            {
+                return false;
+            }
+
+            if (!IsLinearTweenRun(transforms, startFrame, endFrame, anchor, transformPointResolver))
+            {
+                return false;
+            }
+
+            Vector2 roundedAnchor = new(
+                (float)RoundToThreeDecimals(anchor.X),
+                (float)RoundToThreeDecimals(anchor.Y));
+            if (IsLinearTweenRun(transforms, startFrame, endFrame, roundedAnchor, transformPointResolver))
+            {
+                anchor = roundedAnchor;
+            }
+
+            return true;
+        }
+
+        private static bool TrySolveTweenAnchor(
+            ReanimatorTransform[] transforms,
+            int startFrame,
+            int endFrame,
+            Func<ReanimatorTransform, Vector2> transformPointScaleResolver,
+            out Vector2 anchor)
+        {
+            anchor = new Vector2(0.5f, 0.5f);
+            int span = endFrame - startFrame;
+            if (span < 2)
+            {
+                return false;
+            }
+
+            MatrixFromTransformWithoutTranslation(transforms[startFrame], out Matrix4x4 startMatrix);
+            MatrixFromTransformWithoutTranslation(transforms[endFrame], out Matrix4x4 endMatrix);
+            Vector2 startScale = transformPointScaleResolver?.Invoke(transforms[startFrame]) ?? Vector2.One;
+            Vector2 endScale = transformPointScaleResolver?.Invoke(transforms[endFrame]) ?? Vector2.One;
+
+            double ata00 = 0d;
+            double ata01 = 0d;
+            double ata11 = 0d;
+            double atb0 = 0d;
+            double atb1 = 0d;
+
+            for (int frameIndex = startFrame + 1; frameIndex < endFrame; frameIndex++)
+            {
+                float fraction = (frameIndex - startFrame) / (float)span;
+                ReanimatorTransform transform = transforms[frameIndex];
+                MatrixFromTransformWithoutTranslation(transform, out Matrix4x4 frameMatrix);
+                Vector2 frameScale = transformPointScaleResolver?.Invoke(transform) ?? Vector2.One;
+
+                AddAnchorEquation(
+                    frameMatrix.M11 * frameScale.X - Lerp(startMatrix.M11 * startScale.X, endMatrix.M11 * endScale.X, fraction),
+                    frameMatrix.M21 * frameScale.Y - Lerp(startMatrix.M21 * startScale.Y, endMatrix.M21 * endScale.Y, fraction),
+                    Lerp(transforms[startFrame].mTransX, transforms[endFrame].mTransX, fraction) - transform.mTransX,
+                    ref ata00,
+                    ref ata01,
+                    ref ata11,
+                    ref atb0,
+                    ref atb1);
+
+                AddAnchorEquation(
+                    frameMatrix.M12 * frameScale.X - Lerp(startMatrix.M12 * startScale.X, endMatrix.M12 * endScale.X, fraction),
+                    frameMatrix.M22 * frameScale.Y - Lerp(startMatrix.M22 * startScale.Y, endMatrix.M22 * endScale.Y, fraction),
+                    Lerp(transforms[startFrame].mTransY, transforms[endFrame].mTransY, fraction) - transform.mTransY,
+                    ref ata00,
+                    ref ata01,
+                    ref ata11,
+                    ref atb0,
+                    ref atb1);
+            }
+
+            double determinant = (ata00 * ata11) - (ata01 * ata01);
+            if (System.Math.Abs(determinant) < 0.000001d)
+            {
+                return false;
+            }
+
+            double anchorX = ((atb0 * ata11) - (atb1 * ata01)) / determinant;
+            double anchorY = ((ata00 * atb1) - (ata01 * atb0)) / determinant;
+            if (!double.IsFinite(anchorX) || !double.IsFinite(anchorY))
+            {
+                return false;
+            }
+
+            anchor = new Vector2((float)anchorX, (float)anchorY);
+            return true;
+        }
+
+        private static void AddAnchorEquation(
+            double coefficientX,
+            double coefficientY,
+            double value,
+            ref double ata00,
+            ref double ata01,
+            ref double ata11,
+            ref double atb0,
+            ref double atb1)
+        {
+            ata00 += coefficientX * coefficientX;
+            ata01 += coefficientX * coefficientY;
+            ata11 += coefficientY * coefficientY;
+            atb0 += coefficientX * value;
+            atb1 += coefficientY * value;
         }
 
         private static bool IsLinearTweenRun(
