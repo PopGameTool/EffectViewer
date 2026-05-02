@@ -15,7 +15,12 @@ internal sealed partial class Program
 #if DEBUG
             .WithDeveloperTools()
 #endif
-            .StartBrowserAppAsync("out");
+            .StartBrowserAppAsync(
+                "out",
+                new BrowserPlatformOptions
+                {
+                    PreferFileDialogPolyfill = true
+                });
     }
 
     public static AppBuilder BuildAvaloniaApp()

@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Avalonia.Platform.Storage;
 using EffectViewer.Assets;
 using EffectViewer.TodLib.Particle;
 using EffectViewer.TodLib.Reanim;
@@ -148,14 +149,32 @@ namespace EffectViewer.Projects
             string sourceDirectory,
             IProgress<ProjectTransferProgress> progress = null)
         {
-            string sourceName = Path.GetFileName(sourceDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            string projectDirectory = CreateUniqueProjectDirectory(sourceName);
-            PopCapResourceFolderImporter importer = new();
-            FolderImportResult result = await Task.Run(() => importer.Import(sourceDirectory, projectDirectory, progress));
+            return await Task.Run(() => ImportFolderAsync(new LocalResourceFolderSource(sourceDirectory), progress));
+        }
 
+        public async Task<FolderImportResult> ImportFolderAsync(
+            IResourceFolderSource source,
+            IProgress<ProjectTransferProgress> progress = null)
+        {
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            string projectDirectory = CreateUniqueProjectDirectory(source.Name);
+            PopCapResourceFolderImporter importer = new();
+            FolderImportResult result = await importer.ImportAsync(source, projectDirectory, progress);
             await SaveAsync(result.Project);
 
             return result;
+        }
+
+        public async Task<FolderImportResult> ImportFolderAsync(
+            IStorageFolder sourceFolder,
+            IProgress<ProjectTransferProgress> progress = null)
+        {
+            using StorageResourceFolderSource source = new(sourceFolder);
+            return await ImportFolderAsync(source, progress);
         }
 
         public async Task<EffectProject> ImportProjectZipAsync(Stream zipStream, IProgress<ProjectTransferProgress> progress = null)

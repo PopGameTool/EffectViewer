@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EffectViewer.Assets;
@@ -73,6 +74,9 @@ namespace EffectViewer.ViewModels
 
         [ObservableProperty]
         private double _projectTransferProgressValue;
+
+        [ObservableProperty]
+        private bool _isProjectTransferProgressIndeterminate;
 
         [ObservableProperty]
         private string _projectTransferProgressText;
@@ -334,7 +338,39 @@ namespace EffectViewer.ViewModels
                 LoadProject(result.Project);
                 StatusText = $"Imported {result.ImageCount} image(s), {result.ReanimCount} reanim(s), {result.ParticleCount} particle(s), {result.TrailCount} trail(s). Missing images: {result.MissingImageCount}.";
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
+            catch (Exception ex)
+            {
+                StatusText = $"Could not import folder: {ex.Message}";
+            }
+            finally
+            {
+                EndProjectTransfer();
+            }
+        }
+
+        public async Task ImportResourceFolderAsync(IStorageFolder sourceFolder)
+        {
+            if (sourceFolder is null)
+            {
+                return;
+            }
+
+            if (!await ConfirmAllUnsavedChangesAsync())
+            {
+                StatusText = "Canceled folder import.";
+                return;
+            }
+
+            try
+            {
+                BeginProjectTransfer("Importing Resource Folder", "Reading folder");
+                Progress<ProjectTransferProgress> progress = new(UpdateProjectTransferProgress);
+                FolderImportResult result = await _projectService.ImportFolderAsync(sourceFolder, progress);
+
+                LoadProject(result.Project);
+                StatusText = $"Imported {result.ImageCount} image(s), {result.ReanimCount} reanim(s), {result.ParticleCount} particle(s), {result.TrailCount} trail(s). Missing images: {result.MissingImageCount}.";
+            }
+            catch (Exception ex)
             {
                 StatusText = $"Could not import folder: {ex.Message}";
             }
@@ -593,6 +629,7 @@ namespace EffectViewer.ViewModels
             ProjectTransferTitle = title;
             ProjectTransferMessage = message;
             ProjectTransferProgressValue = 0d;
+            IsProjectTransferProgressIndeterminate = true;
             ProjectTransferProgressText = string.Empty;
             IsProjectTransferInProgress = true;
         }
@@ -609,8 +646,9 @@ namespace EffectViewer.ViewModels
                 : progress.Operation;
             ProjectTransferMessage = progress.Message;
             ProjectTransferProgressValue = progress.Ratio * 100d;
+            IsProjectTransferProgressIndeterminate = progress.TotalItems <= 0;
             ProjectTransferProgressText = progress.TotalItems <= 0
-                ? string.Empty
+                ? progress.CompletedItems > 0 ? $"{progress.CompletedItems} scanned" : string.Empty
                 : $"{progress.CompletedItems} / {progress.TotalItems}";
         }
 
@@ -618,6 +656,7 @@ namespace EffectViewer.ViewModels
         {
             IsProjectTransferInProgress = false;
             ProjectTransferProgressValue = 0d;
+            IsProjectTransferProgressIndeterminate = false;
             ProjectTransferProgressText = string.Empty;
         }
 

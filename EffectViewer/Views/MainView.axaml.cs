@@ -111,10 +111,25 @@ namespace EffectViewer.Views
 
         private async void ImportFolderMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
-            string path = await PickFolderAsync("Import PopCap resource folder");
-            if (!string.IsNullOrWhiteSpace(path) && DataContext is MainViewModel viewModel)
+            try
             {
-                await viewModel.ImportResourceFolderAsync(path);
+                IStorageFolder folder = await PickFolderAsync("Import PopCap resource folder");
+                if (folder is not null && DataContext is MainViewModel viewModel)
+                {
+                    string path = folder.TryGetLocalPath();
+                    if (!string.IsNullOrWhiteSpace(path))
+                    {
+                        await viewModel.ImportResourceFolderAsync(path);
+                    }
+                    else
+                    {
+                        await viewModel.ImportResourceFolderAsync(folder);
+                    }
+                }
+            }
+            catch (System.Exception ex) when (DataContext is MainViewModel viewModel)
+            {
+                viewModel.StatusText = $"Could not import folder: {ex.Message}";
             }
         }
 
@@ -235,7 +250,7 @@ namespace EffectViewer.Views
             await viewModel.ExportSelectedFileAsync(stream, file.Name);
         }
 
-        private async Task<string> PickFolderAsync(string title)
+        private async Task<IStorageFolder> PickFolderAsync(string title)
         {
             TopLevel topLevel = TopLevel.GetTopLevel(this);
             if (topLevel?.StorageProvider is null)
@@ -249,7 +264,7 @@ namespace EffectViewer.Views
                 AllowMultiple = false
             });
 
-            return folders.Count > 0 ? folders[0].TryGetLocalPath() : null;
+            return folders.Count > 0 ? folders[0] : null;
         }
 
         private static FilePickerFileType ZipFileType { get; } = new("Zip archive")
