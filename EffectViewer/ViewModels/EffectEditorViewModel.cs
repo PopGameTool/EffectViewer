@@ -2043,6 +2043,12 @@ namespace EffectViewer.ViewModels
             int start = 0;
             while (start < count - 2)
             {
+                if (!CanInferTweenFromFrame(track.mTransforms[start]))
+                {
+                    start++;
+                    continue;
+                }
+
                 int end = FindLinearTweenRunEnd(track.mTransforms, count, start);
                 if (end > start + 1 &&
                     HasConstantTweenResourceFields(track.mTransforms, start, end))
@@ -2074,6 +2080,11 @@ namespace EffectViewer.ViewModels
             int end = start + 1;
             for (int candidateEnd = start + 2; candidateEnd < count; candidateEnd++)
             {
+                if (!CanInferTweenFromFrame(transforms[candidateEnd]))
+                {
+                    break;
+                }
+
                 if (!HasSameTweenResourceFields(first, transforms[candidateEnd]))
                 {
                     break;
@@ -2086,6 +2097,11 @@ namespace EffectViewer.ViewModels
             }
 
             return end;
+        }
+
+        private static bool CanInferTweenFromFrame(ReanimatorTransform transform)
+        {
+            return transform.mFrame >= 0f;
         }
 
         private static bool HasSameTweenResourceFields(ReanimatorTransform first, ReanimatorTransform second)
@@ -2107,6 +2123,11 @@ namespace EffectViewer.ViewModels
             for (int frameIndex = startFrame + 1; frameIndex <= endFrame; frameIndex++)
             {
                 ReanimatorTransform transform = transforms[frameIndex];
+                if (!CanInferTweenFromFrame(transform))
+                {
+                    return false;
+                }
+
                 if (!HasSameTweenResourceFields(start, transform))
                 {
                     return false;
@@ -2148,6 +2169,11 @@ namespace EffectViewer.ViewModels
             for (int frameIndex = startFrame + 1; frameIndex <= endFrame; frameIndex++)
             {
                 ReanimatorTransform transform = transforms[frameIndex];
+                if (!CanInferTweenFromFrame(transform))
+                {
+                    return false;
+                }
+
                 if (!HasSameTweenResourceFields(start, transform))
                 {
                     return false;
