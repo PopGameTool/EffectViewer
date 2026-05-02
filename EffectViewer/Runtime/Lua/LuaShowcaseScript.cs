@@ -26,6 +26,10 @@ namespace EffectViewer.Runtime.Lua
             _logs = logs ?? throw new ArgumentNullException(nameof(logs));
         }
 
+        public bool HasUpdate => _update.Type == DataType.Function;
+
+        public bool HasDraw => _draw.Type == DataType.Function;
+
         public void Update(double deltaSeconds)
         {
             if (_disposed)
@@ -36,7 +40,7 @@ namespace EffectViewer.Runtime.Lua
             _elapsedSeconds += deltaSeconds;
             _frame++;
 
-            if (_update.Type != DataType.Function || _updateFailed)
+            if (!HasUpdate || _updateFailed)
             {
                 return;
             }
@@ -59,7 +63,7 @@ namespace EffectViewer.Runtime.Lua
 
         public bool TryDraw(FrameCaptureGraphics graphics)
         {
-            if (_disposed || _draw.Type != DataType.Function || _drawFailed)
+            if (_disposed || !HasDraw || _drawFailed)
             {
                 return false;
             }

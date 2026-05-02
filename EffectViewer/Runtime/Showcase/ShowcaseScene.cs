@@ -151,7 +151,11 @@ namespace EffectViewer.Runtime.Showcase
                 mDrawMode = DrawMode.Normal
             };
 
-            if (_scriptCallbacks?.TryDraw(graphics) != true)
+            if (_scriptCallbacks?.HasDraw == true)
+            {
+                _scriptCallbacks.TryDraw(graphics);
+            }
+            else
             {
                 Draw(graphics);
             }
@@ -224,12 +228,18 @@ namespace EffectViewer.Runtime.Showcase
 
         private void Update(double deltaSeconds)
         {
-            _scriptCallbacks?.Update(deltaSeconds);
-            EffectSystem.gEffectSystem.Update();
-            foreach (ShowcaseTrail trail in _trails)
+            if (_scriptCallbacks?.HasUpdate == true)
             {
-                trail.UpdateAttachedPath();
-                trail.UpdateStandalonePath();
+                _scriptCallbacks.Update(deltaSeconds);
+            }
+            else
+            {
+                EffectSystem.gEffectSystem.Update();
+                foreach (ShowcaseTrail trail in _trails)
+                {
+                    trail.UpdateAttachedPath();
+                    trail.UpdateStandalonePath();
+                }
             }
 
             EffectSystem.gEffectSystem.ProcessDeleteQueue();
