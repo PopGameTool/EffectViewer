@@ -79,7 +79,9 @@ namespace EffectViewer.ViewModels
         public bool IsTrailEditor => Kind == EffectAssetKind.Trail;
         public bool HasReanimControls => Kind == EffectAssetKind.Reanim && ReanimTracks.Count > 0;
         public bool HasSelectedReanimFrame => IsReanimEditor && SelectedReanimTrack is not null && ReanimFrameCount > 0;
-        public bool CanTransformSelectedReanimFrame => HasSelectedReanimFrame;
+        public bool IsSelectedReanimFrameTweened => SelectedReanimTrack is not null &&
+            IsFrameTweened(SelectedReanimTrack.Index, SelectedReanimFrameIndex);
+        public bool CanTransformSelectedReanimFrame => HasSelectedReanimFrame && !IsSelectedReanimFrameTweened;
         public bool CanDrag => CanTransformSelectedReanimFrame && SelectedReanimFrameVisible;
         public bool IsPanModeEnabled => IsViewportPanModeEnabled;
         public bool CanRemoveReanimTrack => IsReanimEditor && ReanimTracks.Count > 1 && SelectedReanimTrack is not null;
@@ -1208,6 +1210,7 @@ namespace EffectViewer.ViewModels
 
             _suppressReanimPropertyChanges = false;
             OnPropertyChanged(nameof(HasSelectedReanimFrame));
+            OnPropertyChanged(nameof(IsSelectedReanimFrameTweened));
             OnPropertyChanged(nameof(CanTransformSelectedReanimFrame));
             OnPropertyChanged(nameof(CanDrag));
             OnPropertyChanged(nameof(SelectedReanimFrameSummary));
@@ -1215,7 +1218,7 @@ namespace EffectViewer.ViewModels
 
         private void ApplyReanimFrameResourceChanges()
         {
-            if (_suppressReanimPropertyChanges || !TryGetSelectedReanimTransform(out ReanimatorTransform transform))
+            if (_suppressReanimPropertyChanges || !CanTransformSelectedReanimFrame || !TryGetSelectedReanimTransform(out ReanimatorTransform transform))
             {
                 return;
             }
@@ -1459,6 +1462,7 @@ namespace EffectViewer.ViewModels
         private void RefreshReanimTimelineCells()
         {
             RaiseReanimTimelineChanged();
+            LoadSelectedReanimFrame();
         }
 
         private void UpdateSelectedReanimTrackState()
@@ -1539,6 +1543,9 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(HasReanimTweenMetadata));
             OnPropertyChanged(nameof(HasNoReanimTweenMetadata));
             OnPropertyChanged(nameof(HasSelectedReanimTween));
+            OnPropertyChanged(nameof(IsSelectedReanimFrameTweened));
+            OnPropertyChanged(nameof(CanTransformSelectedReanimFrame));
+            OnPropertyChanged(nameof(CanDrag));
             OnPropertyChanged(nameof(CanMakeSelectedReanimFrameKeyframe));
             OnPropertyChanged(nameof(CanEditReanimTweens));
             OnPropertyChanged(nameof(SelectedReanimTweenSummary));
@@ -1549,6 +1556,9 @@ namespace EffectViewer.ViewModels
             RaiseReanimTimelineChanged();
             OnPropertyChanged(nameof(CanRemoveReanimFrame));
             OnPropertyChanged(nameof(SelectedReanimFrameSummary));
+            OnPropertyChanged(nameof(IsSelectedReanimFrameTweened));
+            OnPropertyChanged(nameof(CanTransformSelectedReanimFrame));
+            OnPropertyChanged(nameof(CanDrag));
             OnPropertyChanged(nameof(CanMakeSelectedReanimFrameKeyframe));
         }
 
@@ -1565,6 +1575,7 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(ReanimDurationSummary));
             OnPropertyChanged(nameof(HasReanimControls));
             OnPropertyChanged(nameof(HasSelectedReanimFrame));
+            OnPropertyChanged(nameof(IsSelectedReanimFrameTweened));
             OnPropertyChanged(nameof(CanTransformSelectedReanimFrame));
             OnPropertyChanged(nameof(CanDrag));
             OnPropertyChanged(nameof(CanRemoveReanimTrack));
@@ -1782,7 +1793,10 @@ namespace EffectViewer.ViewModels
                 transform.mScaleX = properties.Contains("scaleX") ? Lerp(start.mScaleX, end.mScaleX, fraction) : start.mScaleX;
                 transform.mScaleY = properties.Contains("scaleY") ? Lerp(start.mScaleY, end.mScaleY, fraction) : start.mScaleY;
                 transform.mAlpha = properties.Contains("alpha") ? Lerp(start.mAlpha, end.mAlpha, fraction) : start.mAlpha;
-                if (transform.mFrame == -1f) transform.mFrame = start.mFrame;
+                transform.mFrame = start.mFrame;
+                transform.mImage = start.mImage;
+                transform.mFont = start.mFont;
+                transform.mText = start.mText;
                 track.mTransforms[frameIndex] = transform;
             }
         }
@@ -1965,7 +1979,9 @@ namespace EffectViewer.ViewModels
             while (start < count - 2)
             {
                 int end = FindLinearRunEnd(track.mTransforms, count, start, valueSelector);
-                if (end > start + 1 && !NearlyEqual(valueSelector(track.mTransforms[start]), valueSelector(track.mTransforms[end])))
+                if (end > start + 1 &&
+                    !NearlyEqual(valueSelector(track.mTransforms[start]), valueSelector(track.mTransforms[end])) &&
+                    HasConstantTweenResourceFields(track.mTransforms, start, end))
                 {
                     AddOrMergeInferredTween(tweens, track, trackIndex, start, end, propertyName);
                     start = end;
@@ -2004,6 +2020,24 @@ namespace EffectViewer.ViewModels
             }
 
             return end;
+        }
+
+        private static bool HasConstantTweenResourceFields(ReanimatorTransform[] transforms, int startFrame, int endFrame)
+        {
+            ReanimatorTransform start = transforms[startFrame];
+            for (int frameIndex = startFrame + 1; frameIndex < endFrame; frameIndex++)
+            {
+                ReanimatorTransform transform = transforms[frameIndex];
+                if (!NearlyEqual(transform.mFrame, start.mFrame) ||
+                    !string.Equals(transform.mImage ?? string.Empty, start.mImage ?? string.Empty, System.StringComparison.Ordinal) ||
+                    !string.Equals(transform.mFont ?? string.Empty, start.mFont ?? string.Empty, System.StringComparison.Ordinal) ||
+                    !string.Equals(transform.mText ?? string.Empty, start.mText ?? string.Empty, System.StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static void AddOrMergeInferredTween(
