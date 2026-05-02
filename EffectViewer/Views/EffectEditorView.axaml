@@ -426,21 +426,6 @@
             <MenuItem Header="Remove Frame"
                       IsEnabled="{Binding CanRemoveReanimFrame}"
                       Command="{Binding RemoveReanimFrameCommand}"/>
-            <Separator/>
-            <MenuItem Header="_Detect Tweens"
-                      Command="{Binding RecognizeReanimTweensCommand}"/>
-            <MenuItem Header="_Create Tween"
-                      IsEnabled="{Binding CanEditReanimTweens}"
-                      Command="{Binding AddReanimTweenCommand}"/>
-            <MenuItem Header="_Keyframe Tween Cell"
-                      IsEnabled="{Binding CanMakeSelectedReanimFrameKeyframe}"
-                      Command="{Binding MakeSelectedReanimFrameKeyframeCommand}"/>
-            <MenuItem Header="_Bake Selected Tween"
-                      IsEnabled="{Binding HasSelectedReanimTween}"
-                      Command="{Binding BakeSelectedReanimTweenCommand}"/>
-            <MenuItem Header="Bake _All Tweens"
-                      IsEnabled="{Binding HasReanimTweenMetadata}"
-                      Command="{Binding BakeAllReanimTweensCommand}"/>
           </MenuItem>
           <MenuItem Header="_Layout">
             <MenuItem Header="_Properties"
