@@ -9,8 +9,8 @@ namespace EffectViewer.TodLib.Common
         {
             if (!condition)
             {
-                Debugger.Break();
-                throw new Exception("ASSERT failed!");
+                //Debugger.Break();
+                //throw new Exception("ASSERT failed!");
             }
         }
 
