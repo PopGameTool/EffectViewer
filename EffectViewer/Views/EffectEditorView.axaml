@@ -129,11 +129,10 @@
               RowSpacing="8">
           <StackPanel Spacing="4">
             <TextBlock Text="Track"/>
-            <NumericUpDown Value="{Binding TrackNumber}"
-                           Minimum="1"
-                           Maximum="{Binding TrackCount}"
-                           Increment="1"
-                           FormatString="0"/>
+            <TextBox Text="{Binding TrackNumberText, UpdateSourceTrigger=PropertyChanged}"
+                     Tag="TrackNumber"
+                     LostFocus="ReanimTweenTextBox_LostFocus"
+                     HorizontalContentAlignment="Right"/>
           </StackPanel>
           <StackPanel Grid.Column="1" Spacing="4">
             <TextBlock Text="Track Name"/>
@@ -142,19 +141,17 @@
           </StackPanel>
           <StackPanel Grid.Row="1" Spacing="4">
             <TextBlock Text="Start Frame"/>
-            <NumericUpDown Value="{Binding StartFrameNumber}"
-                           Minimum="1"
-                           Maximum="{Binding StartFrameMaximum}"
-                           Increment="1"
-                           FormatString="0"/>
+            <TextBox Text="{Binding StartFrameNumberText, UpdateSourceTrigger=PropertyChanged}"
+                     Tag="StartFrameNumber"
+                     LostFocus="ReanimTweenTextBox_LostFocus"
+                     HorizontalContentAlignment="Right"/>
           </StackPanel>
           <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
             <TextBlock Text="End Frame"/>
-            <NumericUpDown Value="{Binding EndFrameNumber}"
-                           Minimum="{Binding EndFrameMinimum}"
-                           Maximum="{Binding FrameCount}"
-                           Increment="1"
-                           FormatString="0"/>
+            <TextBox Text="{Binding EndFrameNumberText, UpdateSourceTrigger=PropertyChanged}"
+                     Tag="EndFrameNumber"
+                     LostFocus="ReanimTweenTextBox_LostFocus"
+                     HorizontalContentAlignment="Right"/>
           </StackPanel>
           <WrapPanel Grid.Row="2"
                      Grid.ColumnSpan="2"
@@ -418,10 +415,6 @@
               Background="Transparent">
           <MenuItem Header="_Animation"
                     IsVisible="{Binding IsReanimEditor}">
-            <MenuItem Header="_Transform"
-                      IsEnabled="{Binding CanTransformSelectedReanimFrame}"
-                      Command="{Binding OpenReanimTransformDialogCommand}"/>
-            <Separator/>
             <MenuItem Header="_Add Track"
                       Command="{Binding AddReanimTrackCommand}"/>
             <MenuItem Header="_Remove Track"
@@ -529,6 +522,111 @@
                   <TextBlock Grid.Row="1" Text="MinDist"/>
                   <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TrailMinPointDistance}"/>
                 </Grid>
+              </StackPanel>
+            </Expander>
+
+            <Expander Header="Transform"
+                      IsExpanded="True"
+                      IsVisible="{Binding IsReanimEditor}"
+                      IsEnabled="{Binding CanTransformSelectedReanimFrame}"
+                      HorizontalAlignment="Stretch">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto"
+                      ColumnSpacing="8"
+                      RowSpacing="8">
+                  <StackPanel Grid.ColumnSpan="2" Spacing="4">
+                    <TextBlock Text="Track Name"/>
+                    <TextBox Text="{Binding ReanimTransformDialog.TrackName, UpdateSourceTrigger=PropertyChanged}"
+                             PlaceholderText="Track name"/>
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Spacing="4">
+                    <TextBlock Text="Image ID"/>
+                    <TextBox Text="{Binding ReanimTransformDialog.ImageId, UpdateSourceTrigger=PropertyChanged}"
+                             PlaceholderText="Image resource ID"/>
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                    <TextBlock Text="Font"/>
+                    <TextBox Text="{Binding ReanimTransformDialog.FontId, UpdateSourceTrigger=PropertyChanged}"
+                             PlaceholderText="Font ID"/>
+                  </StackPanel>
+                  <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Spacing="4">
+                    <TextBlock Text="Text"/>
+                    <TextBox Text="{Binding ReanimTransformDialog.Text, UpdateSourceTrigger=PropertyChanged}"
+                             PlaceholderText="Text"/>
+                  </StackPanel>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto"
+                      ColumnSpacing="8"
+                      RowSpacing="8">
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="X"/>
+                    <TextBox Text="{Binding ReanimTransformDialog.XText, UpdateSourceTrigger=PropertyChanged}"
+                             Tag="X"
+                             LostFocus="ReanimTransformTextBox_LostFocus"
+                             HorizontalContentAlignment="Right"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Spacing="4">
+                    <TextBlock Text="Y"/>
+                    <TextBox Text="{Binding ReanimTransformDialog.YText, UpdateSourceTrigger=PropertyChanged}"
+                             Tag="Y"
+                             LostFocus="ReanimTransformTextBox_LostFocus"
+                             HorizontalContentAlignment="Right"/>
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Spacing="4">
+                    <TextBlock Text="Scale X"/>
+                    <TextBox Text="{Binding ReanimTransformDialog.ScaleXText, UpdateSourceTrigger=PropertyChanged}"
+                             Tag="ScaleX"
+                             LostFocus="ReanimTransformTextBox_LostFocus"
+                             HorizontalContentAlignment="Right"/>
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                    <TextBlock Text="Scale Y"/>
+                    <TextBox Text="{Binding ReanimTransformDialog.ScaleYText, UpdateSourceTrigger=PropertyChanged}"
+                             Tag="ScaleY"
+                             LostFocus="ReanimTransformTextBox_LostFocus"
+                             HorizontalContentAlignment="Right"/>
+                  </StackPanel>
+                  <StackPanel Grid.Row="2" Spacing="4">
+                    <TextBlock Text="Skew X"/>
+                    <TextBox Text="{Binding ReanimTransformDialog.SkewXText, UpdateSourceTrigger=PropertyChanged}"
+                             Tag="SkewX"
+                             LostFocus="ReanimTransformTextBox_LostFocus"
+                             HorizontalContentAlignment="Right"/>
+                  </StackPanel>
+                  <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
+                    <TextBlock Text="Skew Y"/>
+                    <TextBox Text="{Binding ReanimTransformDialog.SkewYText, UpdateSourceTrigger=PropertyChanged}"
+                             Tag="SkewY"
+                             LostFocus="ReanimTransformTextBox_LostFocus"
+                             HorizontalContentAlignment="Right"/>
+                  </StackPanel>
+                  <StackPanel Grid.Row="3" Spacing="4">
+                    <TextBlock Text="Frame"/>
+                    <TextBox Text="{Binding ReanimTransformDialog.FrameText, UpdateSourceTrigger=PropertyChanged}"
+                             Tag="Frame"
+                             LostFocus="ReanimTransformTextBox_LostFocus"
+                             HorizontalContentAlignment="Right"/>
+                  </StackPanel>
+                  <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
+                    <TextBlock Text="Alpha"/>
+                    <TextBox Text="{Binding ReanimTransformDialog.AlphaText, UpdateSourceTrigger=PropertyChanged}"
+                             Tag="Alpha"
+                             LostFocus="ReanimTransformTextBox_LostFocus"
+                             HorizontalContentAlignment="Right"/>
+                  </StackPanel>
+                </Grid>
+
+                <WrapPanel HorizontalAlignment="Right"
+                           ItemSpacing="6"
+                           LineSpacing="6">
+                  <Button Content="Reset Scale"
+                          MinWidth="92"
+                          Command="{Binding ReanimTransformDialog.ResetScaleCommand}"/>
+                  <Button Content="Reset Skew"
+                          MinWidth="108"
+                          Command="{Binding ReanimTransformDialog.ResetSkewCommand}"/>
+                </WrapPanel>
               </StackPanel>
             </Expander>
 
@@ -734,129 +832,5 @@
         </Border>
     </Grid>
     </Grid>
-
-    <Border Background="#80000000"
-            IsVisible="{Binding IsReanimTransformDialogOpen}">
-      <Border Width="480"
-              HorizontalAlignment="Center"
-              VerticalAlignment="Center"
-              Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
-              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-              BorderThickness="1"
-              CornerRadius="6"
-              Padding="18">
-        <StackPanel Spacing="12">
-          <TextBlock Text="Transform"
-                     FontSize="18"
-                     FontWeight="SemiBold"/>
-          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto"
-                ColumnSpacing="10"
-                RowSpacing="8">
-            <StackPanel Grid.ColumnSpan="2" Spacing="4">
-              <TextBlock Text="Track Name"/>
-              <TextBox Text="{Binding ReanimTransformDialog.TrackName, UpdateSourceTrigger=PropertyChanged}"
-                       PlaceholderText="Track name"/>
-            </StackPanel>
-            <StackPanel Grid.Row="1" Spacing="4">
-              <TextBlock Text="Image ID"/>
-              <TextBox Text="{Binding ReanimTransformDialog.ImageId, UpdateSourceTrigger=PropertyChanged}"
-                       PlaceholderText="Image resource ID"/>
-            </StackPanel>
-            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
-              <TextBlock Text="Font"/>
-              <TextBox Text="{Binding ReanimTransformDialog.FontId, UpdateSourceTrigger=PropertyChanged}"
-                       PlaceholderText="Font ID"/>
-            </StackPanel>
-            <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Spacing="4">
-              <TextBlock Text="Text"/>
-              <TextBox Text="{Binding ReanimTransformDialog.Text, UpdateSourceTrigger=PropertyChanged}"
-                       PlaceholderText="Text"/>
-            </StackPanel>
-          </Grid>
-          <Separator/>
-          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto"
-                ColumnSpacing="10"
-                RowSpacing="8">
-            <StackPanel Spacing="4">
-              <TextBlock Text="X"/>
-              <NumericUpDown Value="{Binding ReanimTransformDialog.X}"
-                             Minimum="-10000"
-                             Maximum="10000"
-                             Increment="1"
-                             FormatString="0.###"/>
-            </StackPanel>
-            <StackPanel Grid.Column="1" Spacing="4">
-              <TextBlock Text="Y"/>
-              <NumericUpDown Value="{Binding ReanimTransformDialog.Y}"
-                             Minimum="-10000"
-                             Maximum="10000"
-                             Increment="1"
-                             FormatString="0.###"/>
-            </StackPanel>
-            <StackPanel Grid.Row="1" Spacing="4">
-              <TextBlock Text="Scale X"/>
-              <NumericUpDown Value="{Binding ReanimTransformDialog.ScaleX}"
-                             Minimum="-20"
-                             Maximum="20"
-                             Increment="0.05"
-                             FormatString="0.###"/>
-            </StackPanel>
-            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
-              <TextBlock Text="Scale Y"/>
-              <NumericUpDown Value="{Binding ReanimTransformDialog.ScaleY}"
-                             Minimum="-20"
-                             Maximum="20"
-                             Increment="0.05"
-                             FormatString="0.###"/>
-            </StackPanel>
-            <StackPanel Grid.Row="2" Spacing="4">
-              <TextBlock Text="Skew X"/>
-              <NumericUpDown Value="{Binding ReanimTransformDialog.SkewX}"
-                             Minimum="-360"
-                             Maximum="360"
-                             Increment="1"
-                             FormatString="0.###"/>
-            </StackPanel>
-            <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
-              <TextBlock Text="Skew Y"/>
-              <NumericUpDown Value="{Binding ReanimTransformDialog.SkewY}"
-                             Minimum="-360"
-                             Maximum="360"
-                             Increment="1"
-                             FormatString="0.###"/>
-            </StackPanel>
-            <StackPanel Grid.Row="3" Spacing="4">
-              <TextBlock Text="Frame"/>
-              <NumericUpDown Value="{Binding ReanimTransformDialog.Frame}"
-                             Minimum="-1"
-                             Maximum="10000"
-                             Increment="1"
-                             FormatString="0.###"/>
-            </StackPanel>
-            <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
-              <TextBlock Text="Alpha"/>
-              <NumericUpDown Value="{Binding ReanimTransformDialog.Alpha}"
-                             Minimum="0"
-                             Maximum="1"
-                             Increment="0.05"
-                             FormatString="0.###"/>
-            </StackPanel>
-          </Grid>
-          <StackPanel Orientation="Horizontal"
-                      HorizontalAlignment="Right"
-                      Spacing="8">
-            <Button Content="Reset Scale"
-                    MinWidth="92"
-                    Command="{Binding ReanimTransformDialog.ResetScaleCommand}"/>
-            <Button Content="Reset Skew"
-                    MinWidth="108"
-                    Command="{Binding ReanimTransformDialog.ResetSkewCommand}"/>
-            <Button Content="Close"
-                    MinWidth="80"
-                    Command="{Binding ReanimTransformDialog.CloseCommand}"/>
-          </StackPanel>
-        </StackPanel>
-      </Border>
-    </Border>
   </Grid>
 </UserControl>

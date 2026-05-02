@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using EffectViewer.ViewModels;
 
 namespace EffectViewer.Views
@@ -76,6 +77,23 @@ namespace EffectViewer.Views
                 EditorContentGrid.RowDefinitions[1].Height = new GridLength(0d);
                 EditorContentGrid.RowDefinitions[2].MinHeight = 0d;
                 EditorContentGrid.RowDefinitions[2].Height = new GridLength(0d);
+            }
+        }
+
+        private void ReanimTransformTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is TextBox { Tag: string numberName } &&
+                DataContext is EffectEditorViewModel viewModel)
+            {
+                viewModel.ReanimTransformDialog.RestoreNumberText(numberName);
+            }
+        }
+
+        private static void ReanimTweenTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is TextBox { Tag: string numberName, DataContext: ReanimTweenViewModel tween })
+            {
+                tween.RestoreNumberText(numberName);
             }
         }
     }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using EffectViewer.Assets;
 
@@ -9,6 +10,9 @@ namespace EffectViewer.ViewModels
     {
         private readonly Func<int, string> _trackNameResolver;
         private readonly Action<ReanimTweenViewModel> _changed;
+        private string _trackNumberText;
+        private string _startFrameNumberText;
+        private string _endFrameNumberText;
 
         public ReanimTween Model { get; }
         public int Index { get; private set; }
@@ -24,10 +28,22 @@ namespace EffectViewer.ViewModels
             set => SetTrackNumber(value);
         }
 
+        public string TrackNumberText
+        {
+            get => _trackNumberText;
+            set => SetNumberText(ref _trackNumberText, value, nameof(TrackNumberText), nameof(TrackNumber));
+        }
+
         public double StartFrameNumber
         {
             get => Model.StartFrame + 1;
             set => SetStartFrameNumber(value);
+        }
+
+        public string StartFrameNumberText
+        {
+            get => _startFrameNumberText;
+            set => SetNumberText(ref _startFrameNumberText, value, nameof(StartFrameNumberText), nameof(StartFrameNumber));
         }
 
         public double EndFrameNumber
@@ -35,6 +51,13 @@ namespace EffectViewer.ViewModels
             get => Model.EndFrame + 1;
             set => SetEndFrameNumber(value);
         }
+
+        public string EndFrameNumberText
+        {
+            get => _endFrameNumberText;
+            set => SetNumberText(ref _endFrameNumberText, value, nameof(EndFrameNumberText), nameof(EndFrameNumber));
+        }
+
         public double StartFrameMaximum => Math.Max(1, FrameCount - 2);
         public double EndFrameMinimum => Math.Min(FrameCount, Model.StartFrame + 3);
 
@@ -95,6 +118,7 @@ namespace EffectViewer.ViewModels
             _trackNameResolver = trackNameResolver;
             _changed = changed;
             NormalizeModel();
+            RestoreAllNumberText();
         }
 
         public void SetIndex(int index)
@@ -119,6 +143,7 @@ namespace EffectViewer.ViewModels
             Model.TrackIndex = trackIndex;
             Model.TrackName = TrackName;
             OnPropertyChanged(nameof(TrackNumber));
+            RestoreNumberText(nameof(TrackNumber));
             RaiseDisplayPropertiesChanged();
             RaiseChanged();
         }
@@ -139,6 +164,7 @@ namespace EffectViewer.ViewModels
             }
 
             RaiseFramePropertiesChanged();
+            RestoreFrameNumberText();
             RaiseChanged();
         }
 
@@ -153,7 +179,24 @@ namespace EffectViewer.ViewModels
 
             Model.EndFrame = endFrame;
             RaiseFramePropertiesChanged();
+            RestoreNumberText(nameof(EndFrameNumber));
             RaiseChanged();
+        }
+
+        public void RestoreNumberText(string numberName)
+        {
+            switch (numberName)
+            {
+                case nameof(TrackNumber):
+                    SetProperty(ref _trackNumberText, FormatNumber(TrackNumber), nameof(TrackNumberText));
+                    break;
+                case nameof(StartFrameNumber):
+                    SetProperty(ref _startFrameNumberText, FormatNumber(StartFrameNumber), nameof(StartFrameNumberText));
+                    break;
+                case nameof(EndFrameNumber):
+                    SetProperty(ref _endFrameNumberText, FormatNumber(EndFrameNumber), nameof(EndFrameNumberText));
+                    break;
+            }
         }
 
         public void RefreshTrackName()
@@ -241,10 +284,86 @@ namespace EffectViewer.ViewModels
             _changed?.Invoke(this);
         }
 
+        private void SetNumberText(
+            ref string textField,
+            string value,
+            string textPropertyName,
+            string numberPropertyName)
+        {
+            if (SetProperty(ref textField, value ?? string.Empty, textPropertyName))
+            {
+                TryApplyNumberText(numberPropertyName, textField);
+            }
+        }
+
+        private void TryApplyNumberText(string numberPropertyName, string text)
+        {
+            if (!TryParseRoundedNumber(text, out int value))
+            {
+                return;
+            }
+
+            switch (numberPropertyName)
+            {
+                case nameof(TrackNumber):
+                    if (value >= 1 && value <= TrackCount)
+                    {
+                        SetTrackNumber(value);
+                    }
+                    break;
+                case nameof(StartFrameNumber):
+                    if (value >= 1 && value <= StartFrameMaximum)
+                    {
+                        SetStartFrameNumber(value);
+                    }
+                    break;
+                case nameof(EndFrameNumber):
+                    if (value >= EndFrameMinimum && value <= FrameCount)
+                    {
+                        SetEndFrameNumber(value);
+                    }
+                    break;
+            }
+        }
+
+        private void RestoreAllNumberText()
+        {
+            RestoreNumberText(nameof(TrackNumber));
+            RestoreFrameNumberText();
+        }
+
+        private void RestoreFrameNumberText()
+        {
+            RestoreNumberText(nameof(StartFrameNumber));
+            RestoreNumberText(nameof(EndFrameNumber));
+        }
+
         private static int ClampRounded(double value, int min, int max)
         {
             int rounded = (int)Math.Round(value, MidpointRounding.AwayFromZero);
             return Math.Clamp(rounded, Math.Min(min, max), Math.Max(min, max));
+        }
+
+        private static bool TryParseRoundedNumber(string text, out int value)
+        {
+            text = text?.Trim();
+            if (string.IsNullOrEmpty(text) ||
+                !double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out double number) &&
+                !double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out number) ||
+                double.IsNaN(number) ||
+                double.IsInfinity(number))
+            {
+                value = 0;
+                return false;
+            }
+
+            value = (int)Math.Round(number, MidpointRounding.AwayFromZero);
+            return true;
+        }
+
+        private static string FormatNumber(double value)
+        {
+            return Math.Round(value, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture);
         }
 
         private static List<string> NormalizeProperties(IEnumerable<string> properties)

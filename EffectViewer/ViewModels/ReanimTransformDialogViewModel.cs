@@ -18,6 +18,14 @@ namespace EffectViewer.ViewModels
         private double _skewY;
         private double _frame;
         private double _alpha = 1d;
+        private string _xText = "0";
+        private string _yText = "0";
+        private string _scaleXText = "1";
+        private string _scaleYText = "1";
+        private string _skewXText = "0";
+        private string _skewYText = "0";
+        private string _frameText = "0";
+        private string _alphaText = "1";
 
         public string TrackName
         {
@@ -72,10 +80,7 @@ namespace EffectViewer.ViewModels
             get => _x;
             set
             {
-                if (SetProperty(ref _x, Round(value)))
-                {
-                    _apply?.Invoke();
-                }
+                SetNumber(ref _x, Round(value), nameof(X), ref _xText, nameof(XText));
             }
         }
 
@@ -84,10 +89,7 @@ namespace EffectViewer.ViewModels
             get => _y;
             set
             {
-                if (SetProperty(ref _y, Round(value)))
-                {
-                    _apply?.Invoke();
-                }
+                SetNumber(ref _y, Round(value), nameof(Y), ref _yText, nameof(YText));
             }
         }
 
@@ -96,10 +98,7 @@ namespace EffectViewer.ViewModels
             get => _scaleX;
             set
             {
-                if (SetProperty(ref _scaleX, Round(value)))
-                {
-                    _apply?.Invoke();
-                }
+                SetNumber(ref _scaleX, Round(value), nameof(ScaleX), ref _scaleXText, nameof(ScaleXText));
             }
         }
 
@@ -108,10 +107,7 @@ namespace EffectViewer.ViewModels
             get => _scaleY;
             set
             {
-                if (SetProperty(ref _scaleY, Round(value)))
-                {
-                    _apply?.Invoke();
-                }
+                SetNumber(ref _scaleY, Round(value), nameof(ScaleY), ref _scaleYText, nameof(ScaleYText));
             }
         }
 
@@ -120,10 +116,7 @@ namespace EffectViewer.ViewModels
             get => _skewX;
             set
             {
-                if (SetProperty(ref _skewX, Round(value)))
-                {
-                    _apply?.Invoke();
-                }
+                SetNumber(ref _skewX, Round(value), nameof(SkewX), ref _skewXText, nameof(SkewXText));
             }
         }
 
@@ -132,10 +125,7 @@ namespace EffectViewer.ViewModels
             get => _skewY;
             set
             {
-                if (SetProperty(ref _skewY, Round(value)))
-                {
-                    _apply?.Invoke();
-                }
+                SetNumber(ref _skewY, Round(value), nameof(SkewY), ref _skewYText, nameof(SkewYText));
             }
         }
 
@@ -144,10 +134,7 @@ namespace EffectViewer.ViewModels
             get => _frame;
             set
             {
-                if (SetProperty(ref _frame, NormalizeFrame(value)))
-                {
-                    _apply?.Invoke();
-                }
+                SetNumber(ref _frame, NormalizeFrame(value), nameof(Frame), ref _frameText, nameof(FrameText));
             }
         }
 
@@ -156,10 +143,79 @@ namespace EffectViewer.ViewModels
             get => _alpha;
             set
             {
-                if (SetProperty(ref _alpha, Round(System.Math.Clamp(value, 0d, 1d))))
-                {
-                    _apply?.Invoke();
-                }
+                SetNumber(ref _alpha, Round(System.Math.Clamp(value, 0d, 1d)), nameof(Alpha), ref _alphaText, nameof(AlphaText));
+            }
+        }
+
+        public string XText
+        {
+            get => _xText;
+            set
+            {
+                SetNumberText(ref _xText, value, nameof(XText), nameof(X));
+            }
+        }
+
+        public string YText
+        {
+            get => _yText;
+            set
+            {
+                SetNumberText(ref _yText, value, nameof(YText), nameof(Y));
+            }
+        }
+
+        public string ScaleXText
+        {
+            get => _scaleXText;
+            set
+            {
+                SetNumberText(ref _scaleXText, value, nameof(ScaleXText), nameof(ScaleX));
+            }
+        }
+
+        public string ScaleYText
+        {
+            get => _scaleYText;
+            set
+            {
+                SetNumberText(ref _scaleYText, value, nameof(ScaleYText), nameof(ScaleY));
+            }
+        }
+
+        public string SkewXText
+        {
+            get => _skewXText;
+            set
+            {
+                SetNumberText(ref _skewXText, value, nameof(SkewXText), nameof(SkewX));
+            }
+        }
+
+        public string SkewYText
+        {
+            get => _skewYText;
+            set
+            {
+                SetNumberText(ref _skewYText, value, nameof(SkewYText), nameof(SkewY));
+            }
+        }
+
+        public string FrameText
+        {
+            get => _frameText;
+            set
+            {
+                SetNumberText(ref _frameText, value, nameof(FrameText), nameof(Frame));
+            }
+        }
+
+        public string AlphaText
+        {
+            get => _alphaText;
+            set
+            {
+                SetNumberText(ref _alphaText, value, nameof(AlphaText), nameof(Alpha));
             }
         }
 
@@ -187,14 +243,45 @@ namespace EffectViewer.ViewModels
             SetProperty(ref _imageId, imageId ?? string.Empty, nameof(ImageId));
             SetProperty(ref _fontId, fontId ?? string.Empty, nameof(FontId));
             SetProperty(ref _text, text ?? string.Empty, nameof(Text));
-            SetProperty(ref _x, Round(x), nameof(X));
-            SetProperty(ref _y, Round(y), nameof(Y));
-            SetProperty(ref _scaleX, Round(scaleX), nameof(ScaleX));
-            SetProperty(ref _scaleY, Round(scaleY), nameof(ScaleY));
-            SetProperty(ref _skewX, Round(skewX), nameof(SkewX));
-            SetProperty(ref _skewY, Round(skewY), nameof(SkewY));
-            SetProperty(ref _frame, NormalizeFrame(frame), nameof(Frame));
-            SetProperty(ref _alpha, Round(alpha), nameof(Alpha));
+            LoadNumber(ref _x, Round(x), nameof(X), ref _xText, nameof(XText));
+            LoadNumber(ref _y, Round(y), nameof(Y), ref _yText, nameof(YText));
+            LoadNumber(ref _scaleX, Round(scaleX), nameof(ScaleX), ref _scaleXText, nameof(ScaleXText));
+            LoadNumber(ref _scaleY, Round(scaleY), nameof(ScaleY), ref _scaleYText, nameof(ScaleYText));
+            LoadNumber(ref _skewX, Round(skewX), nameof(SkewX), ref _skewXText, nameof(SkewXText));
+            LoadNumber(ref _skewY, Round(skewY), nameof(SkewY), ref _skewYText, nameof(SkewYText));
+            LoadNumber(ref _frame, NormalizeFrame(frame), nameof(Frame), ref _frameText, nameof(FrameText));
+            LoadNumber(ref _alpha, Round(alpha), nameof(Alpha), ref _alphaText, nameof(AlphaText));
+        }
+
+        public void RestoreNumberText(string numberName)
+        {
+            switch (numberName)
+            {
+                case nameof(X):
+                    SetProperty(ref _xText, FormatNumber(_x), nameof(XText));
+                    break;
+                case nameof(Y):
+                    SetProperty(ref _yText, FormatNumber(_y), nameof(YText));
+                    break;
+                case nameof(ScaleX):
+                    SetProperty(ref _scaleXText, FormatNumber(_scaleX), nameof(ScaleXText));
+                    break;
+                case nameof(ScaleY):
+                    SetProperty(ref _scaleYText, FormatNumber(_scaleY), nameof(ScaleYText));
+                    break;
+                case nameof(SkewX):
+                    SetProperty(ref _skewXText, FormatNumber(_skewX), nameof(SkewXText));
+                    break;
+                case nameof(SkewY):
+                    SetProperty(ref _skewYText, FormatNumber(_skewY), nameof(SkewYText));
+                    break;
+                case nameof(Frame):
+                    SetProperty(ref _frameText, FormatNumber(_frame), nameof(FrameText));
+                    break;
+                case nameof(Alpha):
+                    SetProperty(ref _alphaText, FormatNumber(_alpha), nameof(AlphaText));
+                    break;
+            }
         }
 
         [RelayCommand]
@@ -227,6 +314,123 @@ namespace EffectViewer.ViewModels
         {
             double rounded = Round(value);
             return rounded < 0d ? -1d : rounded;
+        }
+
+        private void SetNumber(
+            ref double field,
+            double value,
+            string numberPropertyName,
+            ref string textField,
+            string textPropertyName)
+        {
+            bool changed = SetProperty(ref field, value, numberPropertyName);
+            SetProperty(ref textField, FormatNumber(value), textPropertyName);
+            if (changed)
+            {
+                _apply?.Invoke();
+            }
+        }
+
+        private void LoadNumber(
+            ref double numberField,
+            double value,
+            string numberPropertyName,
+            ref string textField,
+            string textPropertyName)
+        {
+            SetProperty(ref numberField, value, numberPropertyName);
+            SetProperty(ref textField, FormatNumber(value), textPropertyName);
+        }
+
+        private void SetNumberText(
+            ref string textField,
+            string value,
+            string textPropertyName,
+            string numberPropertyName)
+        {
+            if (SetProperty(ref textField, value ?? string.Empty, textPropertyName))
+            {
+                TryApplyNumberText(numberPropertyName, textField);
+            }
+        }
+
+        private void TryApplyNumberText(string numberPropertyName, string text)
+        {
+            if (!TryParseNumber(text, out double value))
+            {
+                return;
+            }
+
+            switch (numberPropertyName)
+            {
+                case nameof(X):
+                    TrySetParsedNumber(ref _x, value, -10000d, 10000d, nameof(X));
+                    break;
+                case nameof(Y):
+                    TrySetParsedNumber(ref _y, value, -10000d, 10000d, nameof(Y));
+                    break;
+                case nameof(ScaleX):
+                    TrySetParsedNumber(ref _scaleX, value, -10000d, 10000d, nameof(ScaleX));
+                    break;
+                case nameof(ScaleY):
+                    TrySetParsedNumber(ref _scaleY, value, -10000d, 10000d, nameof(ScaleY));
+                    break;
+                case nameof(SkewX):
+                    TrySetParsedNumber(ref _skewX, value, -10000d, 10000d, nameof(SkewX));
+                    break;
+                case nameof(SkewY):
+                    TrySetParsedNumber(ref _skewY, value, -10000d, 10000d, nameof(SkewY));
+                    break;
+                case nameof(Frame):
+                    TrySetParsedNumber(ref _frame, value, -1d, 10000d, nameof(Frame), normalizeFrame: true);
+                    break;
+                case nameof(Alpha):
+                    TrySetParsedNumber(ref _alpha, value, -10000d, 10000d, nameof(Alpha));
+                    break;
+            }
+        }
+
+        private void TrySetParsedNumber(
+            ref double field,
+            double value,
+            double minimum,
+            double maximum,
+            string numberPropertyName,
+            bool normalizeFrame = false)
+        {
+            if (value < minimum || value > maximum)
+            {
+                return;
+            }
+
+            double normalized = normalizeFrame ? NormalizeFrame(value) : Round(value);
+            if (SetProperty(ref field, normalized, numberPropertyName))
+            {
+                _apply?.Invoke();
+            }
+        }
+
+        private static bool TryParseNumber(string text, out double value)
+        {
+            text = text?.Trim();
+            if (string.IsNullOrEmpty(text))
+            {
+                value = 0d;
+                return false;
+            }
+
+            if (!double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.CurrentCulture, out value) &&
+                !double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value))
+            {
+                return false;
+            }
+
+            return !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+
+        private static string FormatNumber(double value)
+        {
+            return Round(value).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
         }
     }
 }
