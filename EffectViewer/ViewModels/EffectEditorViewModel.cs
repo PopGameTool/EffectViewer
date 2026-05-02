@@ -50,7 +50,7 @@ namespace EffectViewer.ViewModels
         private int _selectedReanimFrameIndex;
         private double _reanimFps = 12d;
         private bool _reanimIsPlaying;
-        private bool _isViewportPanModeEnabled;
+        private bool _isViewportFreeTransformEnabled;
         private bool _selectedReanimFrameVisible;
         private string _selectedReanimImageId = string.Empty;
         private string _selectedReanimFontId = string.Empty;
@@ -94,8 +94,8 @@ namespace EffectViewer.ViewModels
         public bool IsSelectedReanimFrameTweened => SelectedReanimTrack is not null &&
             IsFrameTweened(SelectedReanimTrack.Index, SelectedReanimFrameIndex);
         public bool CanTransformSelectedReanimFrame => HasSelectedReanimFrame && !IsSelectedReanimFrameTweened;
-        public bool CanDrag => CanTransformSelectedReanimFrame && SelectedReanimFrameVisible;
-        public bool IsPanModeEnabled => IsViewportPanModeEnabled;
+        public bool CanDrag => IsViewportFreeTransformEnabled && CanTransformSelectedReanimFrame && SelectedReanimFrameVisible;
+        public bool IsPanModeEnabled => !IsViewportFreeTransformEnabled;
         public ViewportTransformBox? TransformBox => TryGetSelectedTransformBox(out ViewportTransformBox box) ? box : null;
         public bool CanRemoveReanimTrack => IsReanimEditor && ReanimTracks.Count > 1 && SelectedReanimTrack is not null;
         public bool CanRemoveReanimFrame => IsReanimEditor && ReanimFrameCount > 1;
@@ -224,10 +224,23 @@ namespace EffectViewer.ViewModels
             }
         }
 
-        public bool IsViewportPanModeEnabled
+        public bool IsViewportFreeTransformEnabled
         {
-            get => _isViewportPanModeEnabled;
-            set => SetProperty(ref _isViewportPanModeEnabled, value);
+            get => _isViewportFreeTransformEnabled;
+            set
+            {
+                if (SetProperty(ref _isViewportFreeTransformEnabled, value))
+                {
+                    if (!value)
+                    {
+                        EndDrag();
+                    }
+
+                    OnPropertyChanged(nameof(IsPanModeEnabled));
+                    OnPropertyChanged(nameof(CanDrag));
+                    OnPropertyChanged(nameof(TransformBox));
+                }
+            }
         }
 
         public ReanimTrackViewModel SelectedReanimTrack

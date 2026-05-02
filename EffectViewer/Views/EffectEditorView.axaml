@@ -780,8 +780,9 @@
                 <CheckBox Content="Play"
                           IsChecked="{Binding ReanimIsPlaying}"
                           VerticalAlignment="Center"/>
-                <CheckBox Content="Pan"
-                          IsChecked="{Binding IsViewportPanModeEnabled}"
+                <CheckBox Content="Free Transform"
+                          IsChecked="{Binding IsViewportFreeTransformEnabled}"
+                          IsEnabled="{Binding CanTransformSelectedReanimFrame}"
                           VerticalAlignment="Center"/>
               </WrapPanel>
             </DockPanel>
