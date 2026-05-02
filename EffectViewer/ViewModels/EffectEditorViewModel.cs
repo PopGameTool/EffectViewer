@@ -2045,7 +2045,6 @@ namespace EffectViewer.ViewModels
             {
                 int end = FindLinearTweenRunEnd(track.mTransforms, count, start);
                 if (end > start + 1 &&
-                    HasTweenTransformChange(track.mTransforms[start], track.mTransforms[end]) &&
                     HasConstantTweenResourceFields(track.mTransforms, start, end))
                 {
                     tweens.Add(new ReanimTween
@@ -2071,101 +2070,85 @@ namespace EffectViewer.ViewModels
             int start)
         {
             ReanimatorTransform first = transforms[start];
-            ReanimatorTransform second = transforms[start + 1];
-            ReanimTweenStep step = CreateTweenStep(first, second);
 
             int end = start + 1;
-            for (int index = start + 2; index < count; index++)
+            for (int candidateEnd = start + 2; candidateEnd < count; candidateEnd++)
             {
-                float offset = index - start;
-                if (!IsExpectedTweenTransform(first, step, transforms[index], offset))
+                if (!HasSameTweenResourceFields(first, transforms[candidateEnd]))
                 {
                     break;
                 }
 
-                end = index;
+                if (IsLinearTweenRun(transforms, start, candidateEnd))
+                {
+                    end = candidateEnd;
+                }
             }
 
             return end;
         }
 
-        private readonly struct ReanimTweenStep
+        private static bool HasSameTweenResourceFields(ReanimatorTransform first, ReanimatorTransform second)
         {
-            public readonly float X;
-            public readonly float Y;
-            public readonly float SkewX;
-            public readonly float SkewY;
-            public readonly float ScaleX;
-            public readonly float ScaleY;
-            public readonly float Alpha;
-
-            public ReanimTweenStep(
-                float x,
-                float y,
-                float skewX,
-                float skewY,
-                float scaleX,
-                float scaleY,
-                float alpha)
-            {
-                X = x;
-                Y = y;
-                SkewX = skewX;
-                SkewY = skewY;
-                ScaleX = scaleX;
-                ScaleY = scaleY;
-                Alpha = alpha;
-            }
+            return NearlyEqual(second.mFrame, first.mFrame, 0.15f) &&
+                string.Equals(second.mImage ?? string.Empty, first.mImage ?? string.Empty, System.StringComparison.Ordinal) &&
+                string.Equals(second.mFont ?? string.Empty, first.mFont ?? string.Empty, System.StringComparison.Ordinal) &&
+                string.Equals(second.mText ?? string.Empty, first.mText ?? string.Empty, System.StringComparison.Ordinal);
         }
 
-        private static ReanimTweenStep CreateTweenStep(ReanimatorTransform first, ReanimatorTransform second)
+        private static bool IsLinearTweenRun(
+            ReanimatorTransform[] transforms,
+            int startFrame,
+            int endFrame)
         {
-            return new ReanimTweenStep(
-                second.mTransX - first.mTransX,
-                second.mTransY - first.mTransY,
-                second.mSkewX - first.mSkewX,
-                second.mSkewY - first.mSkewY,
-                second.mScaleX - first.mScaleX,
-                second.mScaleY - first.mScaleY,
-                second.mAlpha - first.mAlpha);
+            ReanimatorTransform start = transforms[startFrame];
+            ReanimatorTransform end = transforms[endFrame];
+            int span = endFrame - startFrame;
+            for (int frameIndex = startFrame + 1; frameIndex <= endFrame; frameIndex++)
+            {
+                ReanimatorTransform transform = transforms[frameIndex];
+                if (!HasSameTweenResourceFields(start, transform))
+                {
+                    return false;
+                }
+
+                if (frameIndex == endFrame)
+                {
+                    continue;
+                }
+
+                float fraction = (frameIndex - startFrame) / (float)span;
+                if (!IsExpectedTweenTransform(start, end, transform, fraction))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static bool IsExpectedTweenTransform(
-            ReanimatorTransform first,
-            ReanimTweenStep step,
+            ReanimatorTransform start,
+            ReanimatorTransform end,
             ReanimatorTransform transform,
-            float offset)
+            float fraction)
         {
-            return NearlyEqual(transform.mTransX, first.mTransX + step.X * offset) &&
-                NearlyEqual(transform.mTransY, first.mTransY + step.Y * offset) &&
-                NearlyEqual(transform.mSkewX, first.mSkewX + step.SkewX * offset) &&
-                NearlyEqual(transform.mSkewY, first.mSkewY + step.SkewY * offset) &&
-                NearlyEqual(transform.mScaleX, first.mScaleX + step.ScaleX * offset) &&
-                NearlyEqual(transform.mScaleY, first.mScaleY + step.ScaleY * offset) &&
-                NearlyEqual(transform.mAlpha, first.mAlpha + step.Alpha * offset);
-        }
-
-        private static bool HasTweenTransformChange(ReanimatorTransform start, ReanimatorTransform end)
-        {
-            return !NearlyEqual(start.mTransX, end.mTransX) ||
-                !NearlyEqual(start.mTransY, end.mTransY) ||
-                !NearlyEqual(start.mSkewX, end.mSkewX) ||
-                !NearlyEqual(start.mSkewY, end.mSkewY) ||
-                !NearlyEqual(start.mScaleX, end.mScaleX) ||
-                !NearlyEqual(start.mScaleY, end.mScaleY) ||
-                !NearlyEqual(start.mAlpha, end.mAlpha);
+            return NearlyEqual(transform.mTransX, Lerp(start.mTransX, end.mTransX, fraction), 0.15f) &&
+                NearlyEqual(transform.mTransY, Lerp(start.mTransY, end.mTransY, fraction), 0.15f) &&
+                NearlyEqual(transform.mSkewX, Lerp(start.mSkewX, end.mSkewX, fraction), 0.15f) &&
+                NearlyEqual(transform.mSkewY, Lerp(start.mSkewY, end.mSkewY, fraction), 0.15f) &&
+                NearlyEqual(transform.mScaleX, Lerp(start.mScaleX, end.mScaleX, fraction), 0.0015f) &&
+                NearlyEqual(transform.mScaleY, Lerp(start.mScaleY, end.mScaleY, fraction), 0.0015f) &&
+                NearlyEqual(transform.mAlpha, Lerp(start.mAlpha, end.mAlpha, fraction), 0.0015f);
         }
 
         private static bool HasConstantTweenResourceFields(ReanimatorTransform[] transforms, int startFrame, int endFrame)
         {
             ReanimatorTransform start = transforms[startFrame];
-            for (int frameIndex = startFrame + 1; frameIndex < endFrame; frameIndex++)
+            for (int frameIndex = startFrame + 1; frameIndex <= endFrame; frameIndex++)
             {
                 ReanimatorTransform transform = transforms[frameIndex];
-                if (!NearlyEqual(transform.mFrame, start.mFrame) ||
-                    !string.Equals(transform.mImage ?? string.Empty, start.mImage ?? string.Empty, System.StringComparison.Ordinal) ||
-                    !string.Equals(transform.mFont ?? string.Empty, start.mFont ?? string.Empty, System.StringComparison.Ordinal) ||
-                    !string.Equals(transform.mText ?? string.Empty, start.mText ?? string.Empty, System.StringComparison.Ordinal))
+                if (!HasSameTweenResourceFields(start, transform))
                 {
                     return false;
                 }
@@ -2179,9 +2162,9 @@ namespace EffectViewer.ViewModels
             return start + ((end - start) * fraction);
         }
 
-        private static bool NearlyEqual(float left, float right)
+        private static bool NearlyEqual(float left, float right, float delta)
         {
-            return System.Math.Abs(left - right) <= 0.001f;
+            return System.Math.Abs(left - right) <= delta;
         }
 
         private static ReanimatorDefinition CreateEmptyReanimDefinition()
