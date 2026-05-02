@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using EffectViewer.Runtime.Showcase;
 using MoonSharp.Interpreter;
@@ -11,18 +12,18 @@ namespace EffectViewer.Runtime.Lua
 
         static LuaHost()
         {
-            UserData.RegisterType<LuaEffectApi>();
-            UserData.RegisterType<LuaSceneApi>();
-            UserData.RegisterType<LuaGraphicsApi>();
-            UserData.RegisterType<SceneObject>();
-            UserData.RegisterType<ShowcaseReanimation>();
-            UserData.RegisterType<ShowcaseReanimationTrack>();
-            UserData.RegisterType<ShowcaseParticle>();
-            UserData.RegisterType<ShowcaseParticleEmitter>();
-            UserData.RegisterType<ShowcaseParticleInstance>();
-            UserData.RegisterType<ShowcaseTrail>();
-            UserData.RegisterType<ShowcaseTrailPoint>();
-            UserData.RegisterType<ShowcaseAttachment>();
+            RegisterLuaType<LuaEffectApi>();
+            RegisterLuaType<LuaSceneApi>();
+            RegisterLuaType<LuaGraphicsApi>();
+            RegisterLuaType<SceneObject>();
+            RegisterLuaType<ShowcaseReanimation>();
+            RegisterLuaType<ShowcaseReanimationTrack>();
+            RegisterLuaType<ShowcaseParticle>();
+            RegisterLuaType<ShowcaseParticleEmitter>();
+            RegisterLuaType<ShowcaseParticleInstance>();
+            RegisterLuaType<ShowcaseTrail>();
+            RegisterLuaType<ShowcaseTrailPoint>();
+            RegisterLuaType<ShowcaseAttachment>();
         }
 
         public LuaHost(EffectWorld world)
@@ -91,6 +92,17 @@ namespace EffectViewer.Runtime.Lua
             }
 
             throw new ScriptRuntimeException($"'{name}' must be a function when it is defined.");
+        }
+
+        private static void RegisterLuaType<
+            [DynamicallyAccessedMembers(
+                DynamicallyAccessedMemberTypes.PublicConstructors |
+                DynamicallyAccessedMemberTypes.PublicMethods |
+                DynamicallyAccessedMemberTypes.PublicProperties |
+                DynamicallyAccessedMemberTypes.PublicFields)]
+            T>()
+        {
+            UserData.RegisterType<T>();
         }
     }
 }
