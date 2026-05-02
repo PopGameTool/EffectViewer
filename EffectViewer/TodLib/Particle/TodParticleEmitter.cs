@@ -819,7 +819,7 @@ namespace EffectViewer.TodLib.Particle
             case ParticleFieldType.Circle:  // 圆周
             {
                 Vector2 aToCenter = theParticle.mPosition - mSystemCenter;
-                Vector2 aMotion = Vector2.Normalize(aToCenter.GetPerp());  // 标准化的法向量
+                Vector2 aMotion = aToCenter.GetPerp().NormalizeSafe();  // 标准化的法向量
                 float aRadius = aToCenter.Length();
                 aMotion *= 0.01f * (x + aRadius * y);
                 theParticle.mPosition += aMotion;
@@ -828,7 +828,7 @@ namespace EffectViewer.TodLib.Particle
             case ParticleFieldType.Away:  // 远离
             {
                 Vector2 aToCenter = theParticle.mPosition - mSystemCenter;
-                Vector2 aMotion = Vector2.Normalize(aToCenter);  // 标准化的方向向量
+                Vector2 aMotion = aToCenter.NormalizeSafe();  // 标准化的方向向量
                 float aRadius = aToCenter.Length();
                 aMotion *= 0.01f * (x + aRadius * y);
                 theParticle.mPosition += aMotion;

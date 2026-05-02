@@ -223,7 +223,7 @@ namespace EffectViewer.TodLib.Trail
             {
                 Vector2 aToNext = mTrailPoints[nIndex + 1].aPos - mTrailPoints[nIndex].aPos;
                 Vector2 aToPrev = mTrailPoints[nIndex - 1].aPos - mTrailPoints[nIndex].aPos;
-                aDirection = Vector2.Normalize(aToPrev) + Vector2.Normalize(aToNext);
+                aDirection = aToPrev.NormalizeSafe() + aToNext.NormalizeSafe();
             }
 
             float aMag = aDirection.Length();
