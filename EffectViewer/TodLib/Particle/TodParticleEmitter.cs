@@ -781,7 +781,7 @@ namespace EffectViewer.TodLib.Particle
                 break;
             }
             case ParticleFieldType.GroundConstraint:
-                if (theParticle.mPosition.Y >= mSystemCenter.Y + y)  // 判断是否触及地面
+                if (theParticle.mPosition.Y > mSystemCenter.Y + y)  // 判断是否触及地面
                 {
                     theParticle.mPosition.Y = mSystemCenter.Y + y;  // 将坐标重置至地面
                     float aCollisionReflect = Definition.FloatTrackEvaluate(mEmitterDef.mCollisionReflect, theParticleTimeValue, theParticle.mParticleInterp[(int)ParticleTracks.ParticleCollisionReflect]);
