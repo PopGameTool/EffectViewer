@@ -556,7 +556,7 @@
                   </StackPanel>
                 </Grid>
 
-                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto"
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
                       ColumnSpacing="8"
                       RowSpacing="8">
                   <StackPanel Spacing="4">
@@ -615,18 +615,11 @@
                              LostFocus="ReanimTransformTextBox_LostFocus"
                              HorizontalContentAlignment="Right"/>
                   </StackPanel>
+                  <CheckBox Grid.Row="4"
+                            Grid.ColumnSpan="2"
+                            Content="Visible"
+                            IsChecked="{Binding ReanimTransformDialog.Visible}"/>
                 </Grid>
-
-                <WrapPanel HorizontalAlignment="Right"
-                           ItemSpacing="6"
-                           LineSpacing="6">
-                  <Button Content="Reset Scale"
-                          MinWidth="92"
-                          Command="{Binding ReanimTransformDialog.ResetScaleCommand}"/>
-                  <Button Content="Reset Skew"
-                          MinWidth="108"
-                          Command="{Binding ReanimTransformDialog.ResetSkewCommand}"/>
-                </WrapPanel>
               </StackPanel>
             </Expander>
 

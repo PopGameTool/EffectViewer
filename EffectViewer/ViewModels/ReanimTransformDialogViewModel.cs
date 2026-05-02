@@ -138,6 +138,15 @@ namespace EffectViewer.ViewModels
             }
         }
 
+        public bool Visible
+        {
+            get => _frame >= 0d;
+            set
+            {
+                Frame = value ? 0d : -1d;
+            }
+        }
+
         public double Alpha
         {
             get => _alpha;
@@ -250,6 +259,7 @@ namespace EffectViewer.ViewModels
             LoadNumber(ref _skewX, Round(skewX), nameof(SkewX), ref _skewXText, nameof(SkewXText));
             LoadNumber(ref _skewY, Round(skewY), nameof(SkewY), ref _skewYText, nameof(SkewYText));
             LoadNumber(ref _frame, NormalizeFrame(frame), nameof(Frame), ref _frameText, nameof(FrameText));
+            OnPropertyChanged(nameof(Visible));
             LoadNumber(ref _alpha, Round(alpha), nameof(Alpha), ref _alphaText, nameof(AlphaText));
         }
 
@@ -285,20 +295,6 @@ namespace EffectViewer.ViewModels
         }
 
         [RelayCommand]
-        private void ResetScale()
-        {
-            ScaleX = 1d;
-            ScaleY = 1d;
-        }
-
-        [RelayCommand]
-        private void ResetSkew()
-        {
-            SkewX = 0d;
-            SkewY = 0d;
-        }
-
-        [RelayCommand]
         private void Close()
         {
             _close?.Invoke();
@@ -327,6 +323,7 @@ namespace EffectViewer.ViewModels
             SetProperty(ref textField, FormatNumber(value), textPropertyName);
             if (changed)
             {
+                RaiseNumberSideEffects(numberPropertyName);
                 _apply?.Invoke();
             }
         }
@@ -406,7 +403,16 @@ namespace EffectViewer.ViewModels
             double normalized = normalizeFrame ? NormalizeFrame(value) : Round(value);
             if (SetProperty(ref field, normalized, numberPropertyName))
             {
+                RaiseNumberSideEffects(numberPropertyName);
                 _apply?.Invoke();
+            }
+        }
+
+        private void RaiseNumberSideEffects(string numberPropertyName)
+        {
+            if (numberPropertyName == nameof(Frame))
+            {
+                OnPropertyChanged(nameof(Visible));
             }
         }
 
