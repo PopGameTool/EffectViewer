@@ -824,7 +824,7 @@ namespace EffectViewer.Projects
                     tween.TrackName ??= string.Empty;
                     tween.StartFrame = tween.StartFrame < 0 ? 0 : tween.StartFrame;
                     tween.EndFrame = tween.EndFrame < tween.StartFrame ? tween.StartFrame : tween.EndFrame;
-                    tween.Properties ??= [];
+                    tween.Properties = ReanimTween.CreateTweenedProperties();
                 }
 
                 reanim.Tweens.RemoveAll(tween => tween.EndFrame <= tween.StartFrame);

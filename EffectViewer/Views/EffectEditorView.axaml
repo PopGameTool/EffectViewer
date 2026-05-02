@@ -124,7 +124,7 @@
         <TextBlock Text="{Binding DisplayName}"
                    FontWeight="SemiBold"
                    TextWrapping="Wrap"/>
-        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto"
+        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto"
               ColumnSpacing="8"
               RowSpacing="8">
           <StackPanel Spacing="4">
@@ -153,18 +153,6 @@
                      LostFocus="ReanimTweenTextBox_LostFocus"
                      HorizontalContentAlignment="Right"/>
           </StackPanel>
-          <WrapPanel Grid.Row="2"
-                     Grid.ColumnSpan="2"
-                     ItemSpacing="10"
-                     LineSpacing="6">
-            <CheckBox Content="X" IsChecked="{Binding TweenX}"/>
-            <CheckBox Content="Y" IsChecked="{Binding TweenY}"/>
-            <CheckBox Content="Skew X" IsChecked="{Binding TweenSkewX}"/>
-            <CheckBox Content="Skew Y" IsChecked="{Binding TweenSkewY}"/>
-            <CheckBox Content="Scale X" IsChecked="{Binding TweenScaleX}"/>
-            <CheckBox Content="Scale Y" IsChecked="{Binding TweenScaleY}"/>
-            <CheckBox Content="Alpha" IsChecked="{Binding TweenAlpha}"/>
-          </WrapPanel>
         </Grid>
         <WrapPanel HorizontalAlignment="Right"
                    ItemSpacing="6"

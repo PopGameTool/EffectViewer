@@ -61,48 +61,6 @@ namespace EffectViewer.ViewModels
         public double StartFrameMaximum => Math.Max(1, FrameCount - 2);
         public double EndFrameMinimum => Math.Min(FrameCount, Model.StartFrame + 3);
 
-        public bool TweenX
-        {
-            get => HasProperty("x");
-            set => SetTweenProperty("x", value);
-        }
-
-        public bool TweenY
-        {
-            get => HasProperty("y");
-            set => SetTweenProperty("y", value);
-        }
-
-        public bool TweenSkewX
-        {
-            get => HasProperty("skewX");
-            set => SetTweenProperty("skewX", value);
-        }
-
-        public bool TweenSkewY
-        {
-            get => HasProperty("skewY");
-            set => SetTweenProperty("skewY", value);
-        }
-
-        public bool TweenScaleX
-        {
-            get => HasProperty("scaleX");
-            set => SetTweenProperty("scaleX", value);
-        }
-
-        public bool TweenScaleY
-        {
-            get => HasProperty("scaleY");
-            set => SetTweenProperty("scaleY", value);
-        }
-
-        public bool TweenAlpha
-        {
-            get => HasProperty("alpha");
-            set => SetTweenProperty("alpha", value);
-        }
-
         public ReanimTweenViewModel(
             int index,
             ReanimTween model,
@@ -211,44 +169,6 @@ namespace EffectViewer.ViewModels
             RaiseDisplayPropertiesChanged();
         }
 
-        private bool HasProperty(string propertyName)
-        {
-            return Model.Properties is not null &&
-                Model.Properties.Any(property => string.Equals(property, propertyName, StringComparison.OrdinalIgnoreCase));
-        }
-
-        private void SetTweenProperty(string propertyName, bool enabled)
-        {
-            Model.Properties ??= [];
-            bool hasProperty = HasProperty(propertyName);
-            if (enabled == hasProperty)
-            {
-                return;
-            }
-
-            if (enabled)
-            {
-                Model.Properties.Add(propertyName);
-            }
-            else
-            {
-                List<string> normalized = NormalizeProperties(Model.Properties);
-                if (normalized.Count <= 1)
-                {
-                    OnPropertyChanged(GetBooleanPropertyName(propertyName));
-                    return;
-                }
-
-                Model.Properties.RemoveAll(property => string.Equals(property, propertyName, StringComparison.OrdinalIgnoreCase));
-            }
-
-            Model.Properties = NormalizeProperties(Model.Properties);
-            OnPropertyChanged(GetBooleanPropertyName(propertyName));
-            OnPropertyChanged(nameof(Detail));
-            RaiseDisplayPropertiesChanged();
-            RaiseChanged();
-        }
-
         private void NormalizeModel()
         {
             Model.TrackIndex = Math.Clamp(Model.TrackIndex, 0, TrackCount - 1);
@@ -256,10 +176,6 @@ namespace EffectViewer.ViewModels
             Model.StartFrame = Math.Clamp(Model.StartFrame, 0, FrameCount - 3);
             Model.EndFrame = Math.Clamp(Model.EndFrame, Model.StartFrame + 2, FrameCount - 1);
             Model.Properties = NormalizeProperties(Model.Properties);
-            if (Model.Properties.Count == 0)
-            {
-                Model.Properties.Add("x");
-            }
         }
 
         private void RaiseFramePropertiesChanged()
@@ -368,35 +284,7 @@ namespace EffectViewer.ViewModels
 
         private static List<string> NormalizeProperties(IEnumerable<string> properties)
         {
-            string[] order = ["x", "y", "skewX", "skewY", "scaleX", "scaleY", "alpha"];
-            HashSet<string> set = new(StringComparer.OrdinalIgnoreCase);
-            if (properties is not null)
-            {
-                foreach (string property in properties)
-                {
-                    if (!string.IsNullOrWhiteSpace(property))
-                    {
-                        set.Add(property.Trim());
-                    }
-                }
-            }
-
-            return order.Where(set.Contains).ToList();
-        }
-
-        private static string GetBooleanPropertyName(string propertyName)
-        {
-            return propertyName switch
-            {
-                "x" => nameof(TweenX),
-                "y" => nameof(TweenY),
-                "skewX" => nameof(TweenSkewX),
-                "skewY" => nameof(TweenSkewY),
-                "scaleX" => nameof(TweenScaleX),
-                "scaleY" => nameof(TweenScaleY),
-                "alpha" => nameof(TweenAlpha),
-                _ => nameof(TweenX)
-            };
+            return ReanimTween.CreateTweenedProperties();
         }
 
         private static string ToDisplayPropertyName(string propertyName)

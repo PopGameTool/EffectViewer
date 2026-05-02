@@ -710,7 +710,7 @@ namespace EffectViewer.ViewModels
                 TrackName = GetReanimTrackName(trackIndex),
                 StartFrame = startFrame,
                 EndFrame = endFrame,
-                Properties = GetDefaultTweenProperties(trackIndex, startFrame, endFrame)
+                Properties = ReanimTween.CreateTweenedProperties()
             };
 
             _reanimAsset.Tweens.Add(tween);
@@ -1765,10 +1765,6 @@ namespace EffectViewer.ViewModels
                 }
 
                 tween.Properties = NormalizeTweenProperties(tween.Properties);
-                if (tween.Properties.Count == 0)
-                {
-                    _reanimAsset.Tweens.RemoveAt(i);
-                }
             }
         }
 
@@ -1908,19 +1904,19 @@ namespace EffectViewer.ViewModels
 
             ReanimatorTransform start = track.mTransforms[tween.StartFrame];
             ReanimatorTransform end = track.mTransforms[tween.EndFrame];
-            HashSet<string> properties = new(NormalizeTweenProperties(tween.Properties), System.StringComparer.OrdinalIgnoreCase);
+            tween.Properties = NormalizeTweenProperties(tween.Properties);
             int span = tween.EndFrame - tween.StartFrame;
             for (int frameIndex = tween.StartFrame + 1; frameIndex < tween.EndFrame; frameIndex++)
             {
                 float fraction = (frameIndex - tween.StartFrame) / (float)span;
                 ReanimatorTransform transform = track.mTransforms[frameIndex];
-                transform.mTransX = properties.Contains("x") ? Lerp(start.mTransX, end.mTransX, fraction) : start.mTransX;
-                transform.mTransY = properties.Contains("y") ? Lerp(start.mTransY, end.mTransY, fraction) : start.mTransY;
-                transform.mSkewX = properties.Contains("skewX") ? Lerp(start.mSkewX, end.mSkewX, fraction) : start.mSkewX;
-                transform.mSkewY = properties.Contains("skewY") ? Lerp(start.mSkewY, end.mSkewY, fraction) : start.mSkewY;
-                transform.mScaleX = properties.Contains("scaleX") ? Lerp(start.mScaleX, end.mScaleX, fraction) : start.mScaleX;
-                transform.mScaleY = properties.Contains("scaleY") ? Lerp(start.mScaleY, end.mScaleY, fraction) : start.mScaleY;
-                transform.mAlpha = properties.Contains("alpha") ? Lerp(start.mAlpha, end.mAlpha, fraction) : start.mAlpha;
+                transform.mTransX = Lerp(start.mTransX, end.mTransX, fraction);
+                transform.mTransY = Lerp(start.mTransY, end.mTransY, fraction);
+                transform.mSkewX = Lerp(start.mSkewX, end.mSkewX, fraction);
+                transform.mSkewY = Lerp(start.mSkewY, end.mSkewY, fraction);
+                transform.mScaleX = Lerp(start.mScaleX, end.mScaleX, fraction);
+                transform.mScaleY = Lerp(start.mScaleY, end.mScaleY, fraction);
+                transform.mAlpha = Lerp(start.mAlpha, end.mAlpha, fraction);
                 transform.mFrame = start.mFrame;
                 transform.mImage = start.mImage;
                 transform.mFont = start.mFont;
@@ -1971,40 +1967,8 @@ namespace EffectViewer.ViewModels
                 TrackName = GetReanimTrackName(source.TrackIndex),
                 StartFrame = startFrame,
                 EndFrame = endFrame,
-                Properties = NormalizeTweenProperties(source.Properties)
+                Properties = ReanimTween.CreateTweenedProperties()
             });
-        }
-
-        private List<string> GetDefaultTweenProperties(int trackIndex, int startFrame, int endFrame)
-        {
-            if (_reanimDefinition?.mTracks is null ||
-                trackIndex < 0 ||
-                trackIndex >= _reanimDefinition.mTrackCount)
-            {
-                return ["x", "y"];
-            }
-
-            ReanimatorTrack track = _reanimDefinition.mTracks[trackIndex];
-            if (track?.mTransforms is null ||
-                startFrame < 0 ||
-                endFrame < 0 ||
-                startFrame >= track.mTransformCount ||
-                endFrame >= track.mTransformCount)
-            {
-                return ["x", "y"];
-            }
-
-            ReanimatorTransform start = track.mTransforms[startFrame];
-            ReanimatorTransform end = track.mTransforms[endFrame];
-            List<string> properties = [];
-            if (!NearlyEqual(start.mTransX, end.mTransX)) properties.Add("x");
-            if (!NearlyEqual(start.mTransY, end.mTransY)) properties.Add("y");
-            if (!NearlyEqual(start.mSkewX, end.mSkewX)) properties.Add("skewX");
-            if (!NearlyEqual(start.mSkewY, end.mSkewY)) properties.Add("skewY");
-            if (!NearlyEqual(start.mScaleX, end.mScaleX)) properties.Add("scaleX");
-            if (!NearlyEqual(start.mScaleY, end.mScaleY)) properties.Add("scaleY");
-            if (!NearlyEqual(start.mAlpha, end.mAlpha)) properties.Add("alpha");
-            return properties.Count == 0 ? ["x", "y"] : properties;
         }
 
         private static List<ReanimTween> CloneReanimTweens(IEnumerable<ReanimTween> source)
@@ -2021,7 +1985,7 @@ namespace EffectViewer.ViewModels
                     TrackName = tween.TrackName ?? string.Empty,
                     StartFrame = tween.StartFrame,
                     EndFrame = tween.EndFrame,
-                    Properties = tween.Properties?.ToList() ?? []
+                    Properties = ReanimTween.CreateTweenedProperties()
                 })
                 .ToList();
         }
@@ -2040,20 +2004,7 @@ namespace EffectViewer.ViewModels
 
         private static List<string> NormalizeTweenProperties(IEnumerable<string> properties)
         {
-            string[] order = ["x", "y", "skewX", "skewY", "scaleX", "scaleY", "alpha"];
-            HashSet<string> set = new(System.StringComparer.OrdinalIgnoreCase);
-            if (properties is not null)
-            {
-                foreach (string property in properties)
-                {
-                    if (!string.IsNullOrWhiteSpace(property))
-                    {
-                        set.Add(property.Trim());
-                    }
-                }
-            }
-
-            return order.Where(set.Contains).ToList();
+            return ReanimTween.CreateTweenedProperties();
         }
 
         private static List<ReanimTween> InferReanimTweens(ReanimatorDefinition definition)
@@ -2073,45 +2024,38 @@ namespace EffectViewer.ViewModels
                     continue;
                 }
 
-                AddInferredTweensForProperty(tweens, track, trackIndex, "x", static transform => transform.mTransX);
-                AddInferredTweensForProperty(tweens, track, trackIndex, "y", static transform => transform.mTransY);
-                AddInferredTweensForProperty(tweens, track, trackIndex, "skewX", static transform => transform.mSkewX);
-                AddInferredTweensForProperty(tweens, track, trackIndex, "skewY", static transform => transform.mSkewY);
-                AddInferredTweensForProperty(tweens, track, trackIndex, "scaleX", static transform => transform.mScaleX);
-                AddInferredTweensForProperty(tweens, track, trackIndex, "scaleY", static transform => transform.mScaleY);
-                AddInferredTweensForProperty(tweens, track, trackIndex, "alpha", static transform => transform.mAlpha);
-            }
-
-            foreach (ReanimTween tween in tweens)
-            {
-                tween.Properties = NormalizeTweenProperties(tween.Properties);
+                AddInferredTweens(tweens, track, trackIndex);
             }
 
             return tweens
-                .Where(tween => tween.Properties.Count > 0)
                 .OrderBy(tween => tween.TrackIndex)
                 .ThenBy(tween => tween.StartFrame)
                 .ThenBy(tween => tween.EndFrame)
                 .ToList();
         }
 
-        private static void AddInferredTweensForProperty(
+        private static void AddInferredTweens(
             List<ReanimTween> tweens,
             ReanimatorTrack track,
-            int trackIndex,
-            string propertyName,
-            System.Func<ReanimatorTransform, float> valueSelector)
+            int trackIndex)
         {
             int count = System.Math.Min(track.mTransformCount, track.mTransforms.Length);
             int start = 0;
             while (start < count - 2)
             {
-                int end = FindLinearRunEnd(track.mTransforms, count, start, valueSelector);
+                int end = FindLinearTweenRunEnd(track.mTransforms, count, start);
                 if (end > start + 1 &&
-                    !NearlyEqual(valueSelector(track.mTransforms[start]), valueSelector(track.mTransforms[end])) &&
+                    HasTweenTransformChange(track.mTransforms[start], track.mTransforms[end]) &&
                     HasConstantTweenResourceFields(track.mTransforms, start, end))
                 {
-                    AddOrMergeInferredTween(tweens, track, trackIndex, start, end, propertyName);
+                    tweens.Add(new ReanimTween
+                    {
+                        TrackIndex = trackIndex,
+                        TrackName = track.mName ?? string.Empty,
+                        StartFrame = start,
+                        EndFrame = end,
+                        Properties = ReanimTween.CreateTweenedProperties()
+                    });
                     start = end;
                 }
                 else
@@ -2121,25 +2065,20 @@ namespace EffectViewer.ViewModels
             }
         }
 
-        private static int FindLinearRunEnd(
+        private static int FindLinearTweenRunEnd(
             ReanimatorTransform[] transforms,
             int count,
-            int start,
-            System.Func<ReanimatorTransform, float> valueSelector)
+            int start)
         {
-            float first = valueSelector(transforms[start]);
-            float second = valueSelector(transforms[start + 1]);
-            float step = second - first;
-            if (NearlyEqual(step, 0f))
-            {
-                return start;
-            }
+            ReanimatorTransform first = transforms[start];
+            ReanimatorTransform second = transforms[start + 1];
+            ReanimTweenStep step = CreateTweenStep(first, second);
 
             int end = start + 1;
             for (int index = start + 2; index < count; index++)
             {
-                float expected = first + step * (index - start);
-                if (!NearlyEqual(valueSelector(transforms[index]), expected))
+                float offset = index - start;
+                if (!IsExpectedTweenTransform(first, step, transforms[index], offset))
                 {
                     break;
                 }
@@ -2148,6 +2087,73 @@ namespace EffectViewer.ViewModels
             }
 
             return end;
+        }
+
+        private readonly struct ReanimTweenStep
+        {
+            public readonly float X;
+            public readonly float Y;
+            public readonly float SkewX;
+            public readonly float SkewY;
+            public readonly float ScaleX;
+            public readonly float ScaleY;
+            public readonly float Alpha;
+
+            public ReanimTweenStep(
+                float x,
+                float y,
+                float skewX,
+                float skewY,
+                float scaleX,
+                float scaleY,
+                float alpha)
+            {
+                X = x;
+                Y = y;
+                SkewX = skewX;
+                SkewY = skewY;
+                ScaleX = scaleX;
+                ScaleY = scaleY;
+                Alpha = alpha;
+            }
+        }
+
+        private static ReanimTweenStep CreateTweenStep(ReanimatorTransform first, ReanimatorTransform second)
+        {
+            return new ReanimTweenStep(
+                second.mTransX - first.mTransX,
+                second.mTransY - first.mTransY,
+                second.mSkewX - first.mSkewX,
+                second.mSkewY - first.mSkewY,
+                second.mScaleX - first.mScaleX,
+                second.mScaleY - first.mScaleY,
+                second.mAlpha - first.mAlpha);
+        }
+
+        private static bool IsExpectedTweenTransform(
+            ReanimatorTransform first,
+            ReanimTweenStep step,
+            ReanimatorTransform transform,
+            float offset)
+        {
+            return NearlyEqual(transform.mTransX, first.mTransX + step.X * offset) &&
+                NearlyEqual(transform.mTransY, first.mTransY + step.Y * offset) &&
+                NearlyEqual(transform.mSkewX, first.mSkewX + step.SkewX * offset) &&
+                NearlyEqual(transform.mSkewY, first.mSkewY + step.SkewY * offset) &&
+                NearlyEqual(transform.mScaleX, first.mScaleX + step.ScaleX * offset) &&
+                NearlyEqual(transform.mScaleY, first.mScaleY + step.ScaleY * offset) &&
+                NearlyEqual(transform.mAlpha, first.mAlpha + step.Alpha * offset);
+        }
+
+        private static bool HasTweenTransformChange(ReanimatorTransform start, ReanimatorTransform end)
+        {
+            return !NearlyEqual(start.mTransX, end.mTransX) ||
+                !NearlyEqual(start.mTransY, end.mTransY) ||
+                !NearlyEqual(start.mSkewX, end.mSkewX) ||
+                !NearlyEqual(start.mSkewY, end.mSkewY) ||
+                !NearlyEqual(start.mScaleX, end.mScaleX) ||
+                !NearlyEqual(start.mScaleY, end.mScaleY) ||
+                !NearlyEqual(start.mAlpha, end.mAlpha);
         }
 
         private static bool HasConstantTweenResourceFields(ReanimatorTransform[] transforms, int startFrame, int endFrame)
@@ -2166,37 +2172,6 @@ namespace EffectViewer.ViewModels
             }
 
             return true;
-        }
-
-        private static void AddOrMergeInferredTween(
-            List<ReanimTween> tweens,
-            ReanimatorTrack track,
-            int trackIndex,
-            int startFrame,
-            int endFrame,
-            string propertyName)
-        {
-            ReanimTween tween = tweens.FirstOrDefault(item =>
-                item.TrackIndex == trackIndex &&
-                item.StartFrame == startFrame &&
-                item.EndFrame == endFrame);
-            if (tween is null)
-            {
-                tween = new ReanimTween
-                {
-                    TrackIndex = trackIndex,
-                    TrackName = track.mName ?? string.Empty,
-                    StartFrame = startFrame,
-                    EndFrame = endFrame,
-                    Properties = []
-                };
-                tweens.Add(tween);
-            }
-
-            if (!tween.Properties.Contains(propertyName, System.StringComparer.OrdinalIgnoreCase))
-            {
-                tween.Properties.Add(propertyName);
-            }
         }
 
         private static float Lerp(float start, float end, float fraction)
