@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EffectViewer.Assets;
 using EffectViewer.Projects;
@@ -65,7 +67,10 @@ namespace EffectViewer.ViewModels
         private bool _suppressParticlePropertyChanges;
         private int _reanimTimelineRevision;
 
-        public string AssetId { get; }
+        [ObservableProperty]
+        private string _assetId;
+
+        private string _savedAssetId;
         public string Path { get; }
         public string EditorSummary { get; }
         public EffectFileSummary FileSummary { get; }
@@ -416,7 +421,8 @@ namespace EffectViewer.ViewModels
             : base(assetId, kind)
         {
             _project = project;
-            AssetId = assetId;
+            _assetId = assetId;
+            _savedAssetId = assetId;
             Path = path;
             ReanimTransformDialog = new ReanimTransformDialogViewModel(ApplyTransformDialogChanges, CloseReanimTransformDialog);
             FileSummary = new EffectFileAnalyzer().Analyze(project, kind, path);
@@ -454,6 +460,106 @@ namespace EffectViewer.ViewModels
                 PreviewFrame = EffectPreviewFrameBuilder.BuildPlaceholder(kind, assetId);
             }
             TextureSource = new Rendering.TextureUpload.ProjectTextureSource(project);
+        }
+
+        partial void OnAssetIdChanged(string value)
+        {
+            string normalizedId = NormalizeEditedAssetId(value);
+            if (string.IsNullOrWhiteSpace(normalizedId))
+            {
+                normalizedId = GetManifestAsset()?.Id ?? _savedAssetId;
+            }
+
+            if (!string.Equals(value, normalizedId, System.StringComparison.Ordinal))
+            {
+                AssetId = normalizedId;
+                return;
+            }
+
+            EffectAsset asset = GetManifestAsset();
+            if (asset is null || string.Equals(asset.Id, normalizedId, System.StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            string uniqueId = CreateUniqueAssetId(normalizedId);
+            if (!string.Equals(normalizedId, uniqueId, System.StringComparison.Ordinal))
+            {
+                AssetId = uniqueId;
+                return;
+            }
+
+            asset.Id = uniqueId;
+            Title = uniqueId;
+            DocumentId = CreateDocumentId(Kind, uniqueId);
+            _project?.RebuildAssetIndex();
+            RefreshPreviewForAssetId();
+            MarkDirty();
+            OnPropertyChanged(nameof(AssetId));
+        }
+
+        private static string NormalizeEditedAssetId(string assetId)
+        {
+            return string.IsNullOrWhiteSpace(assetId)
+                ? string.Empty
+                : assetId.Trim();
+        }
+
+        private string CreateUniqueAssetId(string assetId)
+        {
+            string candidate = assetId;
+            for (int i = 2; AssetIdExists(candidate); i++)
+            {
+                candidate = $"{assetId}_{i}";
+            }
+
+            return candidate;
+        }
+
+        private bool AssetIdExists(string assetId)
+        {
+            EffectAsset current = GetManifestAsset();
+            return GetManifestAssets().Any(asset =>
+                !ReferenceEquals(asset, current) &&
+                string.Equals(asset.Id, assetId, System.StringComparison.OrdinalIgnoreCase));
+        }
+
+        private EffectAsset GetManifestAsset()
+        {
+            return Kind switch
+            {
+                EffectAssetKind.Reanim => _project?.Manifest?.Reanims?.FirstOrDefault(asset => string.Equals(asset.Path, Path, System.StringComparison.OrdinalIgnoreCase)),
+                EffectAssetKind.Particle => _project?.Manifest?.Particles?.FirstOrDefault(asset => string.Equals(asset.Path, Path, System.StringComparison.OrdinalIgnoreCase)),
+                EffectAssetKind.Trail => _project?.Manifest?.Trails?.FirstOrDefault(asset => string.Equals(asset.Path, Path, System.StringComparison.OrdinalIgnoreCase)),
+                _ => null
+            };
+        }
+
+        private IEnumerable<EffectAsset> GetManifestAssets()
+        {
+            return Kind switch
+            {
+                EffectAssetKind.Reanim => _project?.Manifest?.Reanims ?? [],
+                EffectAssetKind.Particle => _project?.Manifest?.Particles ?? [],
+                EffectAssetKind.Trail => _project?.Manifest?.Trails ?? [],
+                _ => []
+            };
+        }
+
+        private void RefreshPreviewForAssetId()
+        {
+            if (Kind == EffectAssetKind.Trail && _trailDefinition is not null)
+            {
+                RefreshTrailPreview();
+            }
+            else if (Kind == EffectAssetKind.Particle && _particleDefinition is not null)
+            {
+                RefreshParticlePreview();
+            }
+            else
+            {
+                PreviewFrame = EffectPreviewFrameBuilder.BuildPlaceholder(Kind, AssetId);
+            }
         }
 
         [RelayCommand]
@@ -844,6 +950,11 @@ namespace EffectViewer.ViewModels
 
         public override async Task SaveAsync(EffectProjectService projectService, EffectProject project)
         {
+            if (string.IsNullOrWhiteSpace(AssetId))
+            {
+                throw new InvalidOperationException("Asset ID cannot be empty.");
+            }
+
             if (Kind == EffectAssetKind.Reanim && _reanimDefinition is not null)
             {
                 string reanimFullPath = ResolveEffectPath(project, Path, project.Assets.Reanims.TryGetValue(AssetId, out ReanimAsset asset) ? asset : null);
@@ -922,6 +1033,8 @@ namespace EffectViewer.ViewModels
 
         public override void AcceptSavedState()
         {
+            _savedAssetId = AssetId;
+
             if (Kind == EffectAssetKind.Reanim && _reanimDefinition is not null)
             {
                 NormalizeReanimDefinition(_reanimDefinition);
@@ -952,6 +1065,21 @@ namespace EffectViewer.ViewModels
 
         public override void DiscardChanges()
         {
+            if (!string.Equals(AssetId, _savedAssetId, System.StringComparison.Ordinal))
+            {
+                EffectAsset asset = GetManifestAsset();
+                if (asset is not null)
+                {
+                    asset.Id = _savedAssetId;
+                }
+
+                AssetId = _savedAssetId;
+                Title = _savedAssetId;
+                DocumentId = CreateDocumentId(Kind, _savedAssetId);
+                _project?.RebuildAssetIndex();
+                RefreshPreviewForAssetId();
+            }
+
             if (Kind == EffectAssetKind.Reanim && _savedReanimDefinition is not null)
             {
                 _reanimDefinition = CloneReanimDefinition(_savedReanimDefinition);

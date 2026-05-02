@@ -282,6 +282,15 @@ namespace EffectViewer.ViewModels
                 }
             }
 
+            foreach (EffectEditorViewModel effectEditor in OpenEditors.OfType<EffectEditorViewModel>())
+            {
+                if (string.IsNullOrWhiteSpace(effectEditor.AssetId))
+                {
+                    StatusText = $"Could not save {effectEditor.Title}: Asset ID cannot be empty.";
+                    return;
+                }
+            }
+
             await _projectService.SaveAsync(CurrentProject);
             foreach (EditorViewModelBase editor in OpenEditors.Where(editor => editor.SavesWithProjectManifest))
             {
@@ -979,6 +988,15 @@ namespace EffectViewer.ViewModels
                     imageEditor.SavedAssetId,
                     imageEditor.AssetId,
                     imageEditor.Path);
+            }
+            else if (editor is EffectEditorViewModel effectEditor &&
+                e.PropertyName == nameof(EffectEditorViewModel.AssetId))
+            {
+                UpdateProjectExplorerItemIdentity(
+                    effectEditor.Kind,
+                    effectEditor.AssetId,
+                    effectEditor.AssetId,
+                    effectEditor.Path);
             }
         }
 

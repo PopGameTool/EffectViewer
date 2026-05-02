@@ -483,6 +483,10 @@
 
             <Expander Header="Structure" IsExpanded="True" HorizontalAlignment="Stretch">
               <StackPanel Spacing="8">
+                <StackPanel Spacing="4">
+                  <TextBlock Text="ID"/>
+                  <TextBox Text="{Binding AssetId, UpdateSourceTrigger=LostFocus}"/>
+                </StackPanel>
                 <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6" IsVisible="{Binding IsReanimEditor}">
                   <TextBlock Text="Tracks"/>
                   <TextBlock Grid.Column="1" Text="{Binding ReanimTrackCount}"/>
