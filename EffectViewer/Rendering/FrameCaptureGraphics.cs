@@ -53,12 +53,25 @@ namespace EffectViewer.Rendering
                 return;
             }
 
-            _frame.Sprites.Add(new RenderSpriteCommand(
+            float left = x + mTransX;
+            float top = y + mTransY;
+            float right = left + width;
+            float bottom = top + height;
+            Vector4 color = ToVector4(mColor);
+
+            List<RenderVertex> vertices =
+            [
+                new(new Vector2(left, top), new Vector2(0f, 0f), color),
+                new(new Vector2(right, top), new Vector2(1f, 0f), color),
+                new(new Vector2(right, bottom), new Vector2(1f, 1f), color),
+                new(new Vector2(left, top), new Vector2(0f, 0f), color),
+                new(new Vector2(right, bottom), new Vector2(1f, 1f), color),
+                new(new Vector2(left, bottom), new Vector2(0f, 1f), color)
+            ];
+
+            _frame.Meshes.Add(new RenderMeshCommand(
                 new RenderTextureRef(WhiteTextureId),
-                new Vector2(x + mTransX + width * 0.5f, y + mTransY + height * 0.5f),
-                new Vector2(width, height),
-                new Vector4(0f, 0f, 1f, 1f),
-                ToVector4(mColor),
+                vertices,
                 ToRenderBlendMode(mDrawMode)));
         }
 
