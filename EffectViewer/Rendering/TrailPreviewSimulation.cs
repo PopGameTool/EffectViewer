@@ -109,9 +109,10 @@ namespace EffectViewer.Rendering
 
         private static Vector2 BuildMovingPoint(int tick)
         {
-            float t = (tick % 220) / 219f;
-            float x = 120f + t * 600f;
-            float y = 280f + MathF.Sin((t * 2.5f + tick * 0.002f) * MathF.PI * 2f) * 92f;
+            float t = (tick % 800) / 799f;
+            t = (t > 0.5f) ? (1 - t) : t;
+            float x = 120f + t * 1200f;
+            float y = 280f + MathF.Sin(t * MathF.PI * 12f) * 92f;
             return new Vector2(x, y);
         }
     }
