@@ -13,6 +13,8 @@ namespace EffectViewer.ViewModels
         private string _trackNumberText;
         private string _startFrameNumberText;
         private string _endFrameNumberText;
+        private string _anchorXText;
+        private string _anchorYText;
 
         public ReanimTween Model { get; }
         public int Index { get; private set; }
@@ -56,6 +58,30 @@ namespace EffectViewer.ViewModels
         {
             get => _endFrameNumberText;
             set => SetNumberText(ref _endFrameNumberText, value, nameof(EndFrameNumberText), nameof(EndFrameNumber));
+        }
+
+        public double AnchorX
+        {
+            get => Model.AnchorX;
+            set => SetAnchorX(value);
+        }
+
+        public string AnchorXText
+        {
+            get => _anchorXText;
+            set => SetNumberText(ref _anchorXText, value, nameof(AnchorXText), nameof(AnchorX));
+        }
+
+        public double AnchorY
+        {
+            get => Model.AnchorY;
+            set => SetAnchorY(value);
+        }
+
+        public string AnchorYText
+        {
+            get => _anchorYText;
+            set => SetNumberText(ref _anchorYText, value, nameof(AnchorYText), nameof(AnchorY));
         }
 
         public double StartFrameMaximum => Math.Max(1, FrameCount - 2);
@@ -141,6 +167,34 @@ namespace EffectViewer.ViewModels
             RaiseChanged();
         }
 
+        public void SetAnchorX(double value)
+        {
+            float normalized = (float)Round(value);
+            if (Model.AnchorX == normalized)
+            {
+                return;
+            }
+
+            Model.AnchorX = normalized;
+            RaiseAnchorPropertiesChanged();
+            RestoreNumberText(nameof(AnchorX));
+            RaiseChanged();
+        }
+
+        public void SetAnchorY(double value)
+        {
+            float normalized = (float)Round(value);
+            if (Model.AnchorY == normalized)
+            {
+                return;
+            }
+
+            Model.AnchorY = normalized;
+            RaiseAnchorPropertiesChanged();
+            RestoreNumberText(nameof(AnchorY));
+            RaiseChanged();
+        }
+
         public void RestoreNumberText(string numberName)
         {
             switch (numberName)
@@ -153,6 +207,12 @@ namespace EffectViewer.ViewModels
                     break;
                 case nameof(EndFrameNumber):
                     SetProperty(ref _endFrameNumberText, FormatNumber(EndFrameNumber), nameof(EndFrameNumberText));
+                    break;
+                case nameof(AnchorX):
+                    SetProperty(ref _anchorXText, FormatDecimal(AnchorX), nameof(AnchorXText));
+                    break;
+                case nameof(AnchorY):
+                    SetProperty(ref _anchorYText, FormatDecimal(AnchorY), nameof(AnchorYText));
                     break;
             }
         }
@@ -175,6 +235,8 @@ namespace EffectViewer.ViewModels
             Model.TrackName = TrackName;
             Model.StartFrame = Math.Clamp(Model.StartFrame, 0, FrameCount - 3);
             Model.EndFrame = Math.Clamp(Model.EndFrame, Model.StartFrame + 2, FrameCount - 1);
+            Model.AnchorX = float.IsFinite(Model.AnchorX) ? Model.AnchorX : 0.5f;
+            Model.AnchorY = float.IsFinite(Model.AnchorY) ? Model.AnchorY : 0.5f;
             Model.Properties = NormalizeProperties(Model.Properties);
         }
 
@@ -184,6 +246,13 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(EndFrameNumber));
             OnPropertyChanged(nameof(StartFrameMaximum));
             OnPropertyChanged(nameof(EndFrameMinimum));
+            RaiseDisplayPropertiesChanged();
+        }
+
+        private void RaiseAnchorPropertiesChanged()
+        {
+            OnPropertyChanged(nameof(AnchorX));
+            OnPropertyChanged(nameof(AnchorY));
             RaiseDisplayPropertiesChanged();
         }
 
@@ -214,6 +283,23 @@ namespace EffectViewer.ViewModels
 
         private void TryApplyNumberText(string numberPropertyName, string text)
         {
+            if (numberPropertyName is nameof(AnchorX) or nameof(AnchorY))
+            {
+                if (TryParseNumber(text, out double parsedValue))
+                {
+                    if (numberPropertyName == nameof(AnchorX))
+                    {
+                        SetAnchorX(parsedValue);
+                    }
+                    else
+                    {
+                        SetAnchorY(parsedValue);
+                    }
+                }
+
+                return;
+            }
+
             if (!TryParseRoundedNumber(text, out int value))
             {
                 return;
@@ -246,6 +332,8 @@ namespace EffectViewer.ViewModels
         {
             RestoreNumberText(nameof(TrackNumber));
             RestoreFrameNumberText();
+            RestoreNumberText(nameof(AnchorX));
+            RestoreNumberText(nameof(AnchorY));
         }
 
         private void RestoreFrameNumberText()
@@ -262,12 +350,7 @@ namespace EffectViewer.ViewModels
 
         private static bool TryParseRoundedNumber(string text, out int value)
         {
-            text = text?.Trim();
-            if (string.IsNullOrEmpty(text) ||
-                !double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out double number) &&
-                !double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out number) ||
-                double.IsNaN(number) ||
-                double.IsInfinity(number))
+            if (!TryParseNumber(text, out double number))
             {
                 value = 0;
                 return false;
@@ -277,9 +360,36 @@ namespace EffectViewer.ViewModels
             return true;
         }
 
+        private static bool TryParseNumber(string text, out double value)
+        {
+            text = text?.Trim();
+            if (string.IsNullOrEmpty(text) ||
+                !double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value) &&
+                !double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) ||
+                double.IsNaN(value) ||
+                double.IsInfinity(value))
+            {
+                value = 0d;
+                return false;
+            }
+
+            return true;
+        }
+
+        private static double Round(double value)
+        {
+            double rounded = Math.Round(value, 3, MidpointRounding.AwayFromZero);
+            return rounded == -0d ? 0d : rounded;
+        }
+
         private static string FormatNumber(double value)
         {
             return Math.Round(value, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture);
+        }
+
+        private static string FormatDecimal(double value)
+        {
+            return Round(value).ToString("0.###", CultureInfo.InvariantCulture);
         }
 
         private static List<string> NormalizeProperties(IEnumerable<string> properties)

@@ -25,6 +25,8 @@ namespace EffectViewer.Assets
         public string TrackName { get; set; } = string.Empty;
         public int StartFrame { get; set; }
         public int EndFrame { get; set; }
+        public float AnchorX { get; set; } = 0.5f;
+        public float AnchorY { get; set; } = 0.5f;
         public List<string> Properties { get; set; } = [];
 
         public static List<string> CreateTweenedProperties()

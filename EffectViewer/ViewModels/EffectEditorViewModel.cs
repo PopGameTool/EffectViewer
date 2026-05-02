@@ -10,7 +10,9 @@ using CommunityToolkit.Mvvm.Input;
 using EffectViewer.Assets;
 using EffectViewer.Projects;
 using EffectViewer.Rendering;
+using EffectViewer.Runtime;
 using EffectViewer.TodLib.Common;
+using EffectViewer.TodLib.Graphics;
 using EffectViewer.TodLib.Particle;
 using EffectViewer.TodLib.Reanim;
 using EffectViewer.TodLib.Trail;
@@ -22,6 +24,7 @@ namespace EffectViewer.ViewModels
         private readonly EffectProject _project;
         private readonly ReanimPreviewSimulation _reanimPreview;
         private readonly ReanimAsset _reanimAsset;
+        private readonly Dictionary<string, Image> _imageSizeCache = new(StringComparer.OrdinalIgnoreCase);
         private ReanimatorDefinition _reanimDefinition;
         private ReanimatorDefinition _savedReanimDefinition;
         private List<ReanimTween> _savedReanimTweens = [];
@@ -684,7 +687,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
-            _reanimAsset.Tweens = InferReanimTweens(_reanimDefinition);
+            _reanimAsset.Tweens = InferReanimTweens(_reanimDefinition, ResolveTransformPointScale);
             NormalizeReanimTweenMetadata();
             RebuildReanimTweenViewModels(0);
             RefreshReanimTimelineCells();
@@ -1758,6 +1761,9 @@ namespace EffectViewer.ViewModels
                 tween.TrackName = GetReanimTrackName(tween.TrackIndex);
                 tween.StartFrame = System.Math.Clamp(tween.StartFrame, 0, frameCount - 1);
                 tween.EndFrame = System.Math.Clamp(tween.EndFrame, 0, frameCount - 1);
+                tween.AnchorX = float.IsFinite(tween.AnchorX) ? tween.AnchorX : 0.5f;
+                tween.AnchorY = float.IsFinite(tween.AnchorY) ? tween.AnchorY : 0.5f;
+
                 if (tween.EndFrame <= tween.StartFrame + 1)
                 {
                     _reanimAsset.Tweens.RemoveAt(i);
@@ -1904,19 +1910,27 @@ namespace EffectViewer.ViewModels
 
             ReanimatorTransform start = track.mTransforms[tween.StartFrame];
             ReanimatorTransform end = track.mTransforms[tween.EndFrame];
+            Vector2 anchor = new(tween.AnchorX, tween.AnchorY);
+            Vector2 startTransformPoint = ResolveAnchorTransformPoint(start, anchor);
+            Vector2 endTransformPoint = ResolveAnchorTransformPoint(end, anchor);
+            Vector2 startPoint = TransformPoint(start, startTransformPoint);
+            Vector2 endPoint = TransformPoint(end, endTransformPoint);
             tween.Properties = NormalizeTweenProperties(tween.Properties);
             int span = tween.EndFrame - tween.StartFrame;
             for (int frameIndex = tween.StartFrame + 1; frameIndex < tween.EndFrame; frameIndex++)
             {
                 float fraction = (frameIndex - tween.StartFrame) / (float)span;
                 ReanimatorTransform transform = track.mTransforms[frameIndex];
-                transform.mTransX = Lerp(start.mTransX, end.mTransX, fraction);
-                transform.mTransY = Lerp(start.mTransY, end.mTransY, fraction);
                 transform.mSkewX = Lerp(start.mSkewX, end.mSkewX, fraction);
                 transform.mSkewY = Lerp(start.mSkewY, end.mSkewY, fraction);
                 transform.mScaleX = Lerp(start.mScaleX, end.mScaleX, fraction);
                 transform.mScaleY = Lerp(start.mScaleY, end.mScaleY, fraction);
                 transform.mAlpha = Lerp(start.mAlpha, end.mAlpha, fraction);
+                Vector2 expectedPoint = Vector2.Lerp(startPoint, endPoint, fraction);
+                Vector2 transformPoint = ResolveAnchorTransformPoint(transform, anchor);
+                Vector2 transformedPointOffset = TransformPointOffset(transform, transformPoint);
+                transform.mTransX = expectedPoint.X - transformedPointOffset.X;
+                transform.mTransY = expectedPoint.Y - transformedPointOffset.Y;
                 transform.mFrame = start.mFrame;
                 transform.mImage = start.mImage;
                 transform.mFont = start.mFont;
@@ -1967,6 +1981,8 @@ namespace EffectViewer.ViewModels
                 TrackName = GetReanimTrackName(source.TrackIndex),
                 StartFrame = startFrame,
                 EndFrame = endFrame,
+                AnchorX = source.AnchorX,
+                AnchorY = source.AnchorY,
                 Properties = ReanimTween.CreateTweenedProperties()
             });
         }
@@ -1985,6 +2001,8 @@ namespace EffectViewer.ViewModels
                     TrackName = tween.TrackName ?? string.Empty,
                     StartFrame = tween.StartFrame,
                     EndFrame = tween.EndFrame,
+                    AnchorX = tween.AnchorX,
+                    AnchorY = tween.AnchorY,
                     Properties = ReanimTween.CreateTweenedProperties()
                 })
                 .ToList();
@@ -2007,7 +2025,9 @@ namespace EffectViewer.ViewModels
             return ReanimTween.CreateTweenedProperties();
         }
 
-        private static List<ReanimTween> InferReanimTweens(ReanimatorDefinition definition)
+        private static List<ReanimTween> InferReanimTweens(
+            ReanimatorDefinition definition,
+            Func<ReanimatorTransform, Vector2> transformPointResolver)
         {
             if (definition?.mTracks is null || definition.mTrackCount <= 0)
             {
@@ -2024,7 +2044,7 @@ namespace EffectViewer.ViewModels
                     continue;
                 }
 
-                AddInferredTweens(tweens, track, trackIndex);
+                AddInferredTweens(tweens, track, trackIndex, transformPointResolver);
             }
 
             return tweens
@@ -2037,7 +2057,8 @@ namespace EffectViewer.ViewModels
         private static void AddInferredTweens(
             List<ReanimTween> tweens,
             ReanimatorTrack track,
-            int trackIndex)
+            int trackIndex,
+            Func<ReanimatorTransform, Vector2> transformPointResolver)
         {
             int count = System.Math.Min(track.mTransformCount, track.mTransforms.Length);
             int start = 0;
@@ -2049,7 +2070,8 @@ namespace EffectViewer.ViewModels
                     continue;
                 }
 
-                int end = FindLinearTweenRunEnd(track.mTransforms, count, start);
+                Vector2 anchor = new(0.5f, 0.5f);
+                int end = FindLinearTweenRunEnd(track.mTransforms, count, start, anchor, transformPointResolver);
                 if (end > start + 1 &&
                     HasConstantTweenResourceFields(track.mTransforms, start, end))
                 {
@@ -2073,7 +2095,9 @@ namespace EffectViewer.ViewModels
         private static int FindLinearTweenRunEnd(
             ReanimatorTransform[] transforms,
             int count,
-            int start)
+            int start,
+            Vector2 anchor,
+            Func<ReanimatorTransform, Vector2> transformPointResolver)
         {
             ReanimatorTransform first = transforms[start];
 
@@ -2090,7 +2114,7 @@ namespace EffectViewer.ViewModels
                     break;
                 }
 
-                if (IsLinearTweenRun(transforms, start, candidateEnd))
+                if (IsLinearTweenRun(transforms, start, candidateEnd, anchor, transformPointResolver))
                 {
                     end = candidateEnd;
                 }
@@ -2115,10 +2139,16 @@ namespace EffectViewer.ViewModels
         private static bool IsLinearTweenRun(
             ReanimatorTransform[] transforms,
             int startFrame,
-            int endFrame)
+            int endFrame,
+            Vector2 anchor,
+            Func<ReanimatorTransform, Vector2> transformPointResolver)
         {
             ReanimatorTransform start = transforms[startFrame];
             ReanimatorTransform end = transforms[endFrame];
+            Vector2 startTransformPoint = ResolveAnchorTransformPoint(start, anchor, transformPointResolver);
+            Vector2 endTransformPoint = ResolveAnchorTransformPoint(end, anchor, transformPointResolver);
+            Vector2 startPoint = TransformPoint(start, startTransformPoint);
+            Vector2 endPoint = TransformPoint(end, endTransformPoint);
             int span = endFrame - startFrame;
             for (int frameIndex = startFrame + 1; frameIndex <= endFrame; frameIndex++)
             {
@@ -2139,7 +2169,7 @@ namespace EffectViewer.ViewModels
                 }
 
                 float fraction = (frameIndex - startFrame) / (float)span;
-                if (!IsExpectedTweenTransform(start, end, transform, fraction))
+                if (!IsExpectedTweenTransform(start, end, startPoint, endPoint, anchor, transformPointResolver, transform, fraction))
                 {
                     return false;
                 }
@@ -2151,11 +2181,18 @@ namespace EffectViewer.ViewModels
         private static bool IsExpectedTweenTransform(
             ReanimatorTransform start,
             ReanimatorTransform end,
+            Vector2 startPoint,
+            Vector2 endPoint,
+            Vector2 anchor,
+            Func<ReanimatorTransform, Vector2> transformPointResolver,
             ReanimatorTransform transform,
             float fraction)
         {
-            return NearlyEqual(transform.mTransX, Lerp(start.mTransX, end.mTransX, fraction), 0.15f) &&
-                NearlyEqual(transform.mTransY, Lerp(start.mTransY, end.mTransY, fraction), 0.15f) &&
+            Vector2 transformPoint = ResolveAnchorTransformPoint(transform, anchor, transformPointResolver);
+            Vector2 actualPoint = TransformPoint(transform, transformPoint);
+            Vector2 expectedPoint = Vector2.Lerp(startPoint, endPoint, fraction);
+            return NearlyEqual(actualPoint.X, expectedPoint.X, 0.15f) &&
+                NearlyEqual(actualPoint.Y, expectedPoint.Y, 0.15f) &&
                 NearlyEqual(transform.mSkewX, Lerp(start.mSkewX, end.mSkewX, fraction), 0.15f) &&
                 NearlyEqual(transform.mSkewY, Lerp(start.mSkewY, end.mSkewY, fraction), 0.15f) &&
                 NearlyEqual(transform.mScaleX, Lerp(start.mScaleX, end.mScaleX, fraction), 0.0015f) &&
@@ -2181,6 +2218,80 @@ namespace EffectViewer.ViewModels
             }
 
             return true;
+        }
+
+        private Vector2 ResolveAnchorTransformPoint(ReanimatorTransform transform, Vector2 anchor)
+        {
+            Vector2 size = ResolveTransformPointScale(transform);
+            return new Vector2(anchor.X * size.X, anchor.Y * size.Y);
+        }
+
+        private Vector2 ResolveTransformPointScale(ReanimatorTransform transform)
+        {
+            Image image = ResolveImage(transform.mImage);
+            return image is null
+                ? Vector2.One
+                : new Vector2(image.GetCelWidth(), image.GetCelHeight());
+        }
+
+        private static Vector2 ResolveAnchorTransformPoint(
+            ReanimatorTransform transform,
+            Vector2 anchor,
+            Func<ReanimatorTransform, Vector2> transformPointScaleResolver)
+        {
+            Vector2 scale = transformPointScaleResolver?.Invoke(transform) ?? Vector2.One;
+            return new Vector2(anchor.X * scale.X, anchor.Y * scale.Y);
+        }
+
+        private Image ResolveImage(string imageId)
+        {
+            if (string.IsNullOrWhiteSpace(imageId) ||
+                _project?.Assets?.TryGetImage(imageId, out ImageAsset asset) != true)
+            {
+                return null;
+            }
+
+            if (_imageSizeCache.TryGetValue(asset.Id, out Image cachedImage))
+            {
+                return cachedImage;
+            }
+
+            string fullPath = ProjectPathUtility.ResolvePath(_project, asset.Path);
+            Image image = new()
+            {
+                mId = asset.Id,
+                mNumRows = System.Math.Max(1, asset.Rows),
+                mNumCols = System.Math.Max(1, asset.Cols)
+            };
+
+            if (ImageFileSizeReader.TryReadSize(fullPath, out int width, out int height))
+            {
+                image.mWidth = width;
+                image.mHeight = height;
+            }
+
+            _imageSizeCache[asset.Id] = image;
+            return image;
+        }
+
+        private static Vector2 TransformPoint(ReanimatorTransform transform, Vector2 point)
+        {
+            Vector2 offset = TransformPointOffset(transform, point);
+            return new Vector2(transform.mTransX + offset.X, transform.mTransY + offset.Y);
+        }
+
+        private static Vector2 TransformPointOffset(ReanimatorTransform transform, Vector2 point)
+        {
+            MatrixFromTransformWithoutTranslation(transform, out Matrix4x4 matrix);
+            return Vector2.Transform(point, matrix);
+        }
+
+        private static void MatrixFromTransformWithoutTranslation(in ReanimatorTransform transform, out Matrix4x4 matrix)
+        {
+            Reanimation.MatrixFromTransform(transform, out matrix);
+            matrix.M41 = 0f;
+            matrix.M42 = 0f;
+            matrix.M43 = 0f;
         }
 
         private static float Lerp(float start, float end, float fraction)

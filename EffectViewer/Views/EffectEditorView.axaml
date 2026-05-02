@@ -124,7 +124,7 @@
         <TextBlock Text="{Binding DisplayName}"
                    FontWeight="SemiBold"
                    TextWrapping="Wrap"/>
-        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto"
+        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto"
               ColumnSpacing="8"
               RowSpacing="8">
           <StackPanel Spacing="4">
@@ -150,6 +150,20 @@
             <TextBlock Text="End Frame"/>
             <TextBox Text="{Binding EndFrameNumberText, UpdateSourceTrigger=PropertyChanged}"
                      Tag="EndFrameNumber"
+                     LostFocus="ReanimTweenTextBox_LostFocus"
+                     HorizontalContentAlignment="Right"/>
+          </StackPanel>
+          <StackPanel Grid.Row="2" Spacing="4">
+            <TextBlock Text="Anchor X"/>
+            <TextBox Text="{Binding AnchorXText, UpdateSourceTrigger=PropertyChanged}"
+                     Tag="AnchorX"
+                     LostFocus="ReanimTweenTextBox_LostFocus"
+                     HorizontalContentAlignment="Right"/>
+          </StackPanel>
+          <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
+            <TextBlock Text="Anchor Y"/>
+            <TextBox Text="{Binding AnchorYText, UpdateSourceTrigger=PropertyChanged}"
+                     Tag="AnchorY"
                      LostFocus="ReanimTweenTextBox_LostFocus"
                      HorizontalContentAlignment="Right"/>
           </StackPanel>

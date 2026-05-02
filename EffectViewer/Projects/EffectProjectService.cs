@@ -824,6 +824,8 @@ namespace EffectViewer.Projects
                     tween.TrackName ??= string.Empty;
                     tween.StartFrame = tween.StartFrame < 0 ? 0 : tween.StartFrame;
                     tween.EndFrame = tween.EndFrame < tween.StartFrame ? tween.StartFrame : tween.EndFrame;
+                    tween.AnchorX = float.IsFinite(tween.AnchorX) ? tween.AnchorX : 0.5f;
+                    tween.AnchorY = float.IsFinite(tween.AnchorY) ? tween.AnchorY : 0.5f;
                     tween.Properties = ReanimTween.CreateTweenedProperties();
                 }
 
