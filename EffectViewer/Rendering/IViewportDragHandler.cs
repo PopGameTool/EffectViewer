@@ -6,6 +6,9 @@ namespace EffectViewer.Rendering
     {
         bool CanDrag { get; }
         bool IsPanModeEnabled { get; }
-        void DragBy(Vector2 worldDelta);
+        ViewportTransformBox? TransformBox { get; }
+        void BeginDrag(ViewportDragHandle handle, Vector2 worldPosition);
+        void DragTo(Vector2 worldPosition);
+        void EndDrag();
     }
 }

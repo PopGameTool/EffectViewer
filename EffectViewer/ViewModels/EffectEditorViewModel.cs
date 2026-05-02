@@ -69,6 +69,10 @@ namespace EffectViewer.ViewModels
         private bool _suppressTrailPropertyChanges;
         private bool _suppressParticlePropertyChanges;
         private int _reanimTimelineRevision;
+        private ViewportDragHandle _activeViewportDragHandle;
+        private Vector2 _viewportDragStartWorld;
+        private ReanimatorTransform _viewportDragStartTransform;
+        private Vector2 _viewportDragStartSize;
 
         [ObservableProperty]
         private string _assetId;
@@ -92,6 +96,7 @@ namespace EffectViewer.ViewModels
         public bool CanTransformSelectedReanimFrame => HasSelectedReanimFrame && !IsSelectedReanimFrameTweened;
         public bool CanDrag => CanTransformSelectedReanimFrame && SelectedReanimFrameVisible;
         public bool IsPanModeEnabled => IsViewportPanModeEnabled;
+        public ViewportTransformBox? TransformBox => TryGetSelectedTransformBox(out ViewportTransformBox box) ? box : null;
         public bool CanRemoveReanimTrack => IsReanimEditor && ReanimTracks.Count > 1 && SelectedReanimTrack is not null;
         public bool CanRemoveReanimFrame => IsReanimEditor && ReanimFrameCount > 1;
         public bool HasReanimTweenMetadata => ReanimTweenCount > 0;
@@ -1350,6 +1355,7 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(IsSelectedReanimFrameTweened));
             OnPropertyChanged(nameof(CanTransformSelectedReanimFrame));
             OnPropertyChanged(nameof(CanDrag));
+            OnPropertyChanged(nameof(TransformBox));
             OnPropertyChanged(nameof(SelectedReanimFrameSummary));
         }
 
@@ -1377,6 +1383,7 @@ namespace EffectViewer.ViewModels
             LoadTransformDialog();
             OnPropertyChanged(nameof(CanTransformSelectedReanimFrame));
             OnPropertyChanged(nameof(CanDrag));
+            OnPropertyChanged(nameof(TransformBox));
             ApplyReanimPropertyChanges();
         }
 
@@ -1437,20 +1444,137 @@ namespace EffectViewer.ViewModels
             }
         }
 
-        public void DragBy(Vector2 worldDelta)
+        public void BeginDrag(ViewportDragHandle handle, Vector2 worldPosition)
         {
-            if (!CanTransformSelectedReanimFrame || !TryGetSelectedReanimTransform(out ReanimatorTransform transform))
+            _activeViewportDragHandle = handle;
+            _viewportDragStartWorld = worldPosition;
+            if (!TryGetSelectedReanimTransform(out _viewportDragStartTransform))
+            {
+                _activeViewportDragHandle = ViewportDragHandle.None;
+                _viewportDragStartSize = Vector2.One;
+                return;
+            }
+
+            _viewportDragStartSize = ResolveTransformPointScale(_viewportDragStartTransform);
+            if (_viewportDragStartSize.X <= 0f || !float.IsFinite(_viewportDragStartSize.X))
+            {
+                _viewportDragStartSize.X = 1f;
+            }
+
+            if (_viewportDragStartSize.Y <= 0f || !float.IsFinite(_viewportDragStartSize.Y))
+            {
+                _viewportDragStartSize.Y = 1f;
+            }
+
+        }
+
+        public void DragTo(Vector2 worldPosition)
+        {
+            if (_activeViewportDragHandle == ViewportDragHandle.None ||
+                !CanTransformSelectedReanimFrame ||
+                !TryGetSelectedReanimTransform(out _))
             {
                 return;
             }
 
-            transform.mTransX = (float)RoundToThreeDecimals(transform.mTransX + worldDelta.X);
-            transform.mTransY = (float)RoundToThreeDecimals(transform.mTransY + worldDelta.Y);
+            ReanimatorTransform transform = _viewportDragStartTransform;
+            Vector2 worldDelta = worldPosition - _viewportDragStartWorld;
+            switch (_activeViewportDragHandle)
+            {
+                case ViewportDragHandle.Move:
+                    transform.mTransX = (float)RoundToThreeDecimals(_viewportDragStartTransform.mTransX + worldDelta.X);
+                    transform.mTransY = (float)RoundToThreeDecimals(_viewportDragStartTransform.mTransY + worldDelta.Y);
+                    break;
+                case ViewportDragHandle.ScaleTopLeft:
+                case ViewportDragHandle.ScaleTop:
+                case ViewportDragHandle.ScaleTopRight:
+                case ViewportDragHandle.ScaleRight:
+                case ViewportDragHandle.ScaleBottomRight:
+                case ViewportDragHandle.ScaleBottom:
+                case ViewportDragHandle.ScaleBottomLeft:
+                case ViewportDragHandle.ScaleLeft:
+                    ApplyScaleDrag(ref transform, worldPosition);
+                    break;
+                case ViewportDragHandle.SkewTop:
+                case ViewportDragHandle.SkewRight:
+                case ViewportDragHandle.SkewBottom:
+                case ViewportDragHandle.SkewLeft:
+                    ApplySkewDrag(ref transform, worldDelta);
+                    break;
+            }
+
             SetSelectedReanimTransform(transform);
             ApplyReanimTweensForSelection();
             RefreshReanimTimelineCells();
             LoadTransformDialog();
+            OnPropertyChanged(nameof(TransformBox));
             ApplyReanimPropertyChanges();
+        }
+
+        public void EndDrag()
+        {
+            _activeViewportDragHandle = ViewportDragHandle.None;
+        }
+
+        private void ApplyScaleDrag(ref ReanimatorTransform transform, Vector2 worldPosition)
+        {
+            Vector2 local = WorldToTransformLocal(_viewportDragStartTransform, worldPosition);
+            if (_viewportDragStartSize.X <= 0.001f || _viewportDragStartSize.Y <= 0.001f)
+            {
+                return;
+            }
+
+            bool scaleLeft = _activeViewportDragHandle is ViewportDragHandle.ScaleTopLeft or ViewportDragHandle.ScaleBottomLeft or ViewportDragHandle.ScaleLeft;
+            bool scaleRight = _activeViewportDragHandle is ViewportDragHandle.ScaleTopRight or ViewportDragHandle.ScaleBottomRight or ViewportDragHandle.ScaleRight;
+            bool scaleTop = _activeViewportDragHandle is ViewportDragHandle.ScaleTopLeft or ViewportDragHandle.ScaleTop or ViewportDragHandle.ScaleTopRight;
+            bool scaleBottom = _activeViewportDragHandle is ViewportDragHandle.ScaleBottomLeft or ViewportDragHandle.ScaleBottom or ViewportDragHandle.ScaleBottomRight;
+
+            float scaleX = _viewportDragStartTransform.mScaleX;
+            float scaleY = _viewportDragStartTransform.mScaleY;
+            Vector2 fixedPoint = _viewportDragStartSize * 0.5f;
+            if (scaleLeft)
+            {
+                scaleX = (float)RoundToThreeDecimals(_viewportDragStartTransform.mScaleX * (1f - local.X / _viewportDragStartSize.X));
+                fixedPoint.X = _viewportDragStartSize.X;
+            }
+            else if (scaleRight)
+            {
+                scaleX = (float)RoundToThreeDecimals(_viewportDragStartTransform.mScaleX * (local.X / _viewportDragStartSize.X));
+                fixedPoint.X = 0f;
+            }
+
+            if (scaleTop)
+            {
+                scaleY = (float)RoundToThreeDecimals(_viewportDragStartTransform.mScaleY * (1f - local.Y / _viewportDragStartSize.Y));
+                fixedPoint.Y = _viewportDragStartSize.Y;
+            }
+            else if (scaleBottom)
+            {
+                scaleY = (float)RoundToThreeDecimals(_viewportDragStartTransform.mScaleY * (local.Y / _viewportDragStartSize.Y));
+                fixedPoint.Y = 0f;
+            }
+
+            transform.mScaleX = scaleX;
+            transform.mScaleY = scaleY;
+            KeepTransformPointFixed(ref transform, _viewportDragStartTransform, fixedPoint);
+        }
+
+        private void ApplySkewDrag(ref ReanimatorTransform transform, Vector2 worldDelta)
+        {
+            Vector2 center = _viewportDragStartSize * 0.5f;
+            switch (_activeViewportDragHandle)
+            {
+                case ViewportDragHandle.SkewTop:
+                case ViewportDragHandle.SkewBottom:
+                    transform.mSkewY = (float)RoundToThreeDecimals(_viewportDragStartTransform.mSkewY + worldDelta.X);
+                    break;
+                case ViewportDragHandle.SkewLeft:
+                case ViewportDragHandle.SkewRight:
+                    transform.mSkewX = (float)RoundToThreeDecimals(_viewportDragStartTransform.mSkewX + worldDelta.Y);
+                    break;
+            }
+
+            KeepTransformPointFixed(ref transform, _viewportDragStartTransform, center);
         }
 
         private void LoadTransformDialog()
@@ -1517,6 +1641,7 @@ namespace EffectViewer.ViewModels
             RefreshReanimTimelineCells();
             OnPropertyChanged(nameof(CanTransformSelectedReanimFrame));
             OnPropertyChanged(nameof(CanDrag));
+            OnPropertyChanged(nameof(TransformBox));
             ApplyReanimPropertyChanges();
         }
 
@@ -1600,6 +1725,7 @@ namespace EffectViewer.ViewModels
         {
             RaiseReanimTimelineChanged();
             LoadSelectedReanimFrame();
+            OnPropertyChanged(nameof(TransformBox));
         }
 
         private void UpdateSelectedReanimTrackState()
@@ -1611,6 +1737,7 @@ namespace EffectViewer.ViewModels
 
             OnPropertyChanged(nameof(CanRemoveReanimTrack));
             OnPropertyChanged(nameof(HasSelectedReanimFrame));
+            OnPropertyChanged(nameof(TransformBox));
         }
 
         private void RebuildReanimTweenViewModels()
@@ -1722,6 +1849,7 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(IsSelectedReanimFrameTweened));
             OnPropertyChanged(nameof(CanTransformSelectedReanimFrame));
             OnPropertyChanged(nameof(CanDrag));
+            OnPropertyChanged(nameof(TransformBox));
             OnPropertyChanged(nameof(CanMakeSelectedReanimFrameKeyframe));
         }
 
@@ -1741,6 +1869,7 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(IsSelectedReanimFrameTweened));
             OnPropertyChanged(nameof(CanTransformSelectedReanimFrame));
             OnPropertyChanged(nameof(CanDrag));
+            OnPropertyChanged(nameof(TransformBox));
             OnPropertyChanged(nameof(CanRemoveReanimTrack));
             OnPropertyChanged(nameof(CanRemoveReanimFrame));
             OnPropertyChanged(nameof(ReanimTweenCount));
@@ -2412,6 +2541,23 @@ namespace EffectViewer.ViewModels
             return new Vector2(anchor.X * size.X, anchor.Y * size.Y);
         }
 
+        private bool TryGetSelectedTransformBox(out ViewportTransformBox box)
+        {
+            box = default;
+            if (!CanDrag || !TryGetSelectedReanimTransform(out ReanimatorTransform transform))
+            {
+                return false;
+            }
+
+            Vector2 size = ResolveTransformPointScale(transform);
+            box = new ViewportTransformBox(
+                TransformPoint(transform, Vector2.Zero),
+                TransformPoint(transform, new Vector2(size.X, 0f)),
+                TransformPoint(transform, size),
+                TransformPoint(transform, new Vector2(0f, size.Y)));
+            return true;
+        }
+
         private Vector2 ResolveTransformPointScale(ReanimatorTransform transform)
         {
             Image image = ResolveImage(transform.mImage);
@@ -2470,6 +2616,28 @@ namespace EffectViewer.ViewModels
         {
             MatrixFromTransformWithoutTranslation(transform, out Matrix4x4 matrix);
             return Vector2.Transform(point, matrix);
+        }
+
+        private static Vector2 WorldToTransformLocal(ReanimatorTransform transform, Vector2 worldPoint)
+        {
+            Reanimation.MatrixFromTransform(transform, out Matrix4x4 matrix);
+            if (!Matrix4x4.Invert(matrix, out Matrix4x4 inverse))
+            {
+                return Vector2.Zero;
+            }
+
+            return Vector2.Transform(worldPoint, inverse);
+        }
+
+        private static void KeepTransformPointFixed(
+            ref ReanimatorTransform transform,
+            ReanimatorTransform originalTransform,
+            Vector2 transformPoint)
+        {
+            Vector2 fixedWorldPoint = TransformPoint(originalTransform, transformPoint);
+            Vector2 newOffset = TransformPointOffset(transform, transformPoint);
+            transform.mTransX = (float)RoundToThreeDecimals(fixedWorldPoint.X - newOffset.X);
+            transform.mTransY = (float)RoundToThreeDecimals(fixedWorldPoint.Y - newOffset.Y);
         }
 
         private static void MatrixFromTransformWithoutTranslation(in ReanimatorTransform transform, out Matrix4x4 matrix)

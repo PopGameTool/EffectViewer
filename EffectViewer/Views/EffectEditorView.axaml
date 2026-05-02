@@ -634,10 +634,6 @@
                           IsEnabled="{Binding HasReanimTweenMetadata}"
                           Command="{Binding BakeAllReanimTweensCommand}"/>
                 </WrapPanel>
-                <TextBlock Text="{Binding SelectedReanimTweenSummary}"
-                           IsVisible="{Binding HasReanimTweenMetadata}"
-                           TextWrapping="Wrap"
-                           Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
                 <TextBlock Text="No tweens"
                            IsVisible="{Binding HasNoReanimTweenMetadata}"
                            Foreground="{DynamicResource TextControlPlaceholderForeground}"/>

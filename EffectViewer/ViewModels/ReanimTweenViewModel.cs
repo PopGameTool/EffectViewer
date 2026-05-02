@@ -21,7 +21,7 @@ namespace EffectViewer.ViewModels
         public int TrackCount { get; }
         public int FrameCount { get; }
 
-        public string DisplayName => $"{Index + 1}. {TrackName} [{StartFrameNumber:0}-{EndFrameNumber:0}]";
+        public string DisplayName => $"{TrackName} [{StartFrameNumber:0}-{EndFrameNumber:0}]";
         public string Detail => string.Join(", ", NormalizeProperties(Model.Properties).Select(ToDisplayPropertyName));
         public string TrackName => _trackNameResolver?.Invoke(Model.TrackIndex) ?? Model.TrackName ?? string.Empty;
         public double TrackNumber
