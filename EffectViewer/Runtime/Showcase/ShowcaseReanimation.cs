@@ -133,10 +133,41 @@ namespace EffectViewer.Runtime.Showcase
         public double get_rate() => Reanimation.mAnimRate;
         public double get_time() => Reanimation.mAnimTime;
         public bool is_dead() => Reanimation.mDead;
+        public ShowcaseMatrix matrix() => new(Reanimation.mOverlayMatrix);
 
         public ShowcaseReanimation set_position(double x, double y)
         {
             Reanimation.SetPosition((float)x, (float)y);
+            return this;
+        }
+
+        public ShowcaseReanimation move(double x, double y)
+        {
+            return set_position(x, y);
+        }
+
+        public ShowcaseReanimation offset(double x, double y)
+        {
+            Reanimation.SetPosition(Reanimation.mOverlayMatrix.M41 + (float)x, Reanimation.mOverlayMatrix.M42 + (float)y);
+            return this;
+        }
+
+        public ShowcaseReanimation set_matrix(
+            double m11,
+            double m12,
+            double m21,
+            double m22,
+            double x,
+            double y)
+        {
+            Matrix4x4 matrix = Matrix4x4.Identity;
+            matrix.M11 = (float)m11;
+            matrix.M12 = (float)m12;
+            matrix.M21 = (float)m21;
+            matrix.M22 = (float)m22;
+            matrix.M41 = (float)x;
+            matrix.M42 = (float)y;
+            Reanimation.mOverlayMatrix = matrix;
             return this;
         }
 
@@ -247,6 +278,13 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public ShowcaseReanimation set_frames_for_layer(string trackName)
+        {
+            EnsureTrack(trackName);
+            Reanimation.SetFramesForLayer(trackName);
+            return this;
+        }
+
         public bool track_exists(string trackName)
         {
             return Reanimation.TrackExists(trackName);
@@ -281,6 +319,61 @@ namespace EffectViewer.Runtime.Showcase
             return index < 0 || index >= track_count
                 ? null
                 : Reanimation.mDefinition.mTracks[index].mName;
+        }
+
+        public int track_index(string trackName)
+        {
+            return Reanimation.TrackExists(trackName) ? Reanimation.FindTrackIndex(trackName) : -1;
+        }
+
+        public ShowcaseReanimation set_image_override(string trackName, string imageId)
+        {
+            EnsureTrack(trackName);
+            Reanimation.SetImageOverride(trackName, RequireImage(imageId));
+            return this;
+        }
+
+        public ShowcaseReanimation clear_image_override(string trackName)
+        {
+            EnsureTrack(trackName);
+            Reanimation.SetImageOverride(trackName, null);
+            return this;
+        }
+
+        public string image_override_id(string trackName)
+        {
+            EnsureTrack(trackName);
+            return Reanimation.GetImageOverride(trackName)?.mId;
+        }
+
+        public ShowcaseReanimationTransform transform(string trackName, double frameIndex)
+        {
+            EnsureTrack(trackName);
+            return transform_at(Reanimation.FindTrackIndex(trackName), frameIndex);
+        }
+
+        public ShowcaseReanimationTransform transform_at(int trackIndex, double frameIndex)
+        {
+            ReanimatorTrack track = trackIndex < 0 || trackIndex >= track_count
+                ? null
+                : Reanimation.mDefinition?.mTracks?[trackIndex];
+            int frame = (int)Math.Round(frameIndex);
+            if (track?.mTransforms is null || frame < 0 || frame >= track.mTransformCount)
+            {
+                return null;
+            }
+
+            return new ShowcaseReanimationTransform(track.mTransforms[frame]);
+        }
+
+        public string image_at(string trackName, double frameIndex)
+        {
+            return transform(trackName, frameIndex)?.image;
+        }
+
+        public string text_at(string trackName, double frameIndex)
+        {
+            return transform(trackName, frameIndex)?.text;
         }
 
         public ShowcaseReanimation show_only_track(string trackName)
@@ -330,9 +423,20 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public ShowcaseReanimation set_render_group_prefix(string trackNamePrefix, double renderGroup)
+        {
+            Reanimation.AssignRenderGroupToPrefix(trackNamePrefix ?? string.Empty, (int)Math.Round(renderGroup));
+            return this;
+        }
+
+        public ShowcaseReanimation set_render_group_by_prefix(string trackNamePrefix, double renderGroup)
+        {
+            return set_render_group_prefix(trackNamePrefix, renderGroup);
+        }
+
         public int get_render_group_by_prefix(string trackNamePrefix)
         {
-            return Reanimation.GetRenderGroupByPrefix(trackNamePrefix);
+            return Reanimation.GetRenderGroupByPrefix(trackNamePrefix ?? string.Empty);
         }
 
         public double track_velocity(string trackName)
@@ -371,6 +475,114 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public ShowcaseReanimationFrameRange frame_range(string trackName)
+        {
+            EnsureTrack(trackName);
+            Reanimation.GetFramesForLayer(trackName, out int frameStart, out int frameCount);
+            return new ShowcaseReanimationFrameRange(frameStart, frameCount);
+        }
+
+        public ShowcaseReanimation set_frame_range(double startFrame, double frameCount)
+        {
+            int maxFrameCount = Reanimation.mDefinition?.mTracks is { Length: > 0 }
+                ? Reanimation.mDefinition.mTracks[0].mTransformCount
+                : 0;
+            if (maxFrameCount <= 0)
+            {
+                Reanimation.mFrameStart = 0;
+                Reanimation.mFrameCount = 0;
+                Reanimation.mLastFrameTime = -1f;
+                return this;
+            }
+
+            int start = Math.Clamp((int)Math.Round(startFrame), 0, maxFrameCount - 1);
+            int count = Math.Clamp((int)Math.Round(frameCount), 1, maxFrameCount - start);
+            Reanimation.mFrameStart = start;
+            Reanimation.mFrameCount = count;
+            Reanimation.mLastFrameTime = -1f;
+            return this;
+        }
+
+        public ShowcaseReanimationTransform current_transform(string trackName)
+        {
+            EnsureTrack(trackName);
+            int index = Reanimation.FindTrackIndex(trackName);
+            return current_transform_at(index);
+        }
+
+        public ShowcaseReanimationTransform current_transform_at(int index)
+        {
+            if (index < 0 || index >= track_count || Reanimation.mFrameCount == 0)
+            {
+                return null;
+            }
+
+            Reanimation.GetCurrentTransform(index, out ReanimatorTransform transform);
+            return new ShowcaseReanimationTransform(transform);
+        }
+
+        public ShowcaseFrameTime frame_time()
+        {
+            if (Reanimation.mFrameCount == 0)
+            {
+                return null;
+            }
+
+            Reanimation.GetFrameTime(out ReanimatorFrameTime frameTime);
+            return new ShowcaseFrameTime(frameTime);
+        }
+
+        public ShowcaseMatrix track_matrix(string trackName)
+        {
+            EnsureTrack(trackName);
+            return track_matrix_at(Reanimation.FindTrackIndex(trackName));
+        }
+
+        public ShowcaseMatrix track_matrix_at(int index)
+        {
+            if (index < 0 || index >= track_count || Reanimation.mFrameCount == 0)
+            {
+                return null;
+            }
+
+            Reanimation.GetTrackMatrix(index, out Matrix4x4 matrix);
+            return new ShowcaseMatrix(matrix);
+        }
+
+        public ShowcaseMatrix attachment_overlay_matrix(string trackName)
+        {
+            EnsureTrack(trackName);
+            return attachment_overlay_matrix_at(Reanimation.FindTrackIndex(trackName));
+        }
+
+        public ShowcaseMatrix attachment_overlay_matrix_at(int index)
+        {
+            if (index < 0 || index >= track_count || Reanimation.mFrameCount == 0)
+            {
+                return null;
+            }
+
+            Reanimation.GetAttachmentOverlayMatrix(index, out Matrix4x4 matrix);
+            return new ShowcaseMatrix(matrix);
+        }
+
+        public ShowcaseMatrix track_base_pose_matrix(string trackName)
+        {
+            EnsureTrack(trackName);
+            return track_base_pose_matrix_at(Reanimation.FindTrackIndex(trackName));
+        }
+
+        public ShowcaseMatrix track_base_pose_matrix_at(int index)
+        {
+            if (index < 0 || index >= track_count || Reanimation.mFrameCount == 0)
+            {
+                return null;
+            }
+
+            Reanimation.GetTrackBasePoseMatrix(index, out Matrix4x4 matrix);
+            return new ShowcaseMatrix(matrix);
+        }
+
         public bool should_trigger_timed_event(double eventTime)
         {
             return Reanimation.ShouldTriggerTimedEvent((float)eventTime);
@@ -398,6 +610,30 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public bool draw_track(LuaGraphicsApi graphics, string trackName)
+        {
+            EnsureTrack(trackName);
+            return draw_track_at(graphics, Reanimation.FindTrackIndex(trackName));
+        }
+
+        public bool draw_track_at(LuaGraphicsApi graphics, int index)
+        {
+            if (graphics is null || Reanimation.mDead || Reanimation.mFrameCount == 0 || index < 0 || index >= track_count)
+            {
+                return false;
+            }
+
+            ref ReanimatorTrackInstance track = ref Reanimation.mTrackInstances[index];
+            bool trackDrawn = Reanimation.DrawTrack(graphics.Graphics, index, track.mRenderGroup);
+            EffectSystem effectSystem = Reanimation.mReanimationHolder?.mEffectSystem;
+            if (track.mAttachmentID != AttachmentID.Null && effectSystem is not null)
+            {
+                GlobalMembersAttachment.AttachmentDraw(effectSystem, track.mAttachmentID, graphics.Graphics, !trackDrawn);
+            }
+
+            return trackDrawn;
+        }
+
         public ShowcaseReanimation draw_group(LuaGraphicsApi graphics, double renderGroup)
         {
             if (graphics is not null && !Reanimation.mDead)
@@ -422,6 +658,18 @@ namespace EffectViewer.Runtime.Showcase
         public ShowcaseReanimation attach_reanim(string trackName, ShowcaseReanimation child, double offsetX, double offsetY)
         {
             _scene.AttachReanimation(Reanimation, trackName, child, (float)offsetX, (float)offsetY);
+            return this;
+        }
+
+        public ShowcaseReanimation attach_to_another_reanimation(ShowcaseReanimation parent, string trackName)
+        {
+            if (parent?.Reanimation is null)
+            {
+                throw new InvalidOperationException("The parent reanimation is not valid.");
+            }
+
+            parent.EnsureTrack(trackName);
+            Reanimation.AttachToAnotherReanimation(parent.Reanimation, trackName);
             return this;
         }
 
@@ -479,6 +727,12 @@ namespace EffectViewer.Runtime.Showcase
         private static int ClampColor(double value)
         {
             return Math.Clamp((int)Math.Round(value), 0, 255);
+        }
+
+        private static Image RequireImage(string imageId)
+        {
+            Image image = ResourceHandler.GetImage(imageId);
+            return image ?? throw new InvalidOperationException($"Image '{imageId}' was not found in the current project.");
         }
 
         private void EnsureTrack(string trackName)

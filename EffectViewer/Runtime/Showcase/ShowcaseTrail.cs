@@ -1,6 +1,7 @@
 using System.Numerics;
 using EffectViewer.Runtime.Lua;
 using EffectViewer.TodLib.Common;
+using EffectViewer.TodLib.Graphics;
 using EffectViewer.TodLib.Trail;
 
 namespace EffectViewer.Runtime.Showcase
@@ -109,6 +110,20 @@ namespace EffectViewer.Runtime.Showcase
         }
 
         public int point_count => Trail?.mNumTrailPoints ?? 0;
+        public string image_id => Trail?.mDefinition?.mImage;
+        public string image_override_id => Trail?.mImageOverride?.mId;
+        public int trail_flags
+        {
+            get => Trail?.mDefinition?.mTrailFlags ?? 0;
+            set
+            {
+                if (Trail?.mDefinition is not null)
+                {
+                    Trail.mDefinition.mTrailFlags = value;
+                }
+            }
+        }
+
         public int max_points
         {
             get => Trail?.mDefinition?.mMaxPoints ?? 0;
@@ -151,6 +166,16 @@ namespace EffectViewer.Runtime.Showcase
             return set_position(x, y);
         }
 
+        public ShowcaseTrail offset(double x, double y)
+        {
+            if (Trail is not null)
+            {
+                set_position(Trail.mTrailCenter.X + x, Trail.mTrailCenter.Y + y);
+            }
+
+            return this;
+        }
+
         public ShowcaseTrail add_point(double x, double y)
         {
             _manualPoints = true;
@@ -176,6 +201,17 @@ namespace EffectViewer.Runtime.Showcase
                 : new ShowcaseTrailPoint(Trail, index);
         }
 
+        public ShowcaseVector normal_at(int index)
+        {
+            if (Trail is null || index < 0 || index >= Trail.mNumTrailPoints)
+            {
+                return null;
+            }
+
+            Vector2 normal = default;
+            return Trail.GetNormalAtPoint(index, ref normal) ? new ShowcaseVector(normal.X, normal.Y) : null;
+        }
+
         public ShowcaseTrail set_color(double red, double green, double blue)
         {
             return set_color(red, green, blue, 255);
@@ -191,9 +227,46 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public ShowcaseTrail set_image_override(string imageId)
+        {
+            if (Trail is not null)
+            {
+                Trail.mImageOverride = RequireImage(imageId);
+            }
+
+            return this;
+        }
+
+        public ShowcaseTrail clear_image_override()
+        {
+            if (Trail is not null)
+            {
+                Trail.mImageOverride = null;
+            }
+
+            return this;
+        }
+
+        public bool has_image_override()
+        {
+            return Trail?.mImageOverride is not null;
+        }
+
         public ShowcaseTrail update()
         {
             Trail?.Update();
+            return this;
+        }
+
+        public ShowcaseTrail update_attached_path()
+        {
+            UpdateAttachedPath();
+            return this;
+        }
+
+        public ShowcaseTrail update_standalone_path()
+        {
+            UpdateStandalonePath();
             return this;
         }
 
@@ -210,6 +283,18 @@ namespace EffectViewer.Runtime.Showcase
         public ShowcaseTrail set_manual_points(bool enabled)
         {
             _manualPoints = enabled;
+            return this;
+        }
+
+        public ShowcaseTrail set_age(double value)
+        {
+            age = (int)System.Math.Round(value);
+            return this;
+        }
+
+        public ShowcaseTrail set_duration(double value)
+        {
+            duration = (int)System.Math.Round(value);
             return this;
         }
 
@@ -270,6 +355,12 @@ namespace EffectViewer.Runtime.Showcase
         private static int ClampColor(double value)
         {
             return System.Math.Clamp((int)System.Math.Round(value), 0, 255);
+        }
+
+        private static Image RequireImage(string imageId)
+        {
+            Image image = ResourceHandler.GetImage(imageId);
+            return image ?? throw new System.InvalidOperationException($"Image '{imageId}' was not found in the current project.");
         }
     }
 }

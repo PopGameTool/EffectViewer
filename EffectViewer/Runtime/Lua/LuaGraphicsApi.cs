@@ -80,13 +80,29 @@ namespace EffectViewer.Runtime.Lua
             return this;
         }
 
+        public LuaGraphicsApi set_clip_rect(double x, double y, double width, double height)
+        {
+            _graphics.mClipRect = new Rectangle(
+                (int)Math.Round(x),
+                (int)Math.Round(y),
+                (int)Math.Round(width),
+                (int)Math.Round(height));
+            return this;
+        }
+
+        public LuaGraphicsApi clear_clip_rect()
+        {
+            _graphics.mClipRect = new Rectangle(-16384, -16384, 16384 * 3, 16384 * 3);
+            return this;
+        }
+
         public LuaGraphicsApi reset()
         {
             _graphics.mTransX = 0;
             _graphics.mTransY = 0;
             _graphics.mColor = SexyColor.White;
             _graphics.mDrawMode = DrawMode.Normal;
-            _graphics.mClipRect = new Rectangle(-16384, -16384, 16384 * 3, 16384 * 3);
+            clear_clip_rect();
             return this;
         }
 

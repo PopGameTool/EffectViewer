@@ -16,8 +16,15 @@ namespace EffectViewer.Runtime.Lua
             RegisterLuaType<LuaSceneApi>();
             RegisterLuaType<LuaGraphicsApi>();
             RegisterLuaType<SceneObject>();
+            RegisterLuaType<ShowcaseAttachmentEffect>();
+            RegisterLuaType<ShowcaseFrameTime>();
+            RegisterLuaType<ShowcaseImage>();
+            RegisterLuaType<ShowcaseMatrix>();
             RegisterLuaType<ShowcaseReanimation>();
+            RegisterLuaType<ShowcaseReanimationFrameRange>();
             RegisterLuaType<ShowcaseReanimationTrack>();
+            RegisterLuaType<ShowcaseReanimationTransform>();
+            RegisterLuaType<ShowcaseVector>();
             RegisterLuaType<ShowcaseParticle>();
             RegisterLuaType<ShowcaseParticleEmitter>();
             RegisterLuaType<ShowcaseParticleInstance>();

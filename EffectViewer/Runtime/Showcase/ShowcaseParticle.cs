@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using EffectViewer.Runtime.Lua;
 using EffectViewer.TodLib.Common;
+using EffectViewer.TodLib.Graphics;
 using EffectViewer.TodLib.Particle;
 
 namespace EffectViewer.Runtime.Showcase
@@ -77,6 +78,7 @@ namespace EffectViewer.Runtime.Showcase
         }
 
         public int emitter_count => ParticleSystem?.mEmitterList.Count ?? 0;
+        public int emitter_definition_count => ParticleSystem?.mParticleDef?.mEmitterDefCount ?? 0;
         public bool is_dead() => ParticleSystem is null || ParticleSystem.mDead;
 
         public double get_x()
@@ -100,6 +102,16 @@ namespace EffectViewer.Runtime.Showcase
         public ShowcaseParticle move(double x, double y)
         {
             return set_position(x, y);
+        }
+
+        public ShowcaseParticle offset(double x, double y)
+        {
+            if (ParticleSystem is not null)
+            {
+                set_position(get_x() + x, get_y() + y);
+            }
+
+            return this;
         }
 
         public ShowcaseParticle set_color(double red, double green, double blue)
@@ -156,6 +168,30 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public ShowcaseParticle set_image_override(string imageId)
+        {
+            ParticleSystem?.OverrideImage(null, RequireImage(imageId));
+            return this;
+        }
+
+        public ShowcaseParticle clear_image_override()
+        {
+            ParticleSystem?.OverrideImage(null, null);
+            return this;
+        }
+
+        public ShowcaseParticle set_emitter_image_override(string emitterName, string imageId)
+        {
+            ParticleSystem?.OverrideImage(NormalizeEmitterName(emitterName), RequireImage(imageId));
+            return this;
+        }
+
+        public ShowcaseParticle clear_emitter_image_override(string emitterName)
+        {
+            ParticleSystem?.OverrideImage(NormalizeEmitterName(emitterName), null);
+            return this;
+        }
+
         public ShowcaseParticle set_extra_additive_draw(bool enabled)
         {
             ParticleSystem?.OverrideExtraAdditiveDraw(null, enabled);
@@ -205,6 +241,65 @@ namespace EffectViewer.Runtime.Showcase
             return emitter_at(index)?.name;
         }
 
+        public bool emitter_exists(string emitterName)
+        {
+            return ParticleSystem?.FindEmitterByName(emitterName) is not null;
+        }
+
+        public int emitter_index(string emitterName)
+        {
+            if (ParticleSystem is null)
+            {
+                return -1;
+            }
+
+            int index = 0;
+            for (LinkedListNode<ParticleEmitterID> node = ParticleSystem.mEmitterList.First; node is not null; node = node.Next)
+            {
+                TodParticleEmitter emitter = ParticleSystem.mParticleHolder.mEmitters.DataArrayTryToGet(node.Value);
+                if (emitter is not null && string.Equals(emitter.mEmitterDef?.mName, emitterName, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return index;
+                }
+
+                index++;
+            }
+
+            return -1;
+        }
+
+        public string emitter_definition_name(int index)
+        {
+            TodEmitterDefinition definition = emitter_definition_at(index);
+            return definition?.mName;
+        }
+
+        public string emitter_definition_image_id(int index)
+        {
+            TodEmitterDefinition definition = emitter_definition_at(index);
+            return definition?.mImage;
+        }
+
+        public ShowcaseParticle delete_all()
+        {
+            if (ParticleSystem is not null)
+            {
+                foreach (ParticleEmitterID emitterId in ParticleSystem.mEmitterList)
+                {
+                    TodParticleEmitter emitter = ParticleSystem.mParticleHolder.mEmitters.DataArrayTryToGet(emitterId);
+                    emitter?.DeleteAll();
+                }
+            }
+
+            return this;
+        }
+
+        public ShowcaseParticle delete_emitter_particles(string emitterName)
+        {
+            ParticleSystem?.FindEmitterByName(emitterName)?.DeleteAll();
+            return this;
+        }
+
         public ShowcaseParticle update()
         {
             ParticleSystem?.Update();
@@ -245,6 +340,21 @@ namespace EffectViewer.Runtime.Showcase
         private static int ClampColor(double value)
         {
             return System.Math.Clamp((int)System.Math.Round(value), 0, 255);
+        }
+
+        private TodEmitterDefinition emitter_definition_at(int index)
+        {
+            return ParticleSystem?.mParticleDef?.mEmitterDefs is null ||
+                index < 0 ||
+                index >= ParticleSystem.mParticleDef.mEmitterDefCount
+                ? null
+                : ParticleSystem.mParticleDef.mEmitterDefs[index];
+        }
+
+        private static Image RequireImage(string imageId)
+        {
+            Image image = ResourceHandler.GetImage(imageId);
+            return image ?? throw new System.InvalidOperationException($"Image '{imageId}' was not found in the current project.");
         }
     }
 }

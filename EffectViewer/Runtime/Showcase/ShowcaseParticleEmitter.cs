@@ -16,6 +16,17 @@ namespace EffectViewer.Runtime.Showcase
         internal TodParticleEmitter Emitter { get; }
 
         public string name => Emitter?.mEmitterDef?.mName ?? string.Empty;
+        public string image_id => Emitter?.mEmitterDef?.mImage;
+        public string image_override_id => Emitter?.mImageOverride?.mId;
+        public int image_col => Emitter?.mEmitterDef?.mImageCol ?? 0;
+        public int image_row => Emitter?.mEmitterDef?.mImageRow ?? 0;
+        public int image_frames => Emitter?.mEmitterDef?.mImageFrames ?? 0;
+        public bool animated => Emitter?.mEmitterDef?.mAnimated != 0;
+        public string emitter_type => Emitter?.mEmitterDef?.mEmitterType.ToString();
+        public string on_duration => Emitter?.mEmitterDef?.mOnDuration;
+        public int particle_flags => Emitter?.mEmitterDef?.mParticleFlags ?? 0;
+        public int particle_field_count => Emitter?.mEmitterDef?.mParticleFieldCount ?? 0;
+        public int system_field_count => Emitter?.mEmitterDef?.mSystemFieldCount ?? 0;
 
         public double spawn_accum
         {
@@ -162,8 +173,21 @@ namespace EffectViewer.Runtime.Showcase
         }
 
         public int particle_count => Emitter?.mParticleList.Count ?? 0;
+        public int cross_fade_countdown
+        {
+            get => Emitter?.mEmitterCrossFadeCountDown ?? 0;
+            set
+            {
+                if (Emitter is not null)
+                {
+                    Emitter.mEmitterCrossFadeCountDown = Math.Max(0, value);
+                }
+            }
+        }
 
         public bool is_dead() => Emitter is null || Emitter.mDead;
+        public double center_x() => Emitter?.mSystemCenter.X ?? 0;
+        public double center_y() => Emitter?.mSystemCenter.Y ?? 0;
 
         public ShowcaseParticleEmitter update()
         {
@@ -185,6 +209,11 @@ namespace EffectViewer.Runtime.Showcase
         {
             Emitter?.SystemMove((float)x, (float)y);
             return this;
+        }
+
+        public ShowcaseParticleEmitter move(double x, double y)
+        {
+            return set_position(x, y);
         }
 
         public ShowcaseParticleEmitter set_color(double red, double green, double blue)
@@ -221,6 +250,52 @@ namespace EffectViewer.Runtime.Showcase
             if (Emitter is not null)
             {
                 Emitter.mFrameOverride = (int)Math.Round(frame);
+            }
+
+            return this;
+        }
+
+        public ShowcaseParticleEmitter set_image_override(string imageId)
+        {
+            if (Emitter is not null)
+            {
+                Emitter.mImageOverride = RequireImage(imageId);
+            }
+
+            return this;
+        }
+
+        public ShowcaseParticleEmitter clear_image_override()
+        {
+            if (Emitter is not null)
+            {
+                Emitter.mImageOverride = null;
+            }
+
+            return this;
+        }
+
+        public bool has_image_override()
+        {
+            return Emitter?.mImageOverride is not null;
+        }
+
+        public ShowcaseParticleEmitter spawn()
+        {
+            return spawn(1);
+        }
+
+        public ShowcaseParticleEmitter spawn(double count)
+        {
+            if (Emitter is null || Emitter.mDead)
+            {
+                return this;
+            }
+
+            int spawnCount = Math.Clamp((int)Math.Round(count), 0, 512);
+            for (int i = 0; i < spawnCount; i++)
+            {
+                Emitter.SpawnParticle(i, spawnCount);
             }
 
             return this;
@@ -285,9 +360,49 @@ namespace EffectViewer.Runtime.Showcase
             return null;
         }
 
+        public int particle_index(ShowcaseParticleInstance particle)
+        {
+            if (Emitter is null || particle?.Particle is null)
+            {
+                return -1;
+            }
+
+            int index = 0;
+            for (LinkedListNode<ParticleID> node = Emitter.mParticleList.First; node is not null; node = node.Next)
+            {
+                TodParticle current = Emitter.mParticleSystem.mParticleHolder.mParticles.DataArrayTryToGet(node.Value);
+                if (ReferenceEquals(current, particle.Particle))
+                {
+                    return index;
+                }
+
+                index++;
+            }
+
+            return -1;
+        }
+
+        public ShowcaseParticleEmitter delete_particle(ShowcaseParticleInstance particle)
+        {
+            if (Emitter is not null &&
+                particle?.Particle is not null &&
+                ReferenceEquals(particle.Particle.mParticleEmitter, Emitter))
+            {
+                Emitter.DeleteParticle(particle.Particle);
+            }
+
+            return this;
+        }
+
         private static int ClampColor(double value)
         {
             return Math.Clamp((int)Math.Round(value), 0, 255);
+        }
+
+        private static Image RequireImage(string imageId)
+        {
+            Image image = ResourceHandler.GetImage(imageId);
+            return image ?? throw new InvalidOperationException($"Image '{imageId}' was not found in the current project.");
         }
     }
 }

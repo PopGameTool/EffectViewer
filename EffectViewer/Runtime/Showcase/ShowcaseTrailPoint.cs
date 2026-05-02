@@ -50,6 +50,28 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public ShowcaseTrailPoint offset(double x, double y)
+        {
+            if (IsValid)
+            {
+                _trail.mTrailPoints[_index].aPos.X += (float)x;
+                _trail.mTrailPoints[_index].aPos.Y += (float)y;
+            }
+
+            return this;
+        }
+
+        public ShowcaseVector normal()
+        {
+            if (!IsValid)
+            {
+                return null;
+            }
+
+            Vector2 normal = default;
+            return _trail.GetNormalAtPoint(_index, ref normal) ? new ShowcaseVector(normal.X, normal.Y) : null;
+        }
+
         private bool IsValid => _trail is not null && _index >= 0 && _index < _trail.mNumTrailPoints;
     }
 }

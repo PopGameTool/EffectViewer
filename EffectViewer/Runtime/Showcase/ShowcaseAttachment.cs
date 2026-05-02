@@ -30,6 +30,8 @@ namespace EffectViewer.Runtime.Showcase
         }
 
         public bool is_dead() => Attachment is null || Attachment.mDead;
+        public bool is_empty() => Attachment is null || Attachment.mNumEffects == 0;
+        public bool is_full() => Attachment is not null && Attachment.mNumEffects >= TodLibConstants.MAX_EFFECTS_PER_ATTACHMENT;
 
         public ShowcaseAttachment update()
         {
@@ -57,6 +59,13 @@ namespace EffectViewer.Runtime.Showcase
         {
             Attachment?.Detach();
             return this;
+        }
+
+        public ShowcaseAttachmentEffect effect(int index)
+        {
+            return Attachment is null || index < 0 || index >= Attachment.mNumEffects
+                ? null
+                : new ShowcaseAttachmentEffect(Attachment, index);
         }
 
         public ShowcaseAttachment cross_fade(string emitterName)

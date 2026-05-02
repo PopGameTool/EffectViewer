@@ -168,6 +168,12 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
+        public double pos_x() => Particle?.mPosition.X ?? 0;
+        public double pos_y() => Particle?.mPosition.Y ?? 0;
+        public double velocity_x_value() => Particle?.mVelocity.X ?? 0;
+        public double velocity_y_value() => Particle?.mVelocity.Y ?? 0;
+        public bool is_cross_fading() => Particle is not null && Particle.mCrossFadeDuration > 0;
+
         public ShowcaseParticleEmitter emitter()
         {
             return Particle?.mParticleEmitter is null ? null : new ShowcaseParticleEmitter(Particle.mParticleEmitter);
@@ -190,6 +196,45 @@ namespace EffectViewer.Runtime.Showcase
             {
                 Particle.mVelocity.X = (float)x;
                 Particle.mVelocity.Y = (float)y;
+            }
+
+            return this;
+        }
+
+        public ShowcaseParticleInstance offset_velocity(double x, double y)
+        {
+            if (Particle is not null)
+            {
+                Particle.mVelocity.X += (float)x;
+                Particle.mVelocity.Y += (float)y;
+            }
+
+            return this;
+        }
+
+        public ShowcaseParticleInstance set_age(double value)
+        {
+            age = (int)Math.Round(value);
+            return this;
+        }
+
+        public ShowcaseParticleInstance set_duration(double value)
+        {
+            duration = (int)Math.Round(value);
+            return this;
+        }
+
+        public ShowcaseParticleInstance move(double x, double y)
+        {
+            return set_position(x, y);
+        }
+
+        public ShowcaseParticleInstance offset(double x, double y)
+        {
+            if (Particle is not null)
+            {
+                Particle.mPosition.X += (float)x;
+                Particle.mPosition.Y += (float)y;
             }
 
             return this;
