@@ -466,7 +466,7 @@ namespace EffectViewer.Runtime.Showcase
                 return null;
             }
 
-            Attachment attachment = EffectSystem.gEffectSystem?.mAttachmentHolder.mAttachments.DataArrayTryToGet(attachmentId);
+            Attachment attachment = Reanimation.mReanimationHolder?.mEffectSystem?.mAttachmentHolder?.mAttachments.DataArrayTryToGet(attachmentId);
             return attachment is null ? null : new ShowcaseAttachment(attachment);
         }
 

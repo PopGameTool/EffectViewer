@@ -51,6 +51,8 @@ namespace EffectViewer.TodLib.Reanim
         uint IDataArrayItem.Id { get; set; }
         int IDataArrayItem.Index { get; init; }
 
+        private EffectSystem mEffectSystem => mReanimationHolder?.mEffectSystem;
+
         public Reanimation()
         {
             Reset();
@@ -146,10 +148,15 @@ namespace EffectViewer.TodLib.Reanim
             if (!mDead)
             {
                 mDead = true;
+                if (mEffectSystem == null)
+                {
+                    return;
+                }
+
                 for (int aTrackIndex = 0; aTrackIndex < mDefinition.mTrackCount; aTrackIndex++)
                 {
                     Debug.ASSERT(mTrackInstances != null);
-                    GlobalMembersAttachment.AttachmentDie(ref mTrackInstances[aTrackIndex].mAttachmentID);
+                    GlobalMembersAttachment.AttachmentDie(mEffectSystem, ref mTrackInstances[aTrackIndex].mAttachmentID);
                 }
             }
         }
@@ -258,7 +265,7 @@ namespace EffectViewer.TodLib.Reanim
                 if (aTrack.mAttachmentID != AttachmentID.Null)
                 {
                     GetAttachmentOverlayMatrix(aTrackIndex, out Matrix4x4 aOverlayMatrix);
-                    GlobalMembersAttachment.AttachmentUpdateAndSetMatrix(ref aTrack.mAttachmentID, aOverlayMatrix);
+                    GlobalMembersAttachment.AttachmentUpdateAndSetMatrix(mEffectSystem, ref aTrack.mAttachmentID, aOverlayMatrix);
                 }
             }
         }
@@ -281,9 +288,9 @@ namespace EffectViewer.TodLib.Reanim
                 if (aTrackInstance.mRenderGroup == theRenderGroup)
                 {
                     bool aTrackDrawn = DrawTrack(g, aTrackIndex, theRenderGroup);
-                    if (aTrackInstance.mAttachmentID != AttachmentID.Null)
+                    if (aTrackInstance.mAttachmentID != AttachmentID.Null && mEffectSystem != null)
                     {
-                        GlobalMembersAttachment.AttachmentDraw(aTrackInstance.mAttachmentID, g, !aTrackDrawn);
+                        GlobalMembersAttachment.AttachmentDraw(mEffectSystem, aTrackInstance.mAttachmentID, g, !aTrackDrawn);
                     }
                 }
             }
@@ -518,9 +525,32 @@ namespace EffectViewer.TodLib.Reanim
 
         public void AttachToAnotherReanimation(Reanimation theAttachReanim, string theTrackName)
         {
+            if (theAttachReanim == null)
+            {
+                throw new ArgumentNullException(nameof(theAttachReanim));
+            }
+
             if (theAttachReanim.mDefinition.mTrackCount <= 0)
             {
                 return;
+            }
+
+            Debug.ASSERT(mEffectSystem != null);
+            if (mEffectSystem == null)
+            {
+                throw new InvalidOperationException("The reanimation is not owned by an EffectSystem.");
+            }
+
+            Debug.ASSERT(ReferenceEquals(theAttachReanim.mReanimationHolder?.mEffectSystem, mEffectSystem));
+            if (!ReferenceEquals(theAttachReanim.mReanimationHolder?.mEffectSystem, mEffectSystem))
+            {
+                throw new InvalidOperationException("Both reanimations must belong to the same EffectSystem.");
+            }
+
+            if (!mEffectSystem.mReanimationHolder.mReanimations.DataArrayContains(this) ||
+                !mEffectSystem.mReanimationHolder.mReanimations.DataArrayContains(theAttachReanim))
+            {
+                throw new InvalidOperationException("Both reanimations must be active in the same EffectSystem.");
             }
 
             if (theAttachReanim.mFrameBasePose == -1)
@@ -528,7 +558,7 @@ namespace EffectViewer.TodLib.Reanim
                 theAttachReanim.mFrameBasePose = theAttachReanim.mFrameStart;  // 将当前动作的起始帧作为变换基准帧
             }
 
-            GlobalMembersAttachment.AttachReanim(ref theAttachReanim.GetTrackInstanceByName(theTrackName).mAttachmentID, this, 0f, 0f);
+            GlobalMembersAttachment.AttachReanim(mEffectSystem, ref theAttachReanim.GetTrackInstanceByName(theTrackName).mAttachmentID, this, 0f, 0f);
         }
 
         public void GetAttachmentOverlayMatrix(int theTrackIndex, out Matrix4x4 theOverlayMatrix)
@@ -744,9 +774,14 @@ namespace EffectViewer.TodLib.Reanim
 
         public void PropogateColorToAttachments()
         {
+            if (mEffectSystem == null)
+            {
+                return;
+            }
+
             for (int i = 0; i < mDefinition.mTrackCount; i++)
             {
-                GlobalMembersAttachment.AttachmentPropogateColor(mTrackInstances[i].mAttachmentID, mColorOverride, mEnableExtraAdditiveDraw, mExtraAdditiveColor, mEnableExtraOverlayDraw, mExtraOverlayColor);
+                GlobalMembersAttachment.AttachmentPropogateColor(mEffectSystem, mTrackInstances[i].mAttachmentID, mColorOverride, mEnableExtraAdditiveDraw, mExtraAdditiveColor, mEnableExtraOverlayDraw, mExtraOverlayColor);
             }
         }
 
@@ -777,11 +812,32 @@ namespace EffectViewer.TodLib.Reanim
 
         public ref AttachEffect AttachParticleToTrack(string theTrackName, TodParticleSystem theParticleSystem, float thePosX, float thePosY)
         {
+            if (theParticleSystem != null)
+            {
+                Debug.ASSERT(mEffectSystem != null);
+                if (mEffectSystem == null)
+                {
+                    throw new InvalidOperationException("The reanimation is not owned by an EffectSystem.");
+                }
+
+                Debug.ASSERT(ReferenceEquals(theParticleSystem.mParticleHolder?.mEffectSystem, mEffectSystem));
+                if (!ReferenceEquals(theParticleSystem.mParticleHolder?.mEffectSystem, mEffectSystem))
+                {
+                    throw new InvalidOperationException("The particle system must belong to the same EffectSystem.");
+                }
+
+                if (!mEffectSystem.mReanimationHolder.mReanimations.DataArrayContains(this) ||
+                    !mEffectSystem.mParticleHolder.mParticleSystems.DataArrayContains(theParticleSystem))
+                {
+                    throw new InvalidOperationException("The reanimation and particle system must be active in the same EffectSystem.");
+                }
+            }
+
             int aTrackIndex = FindTrackIndex(theTrackName);
             ref ReanimatorTrackInstance reanimatorTrackInstance = ref mTrackInstances[aTrackIndex];
             GetTrackBasePoseMatrix(aTrackIndex, out Matrix4x4 aBasePoseMatrix);  // 取得轨道基础形态的变换矩阵
             Vector2 aPosition = Vector2.Transform(new Vector2(thePosX, thePosY), aBasePoseMatrix);  // 以基础形态的矩阵变换位置向量
-            return ref GlobalMembersAttachment.AttachParticle(ref reanimatorTrackInstance.mAttachmentID, theParticleSystem, aPosition.X, aPosition.Y);
+            return ref GlobalMembersAttachment.AttachParticle(mEffectSystem, ref reanimatorTrackInstance.mAttachmentID, theParticleSystem, aPosition.X, aPosition.Y);
         }
 
         public void GetTrackBasePoseMatrix(int theTrackIndex, out Matrix4x4 theBasePoseMatrix)
@@ -919,18 +975,18 @@ namespace EffectViewer.TodLib.Reanim
             string aReanimationType = aAttacherInfo.mReanimationType;
             if (string.IsNullOrEmpty(aReanimationType))  // 如果没有设定当前附属动画名称，或未找到相应的动画
             {
-                GlobalMembersAttachment.AttachmentDie(ref aTrackInstance.mAttachmentID);  // 清除附件
+                GlobalMembersAttachment.AttachmentDie(mEffectSystem, ref aTrackInstance.mAttachmentID);  // 清除附件
                 return;
             }
 
-            Reanimation aAttachReanim = GlobalMembersAttachment.FindReanimAttachment(aTrackInstance.mAttachmentID);
+            Reanimation aAttachReanim = GlobalMembersAttachment.FindReanimAttachment(mEffectSystem, aTrackInstance.mAttachmentID);
             if (aAttachReanim == null || aAttachReanim.mReanimationType != aReanimationType)  // 如果原先没有附属动画，或原附属动画不是上述设定的动画
             {
-                GlobalMembersAttachment.AttachmentDie(ref aTrackInstance.mAttachmentID);  // 清除原有附件
-                aAttachReanim = EffectSystem.gEffectSystem.mReanimationHolder.AllocReanimation(0f, 0f, 0, aReanimationType);  // 重新创建一个指定的动画
+                GlobalMembersAttachment.AttachmentDie(mEffectSystem, ref aTrackInstance.mAttachmentID);  // 清除原有附件
+                aAttachReanim = mEffectSystem.mReanimationHolder.AllocReanimation(0f, 0f, 0, aReanimationType);  // 重新创建一个指定的动画
                 aAttachReanim.mLoopType = aAttacherInfo.mLoopType;
                 aAttachReanim.mAnimRate = aAttacherInfo.mAnimRate;
-                GlobalMembersAttachment.AttachReanim(ref aTrackInstance.mAttachmentID, aAttachReanim, 0f, 0f);
+                GlobalMembersAttachment.AttachReanim(mEffectSystem, ref aTrackInstance.mAttachmentID, aAttachReanim, 0f, 0f);
                 mFrameBasePose = ReanimatorXnaHelpers.NO_BASE_POSE;  // 设定附属动画后，自身不再存在基准帧
             }
 
@@ -960,7 +1016,7 @@ namespace EffectViewer.TodLib.Reanim
 
             SexyColor aColor = TodCommon.ColorsMultiply(mColorOverride, aTrackInstance.mTrackColor);
             aColor.mAlpha = TodCommon.ClampInt(TodCommon.FloatRoundToInt(aTransform.mAlpha * aColor.mAlpha), 0, 255);
-            GlobalMembersAttachment.AttachmentPropogateColor(aTrackInstance.mAttachmentID, aColor, mEnableExtraAdditiveDraw, mExtraAdditiveColor, mEnableExtraOverlayDraw, mExtraOverlayColor);
+            GlobalMembersAttachment.AttachmentPropogateColor(mEffectSystem, aTrackInstance.mAttachmentID, aColor, mEnableExtraAdditiveDraw, mExtraAdditiveColor, mEnableExtraOverlayDraw, mExtraOverlayColor);
         }
 
         public static void ParseAttacherTrack(in ReanimatorTransform theTransform, out AttacherInfo theAttacherInfo)
@@ -1096,7 +1152,7 @@ namespace EffectViewer.TodLib.Reanim
             float aLoops = aPlaceHolderDistance / aGuyDistance;  // 以附属动画目标位移（占位位移）除以其周期位移，得到附属动画需要循环的周期数
             theAttachReanim.GetCurrentTransform(aGroundTrackIndex, out ReanimatorTransform aTransformGuyCurrent);
             ref ReanimatorTrackInstance reanimatorTrackInstance = ref mTrackInstances[theTrackIndex];
-            ref AttachEffect aAttachEffect = ref GlobalMembersAttachment.FindFirstAttachment(reanimatorTrackInstance.mAttachmentID);
+            ref AttachEffect aAttachEffect = ref GlobalMembersAttachment.FindFirstAttachment(mEffectSystem, reanimatorTrackInstance.mAttachmentID);
             if (!Unsafe.IsNullRef(ref aAttachEffect))
             {
                 float aGuyCurrentDistance = aTransformGuyCurrent.mTransX - aTransformGuyStart.mTransX;  // 附属动画在其周期内当前已经过的位移
@@ -1133,7 +1189,7 @@ namespace EffectViewer.TodLib.Reanim
 
             for (int i = 0; i < mDefinition.mTrackCount; i++)
             {
-                Reanimation aReanimation = GlobalMembersAttachment.FindReanimAttachment(mTrackInstances[i].mAttachmentID);
+                Reanimation aReanimation = GlobalMembersAttachment.FindReanimAttachment(mEffectSystem, mTrackInstances[i].mAttachmentID);
                 if (aReanimation != null)
                 {
                     Reanimation aSubReanim = aReanimation.FindSubReanim(theReanimType);

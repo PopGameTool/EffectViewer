@@ -8,9 +8,12 @@ namespace EffectViewer.TodLib.Reanim.Attachment
         public InlineArray16<AttachEffect> mEffectArray; // TodLibConstants.MAX_EFFECTS_PER_ATTACHMENT
         public int mNumEffects;
         public bool mDead;
+        public AttachmentHolder mAttachmentHolder;
 
         uint IDataArrayItem.Id { get; set; }
         int IDataArrayItem.Index { get; init; }
+
+        private EffectSystem mEffectSystem => mAttachmentHolder?.mEffectSystem;
 
         public Attachment()
         {
@@ -21,6 +24,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
         {
             mNumEffects = 0;
             mDead = false;
+            mAttachmentHolder = null;
             foreach (ref var item in mEffectArray)
             {
                 item = new();
@@ -34,7 +38,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
 
         public void Update()
         {
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            Debug.ASSERT(mEffectSystem != null);
 
             for (int i = 0; i < mNumEffects; i++)
             {
@@ -44,7 +48,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 {
                 case EffectType.Particle:
                 {
-                    TodParticleSystem aParticleSystem = EffectSystem.gEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
+                    TodParticleSystem aParticleSystem = mEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
                     if (aParticleSystem != null && !aParticleSystem.mDead)
                     {
                         aParticleSystem.Update();
@@ -54,7 +58,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 }
                 case EffectType.Trail:
                 {
-                    EffectViewer.TodLib.Trail.Trail aTrail = EffectSystem.gEffectSystem.mTrailHolder.mTrails.DataArrayTryToGet((TrailID)aAttachEffect.mEffectID);
+                    EffectViewer.TodLib.Trail.Trail aTrail = mEffectSystem.mTrailHolder.mTrails.DataArrayTryToGet((TrailID)aAttachEffect.mEffectID);
                     if (aTrail != null && !aTrail.mDead)
                     {
                         aTrail.Update();
@@ -64,7 +68,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 }
                 case EffectType.Reanim:
                 {
-                    Reanimation aReanimation = EffectSystem.gEffectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
+                    Reanimation aReanimation = mEffectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
                     if (aReanimation != null && !aReanimation.mDead)
                     {
                         aReanimation.Update();
@@ -74,7 +78,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 }
                 case EffectType.Attachment:
                 {
-                    Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet((AttachmentID)aAttachEffect.mEffectID);
+                    Attachment aAttachment = mEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet((AttachmentID)aAttachEffect.mEffectID);
                     if (aAttachment != null)
                     {
                         aAttachment.Update();
@@ -110,17 +114,17 @@ namespace EffectViewer.TodLib.Reanim.Attachment
 
         public void SetMatrix(in Matrix4x4 theMatrix)
         {
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            Debug.ASSERT(mEffectSystem != null);
 
             for (int i = 0; i < mNumEffects; i++)
             {
                 ref readonly AttachEffect aAttachEffect = ref mEffectArray[i];
-                Matrix4x4 aPosition = aAttachEffect.mOffset * theMatrix; // 行向量矩阵
+                Matrix4x4 aPosition = aAttachEffect.mOffset * theMatrix; // 琛屽悜閲忕煩闃?
                 switch (aAttachEffect.mEffectType)
                 {
                 case EffectType.Particle:
                 {
-                    TodParticleSystem aParticleSystem = EffectSystem.gEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
+                    TodParticleSystem aParticleSystem = mEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
                     if (aParticleSystem != null)
                     {
                         aParticleSystem.SystemMove(aPosition.M41, aPosition.M42);
@@ -129,7 +133,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 }
                 case EffectType.Trail:
                 {
-                    EffectViewer.TodLib.Trail.Trail aTrail = EffectSystem.gEffectSystem.mTrailHolder.mTrails.DataArrayTryToGet((TrailID)aAttachEffect.mEffectID);
+                    EffectViewer.TodLib.Trail.Trail aTrail = mEffectSystem.mTrailHolder.mTrails.DataArrayTryToGet((TrailID)aAttachEffect.mEffectID);
                     if (aTrail != null)
                     {
                         aTrail.mTrailCenter = new Vector2(aPosition.M41, aPosition.M42);
@@ -138,7 +142,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 }
                 case EffectType.Reanim:
                 {
-                    Reanimation aReanimation = EffectSystem.gEffectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
+                    Reanimation aReanimation = mEffectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
                     if (aReanimation != null)
                     {
                         aReanimation.mOverlayMatrix = aPosition;
@@ -147,7 +151,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 }
                 case EffectType.Attachment:
                 {
-                    Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet((AttachmentID)aAttachEffect.mEffectID);
+                    Attachment aAttachment = mEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet((AttachmentID)aAttachEffect.mEffectID);
                     if (aAttachment != null)
                     {
                         aAttachment.SetMatrix(aPosition);
@@ -160,7 +164,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
 
         public void OverrideColor(in SexyColor theColor)
         {
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            Debug.ASSERT(mEffectSystem != null);
 
             for (int i = 0; i < mNumEffects; i++)
             {
@@ -169,7 +173,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 {
                 case EffectType.Particle:
                 {
-                    TodParticleSystem aParticleSystem = EffectSystem.gEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
+                    TodParticleSystem aParticleSystem = mEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
                     if (aParticleSystem != null)
                     {
                         aParticleSystem.OverrideColor("", theColor);
@@ -178,7 +182,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 }
                 case EffectType.Reanim:
                 {
-                    Reanimation aReanimation = EffectSystem.gEffectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
+                    Reanimation aReanimation = mEffectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
                     if (aReanimation != null)
                     {
                         aReanimation.mColorOverride = theColor;
@@ -187,7 +191,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 }
                 case EffectType.Attachment:
                 {
-                    Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet((AttachmentID)aAttachEffect.mEffectID);
+                    Attachment aAttachment = mEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet((AttachmentID)aAttachEffect.mEffectID);
                     if (aAttachment != null)
                     {
                         aAttachment.OverrideColor(theColor);
@@ -200,7 +204,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
 
         public void OverrideScale(float theScale)
         {
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            Debug.ASSERT(mEffectSystem != null);
 
             for (int i = 0; i < mNumEffects; i++)
             {
@@ -209,7 +213,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 {
                 case EffectType.Particle:
                 {
-                    TodParticleSystem aParticleSystem = EffectSystem.gEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
+                    TodParticleSystem aParticleSystem = mEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
                     if (aParticleSystem != null)
                     {
                         aParticleSystem.OverrideScale(null, theScale);
@@ -218,7 +222,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 }
                 case EffectType.Reanim:
                 {
-                    Reanimation aReanimation = EffectSystem.gEffectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
+                    Reanimation aReanimation = mEffectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
                     if (aReanimation != null)
                     {
                         aReanimation.OverrideScale(theScale, theScale);
@@ -227,7 +231,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 }
                 case EffectType.Attachment:
                 {
-                    Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet((AttachmentID)aAttachEffect.mEffectID);
+                    Attachment aAttachment = mEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet((AttachmentID)aAttachEffect.mEffectID);
                     if (aAttachment != null)
                     {
                         aAttachment.OverrideScale(theScale);
@@ -241,12 +245,12 @@ namespace EffectViewer.TodLib.Reanim.Attachment
         public void Draw(EffectViewer.TodLib.Graphics.Graphics g, bool theParentHidden)
         {
             Debug.ASSERT(!mDead);
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            Debug.ASSERT(mEffectSystem != null);
 
-            TodParticleHolder aParticleHolder = EffectSystem.gEffectSystem.mParticleHolder;
-            TrailHolder aTrailHolder = EffectSystem.gEffectSystem.mTrailHolder;
-            ReanimationHolder aReanimationHolder = EffectSystem.gEffectSystem.mReanimationHolder;
-            AttachmentHolder aAttachmentHolder = EffectSystem.gEffectSystem.mAttachmentHolder;
+            TodParticleHolder aParticleHolder = mEffectSystem.mParticleHolder;
+            TrailHolder aTrailHolder = mEffectSystem.mTrailHolder;
+            ReanimationHolder aReanimationHolder = mEffectSystem.mReanimationHolder;
+            AttachmentHolder aAttachmentHolder = mEffectSystem.mAttachmentHolder;
             
             for (int i = 0; i < mNumEffects; i++)
             {
@@ -298,12 +302,12 @@ namespace EffectViewer.TodLib.Reanim.Attachment
 
         public void AttachmentDie()
         {
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            Debug.ASSERT(mEffectSystem != null);
 
-            TodParticleHolder aParticleHolder = EffectSystem.gEffectSystem.mParticleHolder;
-            TrailHolder aTrailHolder = EffectSystem.gEffectSystem.mTrailHolder;
-            ReanimationHolder aReanimationHolder = EffectSystem.gEffectSystem.mReanimationHolder;
-            AttachmentHolder aAttachmentHolder = EffectSystem.gEffectSystem.mAttachmentHolder;
+            TodParticleHolder aParticleHolder = mEffectSystem.mParticleHolder;
+            TrailHolder aTrailHolder = mEffectSystem.mTrailHolder;
+            ReanimationHolder aReanimationHolder = mEffectSystem.mReanimationHolder;
+            AttachmentHolder aAttachmentHolder = mEffectSystem.mAttachmentHolder;
 
             for (int i = 0; i < mNumEffects; i++)
             {
@@ -357,11 +361,11 @@ namespace EffectViewer.TodLib.Reanim.Attachment
 
         public void Detach()
         {
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
-            TodParticleHolder aParticleHolder = EffectSystem.gEffectSystem.mParticleHolder;
-            TrailHolder aTrailHolder = EffectSystem.gEffectSystem.mTrailHolder;
-            ReanimationHolder aReanimationHolder = EffectSystem.gEffectSystem.mReanimationHolder;
-            AttachmentHolder aAttachmentHolder = EffectSystem.gEffectSystem.mAttachmentHolder;
+            Debug.ASSERT(mEffectSystem != null);
+            TodParticleHolder aParticleHolder = mEffectSystem.mParticleHolder;
+            TrailHolder aTrailHolder = mEffectSystem.mTrailHolder;
+            ReanimationHolder aReanimationHolder = mEffectSystem.mReanimationHolder;
+            AttachmentHolder aAttachmentHolder = mEffectSystem.mAttachmentHolder;
 
             for (int i = 0; i < mNumEffects; i++)
             {
@@ -418,7 +422,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
 
         public void CrossFade(string theCrossFadeName)
         {
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            Debug.ASSERT(mEffectSystem != null);
 
             for (int i = 0; i < mNumEffects; i++)
             {
@@ -426,7 +430,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 EffectType attachEffectType = aAttachEffect.mEffectType;
                 if (attachEffectType == EffectType.Particle)
                 {
-                    TodParticleSystem aParticleSystem = EffectSystem.gEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
+                    TodParticleSystem aParticleSystem = mEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
                     if (aParticleSystem != null)
                     {
                         aParticleSystem.CrossFade(theCrossFadeName);
@@ -437,7 +441,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
 
         public void PropogateColor(in SexyColor theColor, bool theEnableAdditiveColor, in SexyColor theAdditiveColor, bool theEnableOverlayColor, in SexyColor theOverlayColor)
         {
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            Debug.ASSERT(mEffectSystem != null);
 
             for (int i = 0; i < mNumEffects; i++)
             {
@@ -448,7 +452,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                     {
                     case EffectType.Particle:
                     {
-                        TodParticleSystem aParticleSystem = EffectSystem.gEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
+                        TodParticleSystem aParticleSystem = mEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
                         if (aParticleSystem != null)
                         {
                             aParticleSystem.OverrideColor(null, theColor);
@@ -458,7 +462,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                     }
                     case EffectType.Reanim:
                     {
-                        Reanimation aReanimation = EffectSystem.gEffectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
+                        Reanimation aReanimation = mEffectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
                         if (aReanimation != null)
                         {
                             aReanimation.mColorOverride = theColor;
@@ -472,7 +476,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                     }
                     case EffectType.Attachment:
                     {
-                        Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet((AttachmentID)aAttachEffect.mEffectID);
+                        Attachment aAttachment = mEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet((AttachmentID)aAttachEffect.mEffectID);
                         if (aAttachment != null)
                         {
                             aAttachment.PropogateColor(theColor, theEnableAdditiveColor, theAdditiveColor, theEnableOverlayColor, theOverlayColor);
@@ -486,7 +490,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
 
         public void SetPosition(in Vector2 thePosition)
         {
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            Debug.ASSERT(mEffectSystem != null);
 
             for (int i = 0; i < mNumEffects; i++)
             {
@@ -497,7 +501,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 {
                 case EffectType.Particle:
                 {
-                    TodParticleSystem aParticleSystem = EffectSystem.gEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
+                    TodParticleSystem aParticleSystem = mEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
                     if (aParticleSystem != null)
                     {
                         aParticleSystem.SystemMove(aNewPos.X, aNewPos.Y);
@@ -506,7 +510,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 }
                 case EffectType.Trail:
                 {
-                    EffectViewer.TodLib.Trail.Trail aTrail = EffectSystem.gEffectSystem.mTrailHolder.mTrails.DataArrayTryToGet((TrailID)aAttachEffect.mEffectID);
+                    EffectViewer.TodLib.Trail.Trail aTrail = mEffectSystem.mTrailHolder.mTrails.DataArrayTryToGet((TrailID)aAttachEffect.mEffectID);
                     if (aTrail != null)
                     {
                         aTrail.AddPoint(aNewPos.X, aNewPos.Y);
@@ -515,7 +519,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 }
                 case EffectType.Reanim:
                 {
-                    Reanimation aReanimation = EffectSystem.gEffectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
+                    Reanimation aReanimation = mEffectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
                     if (aReanimation != null)
                     {
                         aReanimation.SetPosition(aNewPos.X, aNewPos.Y);
@@ -524,7 +528,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 }
                 case EffectType.Attachment:
                 {
-                    Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet((AttachmentID)aAttachEffect.mEffectID);
+                    Attachment aAttachment = mEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet((AttachmentID)aAttachEffect.mEffectID);
                     if (aAttachment != null)
                     {
                         aAttachment.SetPosition(aNewPos);
@@ -536,3 +540,4 @@ namespace EffectViewer.TodLib.Reanim.Attachment
         }
     }
 }
+

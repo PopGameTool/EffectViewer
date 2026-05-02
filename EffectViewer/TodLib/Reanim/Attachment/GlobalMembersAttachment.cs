@@ -1,19 +1,20 @@
+using System;
 using System.Runtime.CompilerServices;
 
 namespace EffectViewer.TodLib.Reanim.Attachment
 {
     public static class GlobalMembersAttachment
     {
-        public static void AttachmentUpdateAndMove(ref AttachmentID theAttachmentID, float theX, float theY)
+        public static void AttachmentUpdateAndMove(EffectSystem effectSystem, ref AttachmentID theAttachmentID, float theX, float theY)
         {
             if (theAttachmentID == AttachmentID.Null)
             {
                 return;
             }
 
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            effectSystem = RequireEffectSystem(effectSystem);
 
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             if (aAttachment != null)
             {
                 aAttachment.Update();
@@ -25,16 +26,16 @@ namespace EffectViewer.TodLib.Reanim.Attachment
             }
         }
 
-        public static void AttachmentUpdateAndSetMatrix(ref AttachmentID theAttachmentID, in Matrix4x4 theMatrix)
+        public static void AttachmentUpdateAndSetMatrix(EffectSystem effectSystem, ref AttachmentID theAttachmentID, in Matrix4x4 theMatrix)
         {
             if (theAttachmentID == AttachmentID.Null)
             {
                 return;
             }
 
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            effectSystem = RequireEffectSystem(effectSystem);
 
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             if (aAttachment != null)
             {
                 aAttachment.Update();
@@ -46,80 +47,80 @@ namespace EffectViewer.TodLib.Reanim.Attachment
             }
         }
 
-        public static void AttachmentOverrideColor(AttachmentID theAttachmentID, in SexyColor theColor)
+        public static void AttachmentOverrideColor(EffectSystem effectSystem, AttachmentID theAttachmentID, in SexyColor theColor)
         {
             if (theAttachmentID == AttachmentID.Null)
             {
                 return;
             }
 
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            effectSystem = RequireEffectSystem(effectSystem);
 
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             if (aAttachment != null)
             {
                 aAttachment.OverrideColor(theColor);
             }
         }
 
-        public static void AttachmentOverrideScale(AttachmentID theAttachmentID, float theScale)
+        public static void AttachmentOverrideScale(EffectSystem effectSystem, AttachmentID theAttachmentID, float theScale)
         {
             if (theAttachmentID == AttachmentID.Null)
             {
                 return;
             }
 
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            effectSystem = RequireEffectSystem(effectSystem);
 
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             if (aAttachment != null)
             {
                 aAttachment.OverrideScale(theScale);
             }
         }
 
-        public static void AttachmentCrossFade(AttachmentID theAttachmentID, string theCrossFadeName)
+        public static void AttachmentCrossFade(EffectSystem effectSystem, AttachmentID theAttachmentID, string theCrossFadeName)
         {
             if (theAttachmentID == AttachmentID.Null)
             {
                 return;
             }
 
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            effectSystem = RequireEffectSystem(effectSystem);
 
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             if (aAttachment != null)
             {
                 aAttachment.CrossFade(theCrossFadeName);
             }
         }
 
-        public static void AttachmentDraw(AttachmentID theAttachmentID, EffectViewer.TodLib.Graphics.Graphics g, bool theParentHidden)
+        public static void AttachmentDraw(EffectSystem effectSystem, AttachmentID theAttachmentID, EffectViewer.TodLib.Graphics.Graphics g, bool theParentHidden)
         {
             if (theAttachmentID == AttachmentID.Null)
             {
                 return;
             }
 
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            effectSystem = RequireEffectSystem(effectSystem);
 
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             if (aAttachment != null)
             {
                 aAttachment.Draw(g, theParentHidden);
             }
         }
 
-        public static void AttachmentDie(ref AttachmentID theAttachmentID)
+        public static void AttachmentDie(EffectSystem effectSystem, ref AttachmentID theAttachmentID)
         {
             if (theAttachmentID == AttachmentID.Null)
             {
                 return;
             }
 
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            effectSystem = RequireEffectSystem(effectSystem);
 
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             theAttachmentID = AttachmentID.Null;
             if (aAttachment != null)
             {
@@ -127,16 +128,16 @@ namespace EffectViewer.TodLib.Reanim.Attachment
             }
         }
 
-        public static void AttachmentDetach(ref AttachmentID theAttachmentID)
+        public static void AttachmentDetach(EffectSystem effectSystem, ref AttachmentID theAttachmentID)
         {
             if (theAttachmentID == AttachmentID.Null)
             {
                 return;
             }
 
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            effectSystem = RequireEffectSystem(effectSystem);
 
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             theAttachmentID = AttachmentID.Null;
             if (aAttachment != null)
             {
@@ -144,10 +145,12 @@ namespace EffectViewer.TodLib.Reanim.Attachment
             }
         }
 
-        public static ref AttachEffect AttachReanim(ref AttachmentID theAttachmentID, Reanimation theReanimation, float theOffsetX, float theOffsetY)
+        public static ref AttachEffect AttachReanim(EffectSystem effectSystem, ref AttachmentID theAttachmentID, Reanimation theReanimation, float theOffsetX, float theOffsetY)
         {
-            uint aReanimId = (uint)EffectSystem.gEffectSystem.mReanimationHolder.mReanimations.DataArrayGetID(theReanimation);
-            ref AttachEffect aAttachEffect = ref CreateEffectAttachment(ref theAttachmentID, EffectType.Reanim, aReanimId, theOffsetX, theOffsetY);
+            effectSystem = RequireEffectSystem(effectSystem);
+            ValidateReanimationSystem(effectSystem, theReanimation);
+            uint aReanimId = (uint)effectSystem.mReanimationHolder.mReanimations.DataArrayGetID(theReanimation);
+            ref AttachEffect aAttachEffect = ref CreateEffectAttachment(effectSystem, ref theAttachmentID, EffectType.Reanim, aReanimId, theOffsetX, theOffsetY);
             
             Debug.ASSERT(!theReanimation.mIsAttachment);
             theReanimation.mIsAttachment = true;
@@ -155,15 +158,17 @@ namespace EffectViewer.TodLib.Reanim.Attachment
             return ref aAttachEffect;
         }
 
-        public static ref AttachEffect AttachParticle(ref AttachmentID theAttachmentID, TodParticleSystem theParticleSystem, float theOffsetX, float theOffsetY)
+        public static ref AttachEffect AttachParticle(EffectSystem effectSystem, ref AttachmentID theAttachmentID, TodParticleSystem theParticleSystem, float theOffsetX, float theOffsetY)
         {
             if (theParticleSystem == null)
             {
                 return ref Unsafe.NullRef<AttachEffect>();
             }
 
-            uint aParticleId = (uint)EffectSystem.gEffectSystem.mParticleHolder.mParticleSystems.DataArrayGetID(theParticleSystem);
-            ref AttachEffect aAttachEffect = ref CreateEffectAttachment(ref theAttachmentID, EffectType.Particle, aParticleId, theOffsetX, theOffsetY);
+            effectSystem = RequireEffectSystem(effectSystem);
+            ValidateParticleSystem(effectSystem, theParticleSystem);
+            uint aParticleId = (uint)effectSystem.mParticleHolder.mParticleSystems.DataArrayGetID(theParticleSystem);
+            ref AttachEffect aAttachEffect = ref CreateEffectAttachment(effectSystem, ref theAttachmentID, EffectType.Particle, aParticleId, theOffsetX, theOffsetY);
             
             Debug.ASSERT(!theParticleSystem.mIsAttachment);
             theParticleSystem.mIsAttachment = true;
@@ -171,10 +176,12 @@ namespace EffectViewer.TodLib.Reanim.Attachment
             return ref aAttachEffect;
         }
 
-        public static ref AttachEffect AttachTrail(ref AttachmentID theAttachmentID, EffectViewer.TodLib.Trail.Trail theTrail, float theOffsetX, float theOffsetY)
+        public static ref AttachEffect AttachTrail(EffectSystem effectSystem, ref AttachmentID theAttachmentID, EffectViewer.TodLib.Trail.Trail theTrail, float theOffsetX, float theOffsetY)
         {
-            uint aTrailId = (uint)EffectSystem.gEffectSystem.mTrailHolder.mTrails.DataArrayGetID(theTrail);
-            ref AttachEffect aAttachEffect = ref CreateEffectAttachment(ref theAttachmentID, EffectType.Trail, aTrailId, theOffsetX, theOffsetY);
+            effectSystem = RequireEffectSystem(effectSystem);
+            ValidateTrailSystem(effectSystem, theTrail);
+            uint aTrailId = (uint)effectSystem.mTrailHolder.mTrails.DataArrayGetID(theTrail);
+            ref AttachEffect aAttachEffect = ref CreateEffectAttachment(effectSystem, ref theAttachmentID, EffectType.Trail, aTrailId, theOffsetX, theOffsetY);
             
             Debug.ASSERT(!theTrail.mIsAttachment);
             theTrail.mIsAttachment = true;
@@ -182,9 +189,15 @@ namespace EffectViewer.TodLib.Reanim.Attachment
             return ref aAttachEffect;
         }
 
-        public static void AttachmentDetachCrossFadeParticleType(AttachmentID theAttachmentID, string theParticleEffect, string theCrossFadeName)
+        public static void AttachmentDetachCrossFadeParticleType(EffectSystem effectSystem, AttachmentID theAttachmentID, string theParticleEffect, string theCrossFadeName)
         {
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            if (theAttachmentID == AttachmentID.Null)
+            {
+                return;
+            }
+
+            effectSystem = RequireEffectSystem(effectSystem);
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             if (aAttachment == null)
             {
                 return;
@@ -198,7 +211,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 ref AttachEffect aAttachEffect = ref aAttachment.mEffectArray[i];
                 if (aAttachEffect.mEffectType == EffectType.Particle)
                 {
-                    TodParticleSystem aParticleSystem = EffectSystem.gEffectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
+                    TodParticleSystem aParticleSystem = effectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet((ParticleSystemID)aAttachEffect.mEffectID);
                     if (aParticleSystem != null && aParticleSystem.mParticleDef == aDefinition)
                     {
                         if (theCrossFadeName != null)
@@ -216,27 +229,32 @@ namespace EffectViewer.TodLib.Reanim.Attachment
             }
         }
 
-        public static void AttachmentPropogateColor(AttachmentID theAttachmentID, in SexyColor theColor, bool theEnableAdditiveColor, in SexyColor theAdditiveColor, bool theEnableOverlayColor, in SexyColor theOverlayColor)
+        public static void AttachmentPropogateColor(EffectSystem effectSystem, AttachmentID theAttachmentID, in SexyColor theColor, bool theEnableAdditiveColor, in SexyColor theAdditiveColor, bool theEnableOverlayColor, in SexyColor theOverlayColor)
         {
             if (theAttachmentID == AttachmentID.Null)
             {
                 return;
             }
 
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            effectSystem = RequireEffectSystem(effectSystem);
 
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             if (aAttachment != null)
             {
                 aAttachment.PropogateColor(theColor, theEnableAdditiveColor, theAdditiveColor, theEnableOverlayColor, theOverlayColor);
             }
         }
 
-        public static Reanimation FindReanimAttachment(AttachmentID theAttachmentID)
+        public static Reanimation FindReanimAttachment(EffectSystem effectSystem, AttachmentID theAttachmentID)
         {
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            if (theAttachmentID == AttachmentID.Null)
+            {
+                return null;
+            }
 
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            effectSystem = RequireEffectSystem(effectSystem);
+
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             if (aAttachment == null)
             {
                 return null;
@@ -247,7 +265,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 ref readonly AttachEffect aAttachEffect = ref aAttachment.mEffectArray[i];
                 if (aAttachEffect.mEffectType == EffectType.Reanim)
                 {
-                    Reanimation aReanimation = EffectSystem.gEffectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
+                    Reanimation aReanimation = effectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
                     if (aReanimation != null)
                     {
                         return aReanimation;
@@ -258,11 +276,16 @@ namespace EffectViewer.TodLib.Reanim.Attachment
             return null;
         }
 
-        public static EffectViewer.TodLib.Trail.Trail FindTrailAttachment(AttachmentID theAttachmentID)
+        public static EffectViewer.TodLib.Trail.Trail FindTrailAttachment(EffectSystem effectSystem, AttachmentID theAttachmentID)
         {
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            if (theAttachmentID == AttachmentID.Null)
+            {
+                return null;
+            }
 
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            effectSystem = RequireEffectSystem(effectSystem);
+
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             if (aAttachment == null)
             {
                 return null;
@@ -273,7 +296,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 ref AttachEffect aAttachEffect = ref aAttachment.mEffectArray[i];
                 if (aAttachEffect.mEffectType == EffectType.Trail)
                 {
-                    EffectViewer.TodLib.Trail.Trail aTrail = EffectSystem.gEffectSystem.mTrailHolder.mTrails.DataArrayTryToGet((TrailID)aAttachEffect.mEffectID);
+                    EffectViewer.TodLib.Trail.Trail aTrail = effectSystem.mTrailHolder.mTrails.DataArrayTryToGet((TrailID)aAttachEffect.mEffectID);
                     if (aTrail != null)
                     {
                         return aTrail;
@@ -284,11 +307,16 @@ namespace EffectViewer.TodLib.Reanim.Attachment
             return null;
         }
 
-        public static ref AttachEffect FindFirstAttachment(AttachmentID theAttachmentID)
+        public static ref AttachEffect FindFirstAttachment(EffectSystem effectSystem, AttachmentID theAttachmentID)
         {
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            if (theAttachmentID == AttachmentID.Null)
+            {
+                return ref Unsafe.NullRef<AttachEffect>();
+            }
 
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            effectSystem = RequireEffectSystem(effectSystem);
+
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             if (aAttachment == null || aAttachment.mNumEffects == 0)
             {
                 return ref Unsafe.NullRef<AttachEffect>();
@@ -297,9 +325,15 @@ namespace EffectViewer.TodLib.Reanim.Attachment
             return ref aAttachment.mEffectArray[0];
         }
 
-        public static void AttachmentReanimTypeDie(AttachmentID theAttachmentID, string theReanimType)
+        public static void AttachmentReanimTypeDie(EffectSystem effectSystem, AttachmentID theAttachmentID, string theReanimType)
         {
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            if (theAttachmentID == AttachmentID.Null)
+            {
+                return;
+            }
+
+            effectSystem = RequireEffectSystem(effectSystem);
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             if (aAttachment == null)
             {
                 return;
@@ -310,7 +344,7 @@ namespace EffectViewer.TodLib.Reanim.Attachment
                 ref AttachEffect aAttachEffect = ref aAttachment.mEffectArray[i];
                 if (aAttachEffect.mEffectType == EffectType.Reanim)
                 {
-                    Reanimation aReanimation = EffectSystem.gEffectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
+                    Reanimation aReanimation = effectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)aAttachEffect.mEffectID);
                     if (aReanimation != null && aReanimation.mReanimationType == theReanimType)
                     {
                         aReanimation.ReanimationDie();
@@ -319,23 +353,28 @@ namespace EffectViewer.TodLib.Reanim.Attachment
             }
         }
 
-        public static bool IsFullOfAttachments(AttachmentID theAttachmentID)
+        public static bool IsFullOfAttachments(EffectSystem effectSystem, AttachmentID theAttachmentID)
         {
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            if (theAttachmentID == AttachmentID.Null)
+            {
+                return false;
+            }
 
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            effectSystem = RequireEffectSystem(effectSystem);
+
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             return aAttachment != null && aAttachment.mNumEffects >= TodLibConstants.MAX_EFFECTS_PER_ATTACHMENT;
         }
 
-        public static ref AttachEffect CreateEffectAttachment(ref AttachmentID theAttachmentID, EffectType theEffectType, uint theDataID, float theOffsetX, float theOffsetY)
+        public static ref AttachEffect CreateEffectAttachment(EffectSystem effectSystem, ref AttachmentID theAttachmentID, EffectType theEffectType, uint theDataID, float theOffsetX, float theOffsetY)
         {
-            Debug.ASSERT(EffectSystem.gEffectSystem != null);
+            effectSystem = RequireEffectSystem(effectSystem);
 
-            Attachment aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
+            Attachment aAttachment = effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(theAttachmentID);
             if (aAttachment == null || aAttachment.mDead)
             {
-                aAttachment = EffectSystem.gEffectSystem.mAttachmentHolder.AllocAttachment();
-                theAttachmentID = EffectSystem.gEffectSystem.mAttachmentHolder.mAttachments.DataArrayGetID(aAttachment);
+                aAttachment = effectSystem.mAttachmentHolder.AllocAttachment();
+                theAttachmentID = effectSystem.mAttachmentHolder.mAttachments.DataArrayGetID(aAttachment);
             }
 
             Debug.ASSERT(aAttachment.mNumEffects < TodLibConstants.MAX_EFFECTS_PER_ATTACHMENT);
@@ -351,5 +390,70 @@ namespace EffectViewer.TodLib.Reanim.Attachment
             aAttachment.mNumEffects++;
             return ref aAttachEffect;
         }
+
+        private static EffectSystem RequireEffectSystem(EffectSystem effectSystem)
+        {
+            if (effectSystem == null)
+            {
+                throw new InvalidOperationException("Attachment operations require an EffectSystem instance.");
+            }
+
+            if (effectSystem.mAttachmentHolder == null)
+            {
+                throw new ObjectDisposedException(nameof(EffectSystem));
+            }
+
+            return effectSystem;
+        }
+
+        private static void ValidateReanimationSystem(EffectSystem effectSystem, Reanimation reanimation)
+        {
+            if (reanimation == null)
+            {
+                throw new ArgumentNullException(nameof(reanimation));
+            }
+
+            if (!ReferenceEquals(reanimation.mReanimationHolder?.mEffectSystem, effectSystem))
+            {
+                throw new InvalidOperationException("The reanimation belongs to a different EffectSystem.");
+            }
+
+            if (!effectSystem.mReanimationHolder.mReanimations.DataArrayContains(reanimation))
+            {
+                throw new InvalidOperationException("The reanimation is no longer active in its EffectSystem.");
+            }
+        }
+
+        private static void ValidateParticleSystem(EffectSystem effectSystem, TodParticleSystem particleSystem)
+        {
+            if (!ReferenceEquals(particleSystem.mParticleHolder?.mEffectSystem, effectSystem))
+            {
+                throw new InvalidOperationException("The particle system belongs to a different EffectSystem.");
+            }
+
+            if (!effectSystem.mParticleHolder.mParticleSystems.DataArrayContains(particleSystem))
+            {
+                throw new InvalidOperationException("The particle system is no longer active in its EffectSystem.");
+            }
+        }
+
+        private static void ValidateTrailSystem(EffectSystem effectSystem, EffectViewer.TodLib.Trail.Trail trail)
+        {
+            if (trail == null)
+            {
+                throw new ArgumentNullException(nameof(trail));
+            }
+
+            if (!ReferenceEquals(trail.mTrailHolder?.mEffectSystem, effectSystem))
+            {
+                throw new InvalidOperationException("The trail belongs to a different EffectSystem.");
+            }
+
+            if (!effectSystem.mTrailHolder.mTrails.DataArrayContains(trail))
+            {
+                throw new InvalidOperationException("The trail is no longer active in its EffectSystem.");
+            }
+        }
     }
 }
+

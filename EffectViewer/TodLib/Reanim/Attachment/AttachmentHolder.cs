@@ -2,7 +2,13 @@ namespace EffectViewer.TodLib.Reanim.Attachment
 {
     public class AttachmentHolder
     {
+        public readonly EffectSystem mEffectSystem;
         public readonly DataArray<Attachment, AttachmentID> mAttachments = new();
+
+        public AttachmentHolder(EffectSystem effectSystem = null)
+        {
+            mEffectSystem = effectSystem;
+        }
 
         public void Dispose()
         {
@@ -21,7 +27,9 @@ namespace EffectViewer.TodLib.Reanim.Attachment
 
         public Attachment AllocAttachment()
         {
-            return mAttachments.DataArrayAlloc();
+            Attachment attachment = mAttachments.DataArrayAlloc();
+            attachment.mAttachmentHolder = this;
+            return attachment;
         }
     }
 }

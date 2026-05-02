@@ -2,8 +2,6 @@ namespace EffectViewer.TodLib.Common
 {
     public class EffectSystem
     {
-        public static EffectSystem gEffectSystem;
-
         public TodParticleHolder mParticleHolder;
         public TrailHolder mTrailHolder;
         public ReanimationHolder mReanimationHolder;
@@ -23,14 +21,12 @@ namespace EffectViewer.TodLib.Common
 
         public void EffectSystemInitialize()
         {
-            Debug.ASSERT(gEffectSystem == null);
             Debug.ASSERT(mParticleHolder == null && mTrailHolder == null && mReanimationHolder == null && mAttachmentHolder == null);
             
-            gEffectSystem = this;
-            mParticleHolder = new TodParticleHolder();
-            mTrailHolder = new TrailHolder();
-            mReanimationHolder = new ReanimationHolder();
-            mAttachmentHolder = new AttachmentHolder();
+            mParticleHolder = new TodParticleHolder(this);
+            mTrailHolder = new TrailHolder(this);
+            mReanimationHolder = new ReanimationHolder(this);
+            mAttachmentHolder = new AttachmentHolder(this);
 
             mParticleHolder.InitializeHolder();
             mTrailHolder.InitializeHolder();
@@ -67,8 +63,6 @@ namespace EffectViewer.TodLib.Common
                 mAttachmentHolder.Dispose();
                 mAttachmentHolder = null;
             }
-
-            gEffectSystem = null;
         }
 
         public void EffectSystemFreeAll()

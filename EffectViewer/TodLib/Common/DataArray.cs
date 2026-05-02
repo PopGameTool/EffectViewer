@@ -117,6 +117,18 @@ namespace EffectViewer.TodLib.Common
             return aId;
         }
 
+        public bool DataArrayContains(TItem theItem)
+        {
+            if (theItem == null)
+            {
+                return false;
+            }
+
+            uint aRawId = theItem.Id;
+            TId aId = Unsafe.As<uint, TId>(ref aRawId);
+            return DataArrayTryToGet(aId) == theItem;
+        }
+
         public bool IterateNext(ref TItem theItem)
         {
             int aItemIndex;

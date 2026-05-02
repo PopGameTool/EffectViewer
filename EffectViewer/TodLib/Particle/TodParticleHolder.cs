@@ -2,9 +2,15 @@ namespace EffectViewer.TodLib.Particle
 {
     public class TodParticleHolder
     {
+        public readonly EffectSystem mEffectSystem;
         public readonly DataArray<TodParticleEmitter, ParticleEmitterID> mEmitters = new();
         public readonly DataArray<TodParticle, ParticleID> mParticles = new();
         public readonly DataArray<TodParticleSystem, ParticleSystemID> mParticleSystems = new();
+
+        public TodParticleHolder(EffectSystem effectSystem = null)
+        {
+            mEffectSystem = effectSystem;
+        }
 
         public void Dispose()
         {

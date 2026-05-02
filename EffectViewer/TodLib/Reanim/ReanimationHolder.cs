@@ -2,7 +2,13 @@ namespace EffectViewer.TodLib.Reanim
 {
     public class ReanimationHolder
     {
+        public readonly EffectSystem mEffectSystem;
         public readonly DataArray<Reanimation, ReanimationID> mReanimations = new();
+
+        public ReanimationHolder(EffectSystem effectSystem = null)
+        {
+            mEffectSystem = effectSystem;
+        }
 
         public void Dispose()
         {

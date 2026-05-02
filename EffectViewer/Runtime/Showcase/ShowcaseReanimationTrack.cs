@@ -120,7 +120,7 @@ namespace EffectViewer.Runtime.Showcase
                 return null;
             }
 
-            Attachment attachment = EffectSystem.gEffectSystem?.mAttachmentHolder.mAttachments.DataArrayTryToGet(Track.mAttachmentID);
+            Attachment attachment = _reanimation.mReanimationHolder?.mEffectSystem?.mAttachmentHolder?.mAttachments.DataArrayTryToGet(Track.mAttachmentID);
             return attachment is null ? null : new ShowcaseAttachment(attachment);
         }
 
@@ -160,7 +160,7 @@ namespace EffectViewer.Runtime.Showcase
         public ShowcaseReanimationTrack detach()
         {
             AttachmentID attachmentId = Track.mAttachmentID;
-            GlobalMembersAttachment.AttachmentDetach(ref attachmentId);
+            GlobalMembersAttachment.AttachmentDetach(_reanimation.mReanimationHolder?.mEffectSystem, ref attachmentId);
             Track.mAttachmentID = attachmentId;
             return this;
         }

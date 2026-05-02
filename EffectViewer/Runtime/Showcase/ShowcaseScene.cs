@@ -32,12 +32,6 @@ namespace EffectViewer.Runtime.Showcase
             _project = project ?? throw new ArgumentNullException(nameof(project));
             _resourceProvider = new ProjectResourceProvider(project);
             ResourceHandler.SetProvider(_resourceProvider);
-
-            if (EffectSystem.gEffectSystem != null)
-            {
-                EffectSystem.gEffectSystem.EffectSystemDispose();
-            }
-
             _effectSystem.EffectSystemInitialize();
         }
 
@@ -61,8 +55,8 @@ namespace EffectViewer.Runtime.Showcase
                 throw new InvalidOperationException($"Reanim '{id}' was not found in the current project.");
             }
 
-            Reanimation reanimation = EffectSystem.gEffectSystem.mReanimationHolder.mReanimations.DataArrayAlloc();
-            reanimation.mReanimationHolder = EffectSystem.gEffectSystem.mReanimationHolder;
+            Reanimation reanimation = _effectSystem.mReanimationHolder.mReanimations.DataArrayAlloc();
+            reanimation.mReanimationHolder = _effectSystem.mReanimationHolder;
             reanimation.mRenderOrder = _reanims.Count + _particles.Count + _trails.Count;
             InitializeReanimation(reanimation, id, ResolveAssetPath(asset.Path), (float)x, (float)y);
 
@@ -81,7 +75,7 @@ namespace EffectViewer.Runtime.Showcase
             }
 
             TodParticleDefinition definition = LoadParticleDefinition(asset);
-            TodParticleSystem system = EffectSystem.gEffectSystem.mParticleHolder.AllocParticleSystemFromDef(
+            TodParticleSystem system = _effectSystem.mParticleHolder.AllocParticleSystemFromDef(
                 (float)x,
                 (float)y,
                 _reanims.Count + _particles.Count + _trails.Count,
@@ -103,7 +97,7 @@ namespace EffectViewer.Runtime.Showcase
             }
 
             TrailDefinition definition = LoadTrailDefinition(asset);
-            Trail trail = EffectSystem.gEffectSystem.mTrailHolder.AllocTrailFromDef(
+            Trail trail = _effectSystem.mTrailHolder.AllocTrailFromDef(
                 _reanims.Count + _particles.Count + _trails.Count,
                 definition);
             trail.mTrailCenter = Vector2.Zero;
@@ -176,10 +170,7 @@ namespace EffectViewer.Runtime.Showcase
             _reanims.Clear();
             _particles.Clear();
             _trails.Clear();
-            if (ReferenceEquals(EffectSystem.gEffectSystem, _effectSystem))
-            {
-                _effectSystem.EffectSystemDispose();
-            }
+            _effectSystem.EffectSystemDispose();
         }
 
         internal void AttachReanimation(Reanimation parent, string trackName, ShowcaseReanimation child, float offsetX, float offsetY)
@@ -190,17 +181,24 @@ namespace EffectViewer.Runtime.Showcase
                 throw new InvalidOperationException("The child reanimation is not valid.");
             }
 
+            EnsureSameEffectSystem(child.Reanimation);
             int trackIndex = parent.FindTrackIndex(trackName);
             parent.GetTrackBasePoseMatrix(trackIndex, out Matrix4x4 basePoseMatrix);
             Vector2 position = Vector2.Transform(new Vector2(offsetX, offsetY), basePoseMatrix);
             ref ReanimatorTrackInstance track = ref parent.GetTrackInstanceByName(trackName);
-            GlobalMembersAttachment.AttachReanim(ref track.mAttachmentID, child.Reanimation, position.X, position.Y);
+            GlobalMembersAttachment.AttachReanim(_effectSystem, ref track.mAttachmentID, child.Reanimation, position.X, position.Y);
         }
 
         internal void AttachParticle(Reanimation parent, string trackName, ShowcaseParticle child, float offsetX, float offsetY)
         {
             EnsureAttachTarget(parent, trackName);
-            parent.AttachParticleToTrack(trackName, child?.ParticleSystem, offsetX, offsetY);
+            if (child?.ParticleSystem is null)
+            {
+                throw new InvalidOperationException("The child particle is not valid.");
+            }
+
+            EnsureSameEffectSystem(child.ParticleSystem);
+            parent.AttachParticleToTrack(trackName, child.ParticleSystem, offsetX, offsetY);
         }
 
         internal void AttachTrail(Reanimation parent, string trackName, ShowcaseTrail child, float offsetX, float offsetY)
@@ -211,19 +209,20 @@ namespace EffectViewer.Runtime.Showcase
                 throw new InvalidOperationException("The child trail is not valid.");
             }
 
+            EnsureSameEffectSystem(child.Trail);
             child.PrepareForAttachment();
             int trackIndex = parent.FindTrackIndex(trackName);
             parent.GetTrackBasePoseMatrix(trackIndex, out Matrix4x4 basePoseMatrix);
             Vector2 position = Vector2.Transform(new Vector2(offsetX, offsetY), basePoseMatrix);
             ref ReanimatorTrackInstance track = ref parent.GetTrackInstanceByName(trackName);
-            GlobalMembersAttachment.AttachTrail(ref track.mAttachmentID, child.Trail, position.X, position.Y);
+            GlobalMembersAttachment.AttachTrail(_effectSystem, ref track.mAttachmentID, child.Trail, position.X, position.Y);
         }
 
         internal void DetachTrack(Reanimation parent, string trackName)
         {
             EnsureAttachTarget(parent, trackName);
             ref ReanimatorTrackInstance track = ref parent.GetTrackInstanceByName(trackName);
-            GlobalMembersAttachment.AttachmentDetach(ref track.mAttachmentID);
+            GlobalMembersAttachment.AttachmentDetach(_effectSystem, ref track.mAttachmentID);
         }
 
         private void Update(double deltaSeconds)
@@ -234,7 +233,7 @@ namespace EffectViewer.Runtime.Showcase
             }
             else
             {
-                EffectSystem.gEffectSystem.Update();
+                _effectSystem.Update();
                 foreach (ShowcaseTrail trail in _trails)
                 {
                     trail.UpdateAttachedPath();
@@ -242,7 +241,7 @@ namespace EffectViewer.Runtime.Showcase
                 }
             }
 
-            EffectSystem.gEffectSystem.ProcessDeleteQueue();
+            _effectSystem.ProcessDeleteQueue();
         }
 
         private void Draw(FrameCaptureGraphics graphics)
@@ -282,6 +281,8 @@ namespace EffectViewer.Runtime.Showcase
                 throw new InvalidOperationException("The parent reanimation is not valid.");
             }
 
+            EnsureSameEffectSystem(parent);
+
             if (string.IsNullOrWhiteSpace(trackName))
             {
                 throw new ArgumentException("A track name is required.", nameof(trackName));
@@ -290,6 +291,45 @@ namespace EffectViewer.Runtime.Showcase
             if (!parent.TrackExists(trackName))
             {
                 throw new InvalidOperationException($"Track '{trackName}' was not found on reanim '{parent.mReanimationType}'.");
+            }
+        }
+
+        private void EnsureSameEffectSystem(Reanimation reanimation)
+        {
+            if (!ReferenceEquals(reanimation.mReanimationHolder?.mEffectSystem, _effectSystem))
+            {
+                throw new InvalidOperationException("The reanimation belongs to a different showcase scene.");
+            }
+
+            if (!_effectSystem.mReanimationHolder.mReanimations.DataArrayContains(reanimation))
+            {
+                throw new InvalidOperationException("The reanimation is no longer active in this showcase scene.");
+            }
+        }
+
+        private void EnsureSameEffectSystem(TodParticleSystem particleSystem)
+        {
+            if (!ReferenceEquals(particleSystem.mParticleHolder?.mEffectSystem, _effectSystem))
+            {
+                throw new InvalidOperationException("The particle belongs to a different showcase scene.");
+            }
+
+            if (!_effectSystem.mParticleHolder.mParticleSystems.DataArrayContains(particleSystem))
+            {
+                throw new InvalidOperationException("The particle is no longer active in this showcase scene.");
+            }
+        }
+
+        private void EnsureSameEffectSystem(Trail trail)
+        {
+            if (!ReferenceEquals(trail.mTrailHolder?.mEffectSystem, _effectSystem))
+            {
+                throw new InvalidOperationException("The trail belongs to a different showcase scene.");
+            }
+
+            if (!_effectSystem.mTrailHolder.mTrails.DataArrayContains(trail))
+            {
+                throw new InvalidOperationException("The trail is no longer active in this showcase scene.");
             }
         }
 

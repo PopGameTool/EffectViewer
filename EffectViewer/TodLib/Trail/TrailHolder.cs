@@ -2,7 +2,13 @@ namespace EffectViewer.TodLib.Trail
 {
     public class TrailHolder
     {
+        public readonly EffectSystem mEffectSystem;
         public readonly DataArray<Trail, TrailID> mTrails = new();
+
+        public TrailHolder(EffectSystem effectSystem = null)
+        {
+            mEffectSystem = effectSystem;
+        }
 
         public void Dispose()
         {
