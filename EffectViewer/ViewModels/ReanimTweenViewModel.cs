@@ -229,6 +229,16 @@ namespace EffectViewer.ViewModels
             RaiseDisplayPropertiesChanged();
         }
 
+        public void RefreshModelState()
+        {
+            RestoreAllNumberText();
+            OnPropertyChanged(nameof(TrackNumber));
+            OnPropertyChanged(nameof(AnchorX));
+            OnPropertyChanged(nameof(AnchorY));
+            RaiseFramePropertiesChanged();
+            RaiseDisplayPropertiesChanged();
+        }
+
         private void NormalizeModel()
         {
             Model.TrackIndex = Math.Clamp(Model.TrackIndex, 0, TrackCount - 1);

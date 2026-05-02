@@ -634,23 +634,6 @@
                           IsEnabled="{Binding HasReanimTweenMetadata}"
                           Command="{Binding BakeAllReanimTweensCommand}"/>
                 </WrapPanel>
-                <ComboBox ItemsSource="{Binding ReanimTweens}"
-                          SelectedItem="{Binding SelectedReanimTween}"
-                          HorizontalAlignment="Stretch"
-                          IsVisible="{Binding HasReanimTweenMetadata}">
-                  <ComboBox.ItemTemplate>
-                    <DataTemplate DataType="vm:ReanimTweenViewModel">
-                      <StackPanel Spacing="2">
-                        <TextBlock Text="{Binding DisplayName}"
-                                   TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text="{Binding Detail}"
-                                   FontSize="11"
-                                   TextTrimming="CharacterEllipsis"
-                                   Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
-                      </StackPanel>
-                    </DataTemplate>
-                  </ComboBox.ItemTemplate>
-                </ComboBox>
                 <TextBlock Text="{Binding SelectedReanimTweenSummary}"
                            IsVisible="{Binding HasReanimTweenMetadata}"
                            TextWrapping="Wrap"
