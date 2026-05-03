@@ -1552,11 +1552,6 @@ namespace EffectViewer.ViewModels
                         OpenOrSelectEditor(item.Kind, item.AssetId, () => new ShowcaseEditorViewModel(showcase, _luaHost, CurrentProject));
                         StatusText = F("Status.EditingShowcase", item.AssetId);
                     }
-                    else
-                    {
-                        OpenOrSelectEditor(item.Kind, item.AssetId, () => new ShowcaseEditorViewModel(_luaHost, CurrentProject));
-                        StatusText = T("Status.EditingShowcases");
-                    }
                     break;
             }
         }
@@ -2242,7 +2237,7 @@ namespace EffectViewer.ViewModels
             root.Children.Add(CreateFolder(T("ProjectTree.Trails"), CurrentProject.Manifest.Trails.Select(asset =>
                 new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Trail, asset.Id, asset.Path))));
 
-            ProjectExplorerItemViewModel showcases = new(T("ProjectTree.Showcases"), EffectAssetKind.Showcase, "Showcases")
+            ProjectExplorerItemViewModel showcases = new(T("ProjectTree.Showcases"), EffectAssetKind.Folder)
             {
                 IsExpanded = true
             };
