@@ -24,6 +24,7 @@ namespace EffectViewer.Rendering
         private readonly float _y;
         private bool _isPaused;
         private bool _needsAttachmentRefresh;
+        private double? _pendingAttachmentSeekElapsedSeconds;
         private double _accumulator;
         private bool _disposed;
 
@@ -57,7 +58,7 @@ namespace EffectViewer.Rendering
             ApplyProjectReanimations();
             if (_needsAttachmentRefresh)
             {
-                RefreshAttachments();
+                RefreshAttachmentsForPendingSeek();
             }
 
             if (!_isPaused)
@@ -87,6 +88,7 @@ namespace EffectViewer.Rendering
             SetReanimationElapsedTime(_reanimation, elapsedSeconds);
             RefreshAttachmentsForSeek(_reanimation, elapsedSeconds, 0);
             _effectSystem.ProcessDeleteQueue();
+            _pendingAttachmentSeekElapsedSeconds = null;
             _needsAttachmentRefresh = false;
 
             return BuildFrame();
@@ -120,6 +122,7 @@ namespace EffectViewer.Rendering
             LayerTrackNames = BuildLayerTrackNames(_reanimation.mDefinition);
             LayerNames = BuildLayerNames(LayerTrackNames);
             _attachedReanimationSeekStates.Clear();
+            _pendingAttachmentSeekElapsedSeconds = null;
             _accumulator = 0d;
             _needsAttachmentRefresh = true;
         }
@@ -159,6 +162,7 @@ namespace EffectViewer.Rendering
                 0f,
                 1f);
             _reanimation.mLastFrameTime = _reanimation.mAnimTime;
+            _pendingAttachmentSeekElapsedSeconds = GetElapsedSecondsForFrame(_reanimation, clampedFrame);
             _needsAttachmentRefresh = true;
         }
 
@@ -265,6 +269,20 @@ namespace EffectViewer.Rendering
             _needsAttachmentRefresh = false;
         }
 
+        private void RefreshAttachmentsForPendingSeek()
+        {
+            if (_pendingAttachmentSeekElapsedSeconds is not double elapsedSeconds)
+            {
+                RefreshAttachments();
+                return;
+            }
+
+            RefreshAttachmentsForSeek(_reanimation, elapsedSeconds, 0);
+            _effectSystem.ProcessDeleteQueue();
+            _pendingAttachmentSeekElapsedSeconds = null;
+            _needsAttachmentRefresh = false;
+        }
+
         private void SetReanimationElapsedTime(Reanimation reanimation, double elapsedSeconds)
         {
             if (reanimation is null || reanimation.mFrameCount <= 0)
@@ -327,8 +345,10 @@ namespace EffectViewer.Rendering
             {
                 ref ReanimatorTrackInstance track = ref reanimation.mTrackInstances[i];
                 track.mBlendCounter = 0;
+                double? attacherStateStartElapsedSeconds = null;
                 if (track.mIsAttacher)
                 {
+                    attacherStateStartElapsedSeconds = GetAttacherStateStartElapsedSeconds(reanimation, i, elapsedSeconds);
                     reanimation.UpdateAttacherTrack(i);
                 }
 
@@ -346,6 +366,12 @@ namespace EffectViewer.Rendering
                 }
 
                 attachment.SetMatrix(matrix);
+                if (attacherStateStartElapsedSeconds is double startElapsedSeconds)
+                {
+                    Reanimation child = GlobalMembersAttachment.FindReanimAttachment(_effectSystem, track.mAttachmentID);
+                    SetAttachedReanimationSeekState(child, startElapsedSeconds);
+                }
+
                 SeekAttachmentEffects(attachment, elapsedSeconds, depth + 1);
             }
 
@@ -398,6 +424,101 @@ namespace EffectViewer.Rendering
             }
 
             return Math.Max(0d, parentElapsedSeconds - state.StartElapsedSeconds);
+        }
+
+        private void SetAttachedReanimationSeekState(Reanimation reanimation, double startElapsedSeconds)
+        {
+            if (reanimation is null)
+            {
+                return;
+            }
+
+            _attachedReanimationSeekStates[reanimation] = new AttachedReanimationSeekState(
+                reanimation,
+                Math.Max(0d, startElapsedSeconds));
+        }
+
+        private double GetAttacherStateStartElapsedSeconds(Reanimation reanimation, int trackIndex, double elapsedSeconds)
+        {
+            if (reanimation?.mDefinition?.mTracks is null ||
+                trackIndex < 0 ||
+                trackIndex >= reanimation.mDefinition.mTrackCount ||
+                reanimation.mFrameCount <= 0)
+            {
+                return elapsedSeconds;
+            }
+
+            ReanimatorTrack track = reanimation.mDefinition.mTracks[trackIndex];
+            if (track?.mTransforms is null || track.mTransformCount <= 0)
+            {
+                return elapsedSeconds;
+            }
+
+            reanimation.GetFrameTime(out ReanimatorFrameTime frameTime);
+            int firstFrame = Math.Clamp(reanimation.mFrameStart, 0, track.mTransformCount - 1);
+            int lastFrame = Math.Clamp(reanimation.mFrameStart + reanimation.mFrameCount - 1, firstFrame, track.mTransformCount - 1);
+            int currentFrame = Math.Clamp(frameTime.mAnimFrameBeforeInt, firstFrame, lastFrame);
+            string currentKey = GetAttacherKey(track, currentFrame);
+            if (string.IsNullOrEmpty(currentKey))
+            {
+                return elapsedSeconds;
+            }
+
+            int startFrame = currentFrame;
+            for (int frame = currentFrame - 1; frame >= firstFrame; frame--)
+            {
+                if (!string.Equals(GetAttacherKey(track, frame), currentKey, StringComparison.Ordinal))
+                {
+                    break;
+                }
+
+                startFrame = frame;
+            }
+
+            double currentLocalElapsedSeconds = GetFrameOffsetSeconds(
+                reanimation,
+                currentFrame + Math.Clamp(frameTime.mFraction, 0f, 1f));
+            double startLocalElapsedSeconds = GetFrameOffsetSeconds(reanimation, startFrame);
+            return Math.Max(0d, elapsedSeconds - currentLocalElapsedSeconds + startLocalElapsedSeconds);
+        }
+
+        private static string GetAttacherKey(ReanimatorTrack track, int frameIndex)
+        {
+            if (track?.mTransforms is null ||
+                frameIndex < 0 ||
+                frameIndex >= track.mTransformCount)
+            {
+                return string.Empty;
+            }
+
+            ReanimatorTransform transform = track.mTransforms[frameIndex];
+            return transform.mFrame < 0f ? string.Empty : transform.mText ?? string.Empty;
+        }
+
+        private static double GetElapsedSecondsForFrame(Reanimation reanimation, int frameIndex)
+        {
+            return GetFrameOffsetSeconds(reanimation, frameIndex);
+        }
+
+        private static double GetFrameOffsetSeconds(Reanimation reanimation, double frame)
+        {
+            if (reanimation is null)
+            {
+                return 0d;
+            }
+
+            double framesPerSecond = Math.Abs(reanimation.mAnimRate);
+            if (!double.IsFinite(framesPerSecond) || framesPerSecond <= 0d)
+            {
+                framesPerSecond = Math.Abs(reanimation.mDefinition?.mFPS ?? 0f);
+            }
+
+            if (!double.IsFinite(framesPerSecond) || framesPerSecond <= 0d)
+            {
+                framesPerSecond = 12d;
+            }
+
+            return Math.Max(0d, frame - reanimation.mFrameStart) / framesPerSecond;
         }
 
         private RenderFrame BuildFrame()
