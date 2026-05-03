@@ -1,7 +1,5 @@
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.iOS;
-using Avalonia.Media;
 using EffectViewer.Controls;
 using Foundation;
 using UIKit;
@@ -21,6 +19,10 @@ namespace EffectViewer.iOS
             App.ProjectStorageProvider = new IosProjectStorageProvider();
             OpenGlEffectViewport.GlInterfaceFactory = new IosGlInterfaceFactory();
             return base.CustomizeAppBuilder(builder)
+                .With(new iOSPlatformOptions
+                {
+                    RenderingMode = [iOSRenderingMode.OpenGl]
+                })
                 .WithInterFont();
         }
     }

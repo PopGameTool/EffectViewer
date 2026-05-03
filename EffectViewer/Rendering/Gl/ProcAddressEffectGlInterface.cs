@@ -1,91 +1,49 @@
 using System;
-using System.Runtime.InteropServices;
 
 namespace EffectViewer.Rendering.Gl
 {
-    public abstract class ProcAddressEffectGlInterface : IEffectGlInterface
+    public abstract unsafe class ProcAddressEffectGlInterface : IEffectGlInterface
     {
-        private delegate void GlViewportDelegate(int x, int y, int width, int height);
-        private delegate void GlClearColorDelegate(float red, float green, float blue, float alpha);
-        private delegate void GlClearDelegate(uint mask);
-        private delegate void GlBindFramebufferDelegate(uint target, uint framebuffer);
-        private delegate void GlEnableDelegate(uint cap);
-        private delegate void GlBlendFuncDelegate(uint sourceFactor, uint destinationFactor);
-        private delegate uint GlCreateShaderDelegate(uint shaderType);
-        private delegate void GlShaderSourceDelegate(uint shader, int count, IntPtr source, IntPtr length);
-        private delegate void GlCompileShaderDelegate(uint shader);
-        private delegate void GlGetShaderivDelegate(uint shader, uint parameterName, IntPtr value);
-        private delegate void GlGetShaderInfoLogDelegate(uint shader, int bufferSize, IntPtr length, IntPtr infoLog);
-        private delegate uint GlCreateProgramDelegate();
-        private delegate void GlAttachShaderDelegate(uint program, uint shader);
-        private delegate void GlLinkProgramDelegate(uint program);
-        private delegate void GlGetProgramivDelegate(uint program, uint parameterName, IntPtr value);
-        private delegate void GlGetProgramInfoLogDelegate(uint program, int bufferSize, IntPtr length, IntPtr infoLog);
-        private delegate void GlUseProgramDelegate(uint program);
-        private delegate void GlDeleteShaderDelegate(uint shader);
-        private delegate void GlDeleteProgramDelegate(uint program);
-        private delegate void GlGenBuffersDelegate(int count, IntPtr buffers);
-        private delegate void GlDeleteBuffersDelegate(int count, IntPtr buffers);
-        private delegate void GlBindBufferDelegate(uint target, uint buffer);
-        private delegate void GlGenVertexArraysDelegate(int count, IntPtr arrays);
-        private delegate void GlDeleteVertexArraysDelegate(int count, IntPtr arrays);
-        private delegate void GlBindVertexArrayDelegate(uint array);
-        private delegate void GlBufferDataDelegate(uint target, IntPtr size, IntPtr data, uint usage);
-        private delegate int GlGetAttribLocationDelegate(uint program, IntPtr name);
-        private delegate void GlEnableVertexAttribArrayDelegate(uint index);
-        private delegate void GlVertexAttribPointerDelegate(uint index, int size, uint type, bool normalized, int stride, IntPtr pointer);
-        private delegate void GlDrawArraysDelegate(uint mode, int first, int count);
-        private delegate void GlGenTexturesDelegate(int count, IntPtr textures);
-        private delegate void GlDeleteTexturesDelegate(int count, IntPtr textures);
-        private delegate void GlActiveTextureDelegate(uint texture);
-        private delegate void GlBindTextureDelegate(uint target, uint texture);
-        private delegate void GlTexParameteriDelegate(uint target, uint parameterName, int parameter);
-        private delegate void GlPixelStoreiDelegate(uint parameterName, int parameter);
-        private delegate void GlTexImage2DDelegate(uint target, int level, int internalFormat, int width, int height, int border, uint format, uint type, IntPtr pixels);
-        private delegate int GlGetUniformLocationDelegate(uint program, IntPtr name);
-        private delegate void GlUniform1iDelegate(int location, int value);
-        private delegate uint GlGetErrorDelegate();
-
-        private readonly GlViewportDelegate _viewport;
-        private readonly GlClearColorDelegate _clearColor;
-        private readonly GlClearDelegate _clear;
-        private readonly GlBindFramebufferDelegate _bindFramebuffer;
-        private readonly GlEnableDelegate _enable;
-        private readonly GlBlendFuncDelegate _blendFunc;
-        private readonly GlCreateShaderDelegate _createShader;
-        private readonly GlShaderSourceDelegate _shaderSource;
-        private readonly GlCompileShaderDelegate _compileShader;
-        private readonly GlGetShaderivDelegate _getShaderiv;
-        private readonly GlGetShaderInfoLogDelegate _getShaderInfoLog;
-        private readonly GlCreateProgramDelegate _createProgram;
-        private readonly GlAttachShaderDelegate _attachShader;
-        private readonly GlLinkProgramDelegate _linkProgram;
-        private readonly GlGetProgramivDelegate _getProgramiv;
-        private readonly GlGetProgramInfoLogDelegate _getProgramInfoLog;
-        private readonly GlUseProgramDelegate _useProgram;
-        private readonly GlDeleteShaderDelegate _deleteShader;
-        private readonly GlDeleteProgramDelegate _deleteProgram;
-        private readonly GlGenBuffersDelegate _genBuffers;
-        private readonly GlDeleteBuffersDelegate _deleteBuffers;
-        private readonly GlBindBufferDelegate _bindBuffer;
-        private readonly GlGenVertexArraysDelegate _genVertexArrays;
-        private readonly GlDeleteVertexArraysDelegate _deleteVertexArrays;
-        private readonly GlBindVertexArrayDelegate _bindVertexArray;
-        private readonly GlBufferDataDelegate _bufferData;
-        private readonly GlGetAttribLocationDelegate _getAttribLocation;
-        private readonly GlEnableVertexAttribArrayDelegate _enableVertexAttribArray;
-        private readonly GlVertexAttribPointerDelegate _vertexAttribPointer;
-        private readonly GlDrawArraysDelegate _drawArrays;
-        private readonly GlGenTexturesDelegate _genTextures;
-        private readonly GlDeleteTexturesDelegate _deleteTextures;
-        private readonly GlActiveTextureDelegate _activeTexture;
-        private readonly GlBindTextureDelegate _bindTexture;
-        private readonly GlTexParameteriDelegate _texParameteri;
-        private readonly GlPixelStoreiDelegate _pixelStorei;
-        private readonly GlTexImage2DDelegate _texImage2D;
-        private readonly GlGetUniformLocationDelegate _getUniformLocation;
-        private readonly GlUniform1iDelegate _uniform1i;
-        private readonly GlGetErrorDelegate _getError;
+        private readonly delegate* unmanaged<int, int, int, int, void> _viewport;
+        private readonly delegate* unmanaged<float, float, float, float, void> _clearColor;
+        private readonly delegate* unmanaged<uint, void> _clear;
+        private readonly delegate* unmanaged<uint, uint, void> _bindFramebuffer;
+        private readonly delegate* unmanaged<uint, void> _enable;
+        private readonly delegate* unmanaged<uint, uint, void> _blendFunc;
+        private readonly delegate* unmanaged<uint, uint> _createShader;
+        private readonly delegate* unmanaged<uint, int, IntPtr, IntPtr, void> _shaderSource;
+        private readonly delegate* unmanaged<uint, void> _compileShader;
+        private readonly delegate* unmanaged<uint, uint, IntPtr, void> _getShaderiv;
+        private readonly delegate* unmanaged<uint, int, IntPtr, IntPtr, void> _getShaderInfoLog;
+        private readonly delegate* unmanaged<uint> _createProgram;
+        private readonly delegate* unmanaged<uint, uint, void> _attachShader;
+        private readonly delegate* unmanaged<uint, void> _linkProgram;
+        private readonly delegate* unmanaged<uint, uint, IntPtr, void> _getProgramiv;
+        private readonly delegate* unmanaged<uint, int, IntPtr, IntPtr, void> _getProgramInfoLog;
+        private readonly delegate* unmanaged<uint, void> _useProgram;
+        private readonly delegate* unmanaged<uint, void> _deleteShader;
+        private readonly delegate* unmanaged<uint, void> _deleteProgram;
+        private readonly delegate* unmanaged<int, IntPtr, void> _genBuffers;
+        private readonly delegate* unmanaged<int, IntPtr, void> _deleteBuffers;
+        private readonly delegate* unmanaged<uint, uint, void> _bindBuffer;
+        private readonly delegate* unmanaged<int, IntPtr, void> _genVertexArrays;
+        private readonly delegate* unmanaged<int, IntPtr, void> _deleteVertexArrays;
+        private readonly delegate* unmanaged<uint, void> _bindVertexArray;
+        private readonly delegate* unmanaged<uint, IntPtr, IntPtr, uint, void> _bufferData;
+        private readonly delegate* unmanaged<uint, IntPtr, int> _getAttribLocation;
+        private readonly delegate* unmanaged<uint, void> _enableVertexAttribArray;
+        private readonly delegate* unmanaged<uint, int, uint, byte, int, IntPtr, void> _vertexAttribPointer;
+        private readonly delegate* unmanaged<uint, int, int, void> _drawArrays;
+        private readonly delegate* unmanaged<int, IntPtr, void> _genTextures;
+        private readonly delegate* unmanaged<int, IntPtr, void> _deleteTextures;
+        private readonly delegate* unmanaged<uint, void> _activeTexture;
+        private readonly delegate* unmanaged<uint, uint, void> _bindTexture;
+        private readonly delegate* unmanaged<uint, uint, int, void> _texParameteri;
+        private readonly delegate* unmanaged<uint, int, void> _pixelStorei;
+        private readonly delegate* unmanaged<uint, int, int, int, int, int, uint, uint, IntPtr, void> _texImage2D;
+        private readonly delegate* unmanaged<uint, IntPtr, int> _getUniformLocation;
+        private readonly delegate* unmanaged<int, int, void> _uniform1i;
+        private readonly delegate* unmanaged<uint> _getError;
 
         protected ProcAddressEffectGlInterface(
             EffectGlApi api,
@@ -97,46 +55,46 @@ namespace EffectViewer.Rendering.Gl
             Api = api;
             BackendName = backendName;
 
-            _viewport = Load<GlViewportDelegate>(getProcAddress, "glViewport");
-            _clearColor = Load<GlClearColorDelegate>(getProcAddress, "glClearColor");
-            _clear = Load<GlClearDelegate>(getProcAddress, "glClear");
-            _bindFramebuffer = LoadAny<GlBindFramebufferDelegate>(getProcAddress, "glBindFramebuffer", "glBindFramebufferEXT");
-            _enable = Load<GlEnableDelegate>(getProcAddress, "glEnable");
-            _blendFunc = Load<GlBlendFuncDelegate>(getProcAddress, "glBlendFunc");
-            _createShader = Load<GlCreateShaderDelegate>(getProcAddress, "glCreateShader");
-            _shaderSource = Load<GlShaderSourceDelegate>(getProcAddress, "glShaderSource");
-            _compileShader = Load<GlCompileShaderDelegate>(getProcAddress, "glCompileShader");
-            _getShaderiv = Load<GlGetShaderivDelegate>(getProcAddress, "glGetShaderiv");
-            _getShaderInfoLog = Load<GlGetShaderInfoLogDelegate>(getProcAddress, "glGetShaderInfoLog");
-            _createProgram = Load<GlCreateProgramDelegate>(getProcAddress, "glCreateProgram");
-            _attachShader = Load<GlAttachShaderDelegate>(getProcAddress, "glAttachShader");
-            _linkProgram = Load<GlLinkProgramDelegate>(getProcAddress, "glLinkProgram");
-            _getProgramiv = Load<GlGetProgramivDelegate>(getProcAddress, "glGetProgramiv");
-            _getProgramInfoLog = Load<GlGetProgramInfoLogDelegate>(getProcAddress, "glGetProgramInfoLog");
-            _useProgram = Load<GlUseProgramDelegate>(getProcAddress, "glUseProgram");
-            _deleteShader = Load<GlDeleteShaderDelegate>(getProcAddress, "glDeleteShader");
-            _deleteProgram = Load<GlDeleteProgramDelegate>(getProcAddress, "glDeleteProgram");
-            _genBuffers = Load<GlGenBuffersDelegate>(getProcAddress, "glGenBuffers");
-            _deleteBuffers = Load<GlDeleteBuffersDelegate>(getProcAddress, "glDeleteBuffers");
-            _bindBuffer = Load<GlBindBufferDelegate>(getProcAddress, "glBindBuffer");
-            _genVertexArrays = LoadAny<GlGenVertexArraysDelegate>(getProcAddress, "glGenVertexArrays", "glGenVertexArraysAPPLE", "glGenVertexArraysOES");
-            _deleteVertexArrays = LoadAny<GlDeleteVertexArraysDelegate>(getProcAddress, "glDeleteVertexArrays", "glDeleteVertexArraysAPPLE", "glDeleteVertexArraysOES");
-            _bindVertexArray = LoadAny<GlBindVertexArrayDelegate>(getProcAddress, "glBindVertexArray", "glBindVertexArrayAPPLE", "glBindVertexArrayOES");
-            _bufferData = Load<GlBufferDataDelegate>(getProcAddress, "glBufferData");
-            _getAttribLocation = Load<GlGetAttribLocationDelegate>(getProcAddress, "glGetAttribLocation");
-            _enableVertexAttribArray = Load<GlEnableVertexAttribArrayDelegate>(getProcAddress, "glEnableVertexAttribArray");
-            _vertexAttribPointer = Load<GlVertexAttribPointerDelegate>(getProcAddress, "glVertexAttribPointer");
-            _drawArrays = Load<GlDrawArraysDelegate>(getProcAddress, "glDrawArrays");
-            _genTextures = Load<GlGenTexturesDelegate>(getProcAddress, "glGenTextures");
-            _deleteTextures = Load<GlDeleteTexturesDelegate>(getProcAddress, "glDeleteTextures");
-            _activeTexture = Load<GlActiveTextureDelegate>(getProcAddress, "glActiveTexture");
-            _bindTexture = Load<GlBindTextureDelegate>(getProcAddress, "glBindTexture");
-            _texParameteri = Load<GlTexParameteriDelegate>(getProcAddress, "glTexParameteri");
-            _pixelStorei = Load<GlPixelStoreiDelegate>(getProcAddress, "glPixelStorei");
-            _texImage2D = Load<GlTexImage2DDelegate>(getProcAddress, "glTexImage2D");
-            _getUniformLocation = Load<GlGetUniformLocationDelegate>(getProcAddress, "glGetUniformLocation");
-            _uniform1i = Load<GlUniform1iDelegate>(getProcAddress, "glUniform1i");
-            _getError = Load<GlGetErrorDelegate>(getProcAddress, "glGetError");
+            _viewport = (delegate* unmanaged<int, int, int, int, void>)Load(getProcAddress, "glViewport");
+            _clearColor = (delegate* unmanaged<float, float, float, float, void>)Load(getProcAddress, "glClearColor");
+            _clear = (delegate* unmanaged<uint, void>)Load(getProcAddress, "glClear");
+            _bindFramebuffer = (delegate* unmanaged<uint, uint, void>)LoadAny(getProcAddress, "glBindFramebuffer", "glBindFramebufferEXT");
+            _enable = (delegate* unmanaged<uint, void>)Load(getProcAddress, "glEnable");
+            _blendFunc = (delegate* unmanaged<uint, uint, void>)Load(getProcAddress, "glBlendFunc");
+            _createShader = (delegate* unmanaged<uint, uint>)Load(getProcAddress, "glCreateShader");
+            _shaderSource = (delegate* unmanaged<uint, int, IntPtr, IntPtr, void>)Load(getProcAddress, "glShaderSource");
+            _compileShader = (delegate* unmanaged<uint, void>)Load(getProcAddress, "glCompileShader");
+            _getShaderiv = (delegate* unmanaged<uint, uint, IntPtr, void>)Load(getProcAddress, "glGetShaderiv");
+            _getShaderInfoLog = (delegate* unmanaged<uint, int, IntPtr, IntPtr, void>)Load(getProcAddress, "glGetShaderInfoLog");
+            _createProgram = (delegate* unmanaged<uint>)Load(getProcAddress, "glCreateProgram");
+            _attachShader = (delegate* unmanaged<uint, uint, void>)Load(getProcAddress, "glAttachShader");
+            _linkProgram = (delegate* unmanaged<uint, void>)Load(getProcAddress, "glLinkProgram");
+            _getProgramiv = (delegate* unmanaged<uint, uint, IntPtr, void>)Load(getProcAddress, "glGetProgramiv");
+            _getProgramInfoLog = (delegate* unmanaged<uint, int, IntPtr, IntPtr, void>)Load(getProcAddress, "glGetProgramInfoLog");
+            _useProgram = (delegate* unmanaged<uint, void>)Load(getProcAddress, "glUseProgram");
+            _deleteShader = (delegate* unmanaged<uint, void>)Load(getProcAddress, "glDeleteShader");
+            _deleteProgram = (delegate* unmanaged<uint, void>)Load(getProcAddress, "glDeleteProgram");
+            _genBuffers = (delegate* unmanaged<int, IntPtr, void>)Load(getProcAddress, "glGenBuffers");
+            _deleteBuffers = (delegate* unmanaged<int, IntPtr, void>)Load(getProcAddress, "glDeleteBuffers");
+            _bindBuffer = (delegate* unmanaged<uint, uint, void>)Load(getProcAddress, "glBindBuffer");
+            _genVertexArrays = (delegate* unmanaged<int, IntPtr, void>)LoadAny(getProcAddress, "glGenVertexArrays", "glGenVertexArraysAPPLE", "glGenVertexArraysOES");
+            _deleteVertexArrays = (delegate* unmanaged<int, IntPtr, void>)LoadAny(getProcAddress, "glDeleteVertexArrays", "glDeleteVertexArraysAPPLE", "glDeleteVertexArraysOES");
+            _bindVertexArray = (delegate* unmanaged<uint, void>)LoadAny(getProcAddress, "glBindVertexArray", "glBindVertexArrayAPPLE", "glBindVertexArrayOES");
+            _bufferData = (delegate* unmanaged<uint, IntPtr, IntPtr, uint, void>)Load(getProcAddress, "glBufferData");
+            _getAttribLocation = (delegate* unmanaged<uint, IntPtr, int>)Load(getProcAddress, "glGetAttribLocation");
+            _enableVertexAttribArray = (delegate* unmanaged<uint, void>)Load(getProcAddress, "glEnableVertexAttribArray");
+            _vertexAttribPointer = (delegate* unmanaged<uint, int, uint, byte, int, IntPtr, void>)Load(getProcAddress, "glVertexAttribPointer");
+            _drawArrays = (delegate* unmanaged<uint, int, int, void>)Load(getProcAddress, "glDrawArrays");
+            _genTextures = (delegate* unmanaged<int, IntPtr, void>)Load(getProcAddress, "glGenTextures");
+            _deleteTextures = (delegate* unmanaged<int, IntPtr, void>)Load(getProcAddress, "glDeleteTextures");
+            _activeTexture = (delegate* unmanaged<uint, void>)Load(getProcAddress, "glActiveTexture");
+            _bindTexture = (delegate* unmanaged<uint, uint, void>)Load(getProcAddress, "glBindTexture");
+            _texParameteri = (delegate* unmanaged<uint, uint, int, void>)Load(getProcAddress, "glTexParameteri");
+            _pixelStorei = (delegate* unmanaged<uint, int, void>)Load(getProcAddress, "glPixelStorei");
+            _texImage2D = (delegate* unmanaged<uint, int, int, int, int, int, uint, uint, IntPtr, void>)Load(getProcAddress, "glTexImage2D");
+            _getUniformLocation = (delegate* unmanaged<uint, IntPtr, int>)Load(getProcAddress, "glGetUniformLocation");
+            _uniform1i = (delegate* unmanaged<int, int, void>)Load(getProcAddress, "glUniform1i");
+            _getError = (delegate* unmanaged<uint>)Load(getProcAddress, "glGetError");
 
             CanClear = _viewport != null && _clearColor != null && _clear != null;
             CanDraw = CanClear &&
@@ -176,11 +134,33 @@ namespace EffectViewer.Rendering.Gl
         public void Viewport(int x, int y, int width, int height) => _viewport(x, y, width, height);
         public void ClearColor(float red, float green, float blue, float alpha) => _clearColor(red, green, blue, alpha);
         public void Clear(uint mask) => _clear(mask);
-        public void BindFramebuffer(uint target, uint framebuffer) => _bindFramebuffer?.Invoke(target, framebuffer);
-        public void Enable(uint cap) => _enable?.Invoke(cap);
-        public void BlendFunc(uint sourceFactor, uint destinationFactor) => _blendFunc?.Invoke(sourceFactor, destinationFactor);
+        public void BindFramebuffer(uint target, uint framebuffer)
+        {
+            if (_bindFramebuffer != null)
+            {
+                _bindFramebuffer(target, framebuffer);
+            }
+        }
+
+        public void Enable(uint cap)
+        {
+            if (_enable != null)
+            {
+                _enable(cap);
+            }
+        }
+
+        public void BlendFunc(uint sourceFactor, uint destinationFactor)
+        {
+            if (_blendFunc != null)
+            {
+                _blendFunc(sourceFactor, destinationFactor);
+            }
+        }
+
         public uint CreateShader(uint shaderType) => _createShader(shaderType);
-        public unsafe void ShaderSource(uint shader, string source)
+
+        public void ShaderSource(uint shader, string source)
         {
             byte[] sourceBytes = System.Text.Encoding.UTF8.GetBytes(source);
             fixed (byte* sourcePtr = sourceBytes)
@@ -193,8 +173,10 @@ namespace EffectViewer.Rendering.Gl
                 _shaderSource(shader, 1, new IntPtr(sources), new IntPtr(lengths));
             }
         }
+
         public void CompileShader(uint shader) => _compileShader(shader);
-        public unsafe void GetShaderiv(uint shader, uint parameterName, out int value)
+
+        public void GetShaderiv(uint shader, uint parameterName, out int value)
         {
             int localValue = 0;
             _getShaderiv(shader, parameterName, new IntPtr(&localValue));
@@ -205,7 +187,8 @@ namespace EffectViewer.Rendering.Gl
         public uint CreateProgram() => _createProgram();
         public void AttachShader(uint program, uint shader) => _attachShader(program, shader);
         public void LinkProgram(uint program) => _linkProgram(program);
-        public unsafe void GetProgramiv(uint program, uint parameterName, out int value)
+
+        public void GetProgramiv(uint program, uint parameterName, out int value)
         {
             int localValue = 0;
             _getProgramiv(program, parameterName, new IntPtr(&localValue));
@@ -214,33 +197,71 @@ namespace EffectViewer.Rendering.Gl
 
         public string GetProgramInfoLog(uint program) => GetInfoLog(_getProgramInfoLog, program);
         public void UseProgram(uint program) => _useProgram(program);
-        public void DeleteShader(uint shader) => _deleteShader?.Invoke(shader);
-        public void DeleteProgram(uint program) => _deleteProgram?.Invoke(program);
+
+        public void DeleteShader(uint shader)
+        {
+            if (_deleteShader != null)
+            {
+                _deleteShader(shader);
+            }
+        }
+
+        public void DeleteProgram(uint program)
+        {
+            if (_deleteProgram != null)
+            {
+                _deleteProgram(program);
+            }
+        }
+
         public void GenBuffers(int count, uint[] buffers) => InvokeWithPinnedArray(_genBuffers, count, buffers);
         public void DeleteBuffers(int count, uint[] buffers) => InvokeWithPinnedArray(_deleteBuffers, count, buffers);
         public void BindBuffer(uint target, uint buffer) => _bindBuffer(target, buffer);
         public void GenVertexArrays(int count, uint[] arrays) => InvokeWithPinnedArray(_genVertexArrays, count, arrays);
         public void DeleteVertexArrays(int count, uint[] arrays) => InvokeWithPinnedArray(_deleteVertexArrays, count, arrays);
-        public void BindVertexArray(uint array) => _bindVertexArray?.Invoke(array);
+
+        public void BindVertexArray(uint array)
+        {
+            if (_bindVertexArray != null)
+            {
+                _bindVertexArray(array);
+            }
+        }
+
         public void BufferData(uint target, IntPtr size, IntPtr data, uint usage) => _bufferData(target, size, data, usage);
         public int GetAttribLocation(uint program, string name) => InvokeWithUtf8Name(_getAttribLocation, program, name);
         public void EnableVertexAttribArray(uint index) => _enableVertexAttribArray(index);
-        public void VertexAttribPointer(uint index, int size, uint type, bool normalized, int stride, IntPtr pointer) => _vertexAttribPointer(index, size, type, normalized, stride, pointer);
+
+        public void VertexAttribPointer(uint index, int size, uint type, bool normalized, int stride, IntPtr pointer) =>
+            _vertexAttribPointer(index, size, type, normalized ? (byte)1 : (byte)0, stride, pointer);
+
         public void DrawArrays(uint mode, int first, int count) => _drawArrays(mode, first, count);
         public void GenTextures(int count, uint[] textures) => InvokeWithPinnedArray(_genTextures, count, textures);
         public void DeleteTextures(int count, uint[] textures) => InvokeWithPinnedArray(_deleteTextures, count, textures);
         public void ActiveTexture(uint texture) => _activeTexture(texture);
         public void BindTexture(uint target, uint texture) => _bindTexture(target, texture);
         public void TexParameteri(uint target, uint parameterName, int parameter) => _texParameteri(target, parameterName, parameter);
-        public void PixelStorei(uint parameterName, int parameter) => _pixelStorei?.Invoke(parameterName, parameter);
+
+        public void PixelStorei(uint parameterName, int parameter)
+        {
+            if (_pixelStorei != null)
+            {
+                _pixelStorei(parameterName, parameter);
+            }
+        }
+
         public void TexImage2D(uint target, int level, int internalFormat, int width, int height, int border, uint format, uint type, IntPtr pixels) =>
             _texImage2D(target, level, internalFormat, width, height, border, format, type, pixels);
+
         public int GetUniformLocation(uint program, string name) => InvokeWithUtf8Name(_getUniformLocation, program, name);
         public void Uniform1i(int location, int value) => _uniform1i(location, value);
-        public uint GetError() => _getError?.Invoke() ?? 0;
 
-        private static unsafe string GetInfoLog<T>(T getInfoLog, uint handle)
-            where T : Delegate
+        public uint GetError()
+        {
+            return _getError == null ? 0 : _getError();
+        }
+
+        private static string GetInfoLog(delegate* unmanaged<uint, int, IntPtr, IntPtr, void> getInfoLog, uint handle)
         {
             if (getInfoLog == null)
             {
@@ -251,97 +272,51 @@ namespace EffectViewer.Rendering.Gl
             int length = 0;
             fixed (byte* bufferPtr = buffer)
             {
-                if (getInfoLog is GlGetShaderInfoLogDelegate shaderInfoLog)
-                {
-                    shaderInfoLog(handle, buffer.Length, new IntPtr(&length), new IntPtr(bufferPtr));
-                }
-                else if (getInfoLog is GlGetProgramInfoLogDelegate programInfoLog)
-                {
-                    programInfoLog(handle, buffer.Length, new IntPtr(&length), new IntPtr(bufferPtr));
-                }
+                getInfoLog(handle, buffer.Length, new IntPtr(&length), new IntPtr(bufferPtr));
             }
 
             length = Math.Clamp(length, 0, buffer.Length);
             return length <= 0 ? string.Empty : System.Text.Encoding.UTF8.GetString(buffer, 0, length).TrimEnd('\0');
         }
 
-        private static void InvokeWithPinnedArray<T>(T action, int count, uint[] values)
-            where T : Delegate
+        private static void InvokeWithPinnedArray(delegate* unmanaged<int, IntPtr, void> action, int count, uint[] values)
         {
             if (action == null)
             {
                 return;
             }
 
-            GCHandle handle = GCHandle.Alloc(values, GCHandleType.Pinned);
-            try
+            fixed (uint* valuesPtr = values)
             {
-                if (action is GlGenBuffersDelegate genBuffers)
-                {
-                    genBuffers(count, handle.AddrOfPinnedObject());
-                }
-                else if (action is GlDeleteBuffersDelegate deleteBuffers)
-                {
-                    deleteBuffers(count, handle.AddrOfPinnedObject());
-                }
-                else if (action is GlGenVertexArraysDelegate genVertexArrays)
-                {
-                    genVertexArrays(count, handle.AddrOfPinnedObject());
-                }
-                else if (action is GlDeleteVertexArraysDelegate deleteVertexArrays)
-                {
-                    deleteVertexArrays(count, handle.AddrOfPinnedObject());
-                }
-                else if (action is GlGenTexturesDelegate genTextures)
-                {
-                    genTextures(count, handle.AddrOfPinnedObject());
-                }
-                else if (action is GlDeleteTexturesDelegate deleteTextures)
-                {
-                    deleteTextures(count, handle.AddrOfPinnedObject());
-                }
-            }
-            finally
-            {
-                handle.Free();
+                action(count, new IntPtr(valuesPtr));
             }
         }
 
-        private static unsafe int InvokeWithUtf8Name<T>(T function, uint program, string name)
-            where T : Delegate
+        private static int InvokeWithUtf8Name(delegate* unmanaged<uint, IntPtr, int> function, uint program, string name)
         {
+            if (function == null)
+            {
+                return -1;
+            }
+
             byte[] nameBytes = System.Text.Encoding.UTF8.GetBytes(name + '\0');
             fixed (byte* namePtr = nameBytes)
             {
-                if (function is GlGetAttribLocationDelegate getAttribLocation)
-                {
-                    return getAttribLocation(program, new IntPtr(namePtr));
-                }
-
-                if (function is GlGetUniformLocationDelegate getUniformLocation)
-                {
-                    return getUniformLocation(program, new IntPtr(namePtr));
-                }
+                return function(program, new IntPtr(namePtr));
             }
-
-            return -1;
         }
 
-        private static T Load<T>(Func<string, IntPtr> getProcAddress, string name)
-            where T : Delegate
+        private static void* Load(Func<string, IntPtr> getProcAddress, string name)
         {
             IntPtr address = getProcAddress(name);
-            return address == IntPtr.Zero
-                ? null
-                : Marshal.GetDelegateForFunctionPointer<T>(address);
+            return address == IntPtr.Zero ? null : (void*)address;
         }
 
-        private static T LoadAny<T>(Func<string, IntPtr> getProcAddress, params string[] names)
-            where T : Delegate
+        private static void* LoadAny(Func<string, IntPtr> getProcAddress, params string[] names)
         {
             foreach (string name in names)
             {
-                T function = Load<T>(getProcAddress, name);
+                void* function = Load(getProcAddress, name);
                 if (function != null)
                 {
                     return function;
