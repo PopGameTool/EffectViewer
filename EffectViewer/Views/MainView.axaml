@@ -9,6 +9,39 @@
              d:DesignHeight="760"
              x:Class="EffectViewer.Views.MainView"
              x:DataType="vm:MainViewModel">
+    <UserControl.Resources>
+      <DataTemplate x:Key="ProjectExplorerItemTemplate"
+                    DataType="vm:ProjectExplorerItemViewModel">
+        <Border Background="Transparent"
+                MinHeight="24">
+          <Border.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="{DynamicResource Loc.Menu.DeleteResource}"
+                        Command="{Binding $parent[UserControl].DataContext.ShowDeleteResourceDialogCommand}"
+                        CommandParameter="{Binding}"
+                        IsEnabled="{Binding IsSelectable}"/>
+            </ContextMenu>
+          </Border.ContextMenu>
+          <Grid ColumnDefinitions="Auto,Auto,*"
+                VerticalAlignment="Center">
+            <Border Width="{Binding Indent}"/>
+            <Button Grid.Column="1"
+                    Classes="project-tree-disclosure"
+                    Content="{Binding DisclosureText}"
+                    Command="{Binding $parent[UserControl].DataContext.ToggleProjectExplorerItemCommand}"
+                    CommandParameter="{Binding}"
+                    IsVisible="{Binding CanExpand}"
+                    IsEnabled="{Binding CanExpand}"/>
+            <TextBlock Grid.Column="2"
+                       Text="{Binding Title}"
+                       TextTrimming="CharacterEllipsis"
+                       VerticalAlignment="Center"
+                       Margin="4,0,0,0"/>
+          </Grid>
+        </Border>
+      </DataTemplate>
+    </UserControl.Resources>
+
     <UserControl.Styles>
       <Style Selector="Border.document-tab.selected">
         <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumBrush}"/>
@@ -41,8 +74,23 @@
       <Style Selector="TextBlock.document-tab-title.selected">
         <Setter Property="FontWeight" Value="SemiBold"/>
       </Style>
-      <Style Selector="TreeViewItem">
-        <Setter Property="IsExpanded" Value="{ReflectionBinding IsExpanded, Mode=TwoWay}"/>
+      <Style Selector="ListBox.project-tree-list">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+      </Style>
+      <Style Selector="ListBox.project-tree-list ListBoxItem">
+        <Setter Property="MinHeight" Value="24"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      </Style>
+      <Style Selector="Button.project-tree-disclosure">
+        <Setter Property="Width" Value="20"/>
+        <Setter Property="MinWidth" Value="20"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
       </Style>
       <Style Selector="Button.tab-strip-button">
         <Setter Property="Width" Value="30"/>
@@ -298,27 +346,19 @@
                       Command="{Binding ClearProjectTreeSearchCommand}"/>
             </Grid>
             <Grid Grid.Row="2">
-              <TreeView ItemsSource="{Binding ProjectItems}"
-                        SelectedItem="{Binding SelectedProjectItem}"
-                        IsVisible="{Binding HasVisibleProjectTreeItems}">
-                <TreeView.ItemTemplate>
-                  <TreeDataTemplate ItemsSource="{Binding Children}"
-                                    DataType="vm:ProjectExplorerItemViewModel">
-                    <TextBlock Text="{Binding Title}"
-                               TextTrimming="CharacterEllipsis"
-                               Margin="0,2">
-                      <TextBlock.ContextMenu>
-                        <ContextMenu>
-                          <MenuItem Header="{DynamicResource Loc.Menu.DeleteResource}"
-                                    Command="{Binding $parent[UserControl].DataContext.ShowDeleteResourceDialogCommand}"
-                                    CommandParameter="{Binding}"
-                                    IsEnabled="{Binding IsSelectable}"/>
-                        </ContextMenu>
-                      </TextBlock.ContextMenu>
-                    </TextBlock>
-                  </TreeDataTemplate>
-                </TreeView.ItemTemplate>
-              </TreeView>
+              <ListBox ItemsSource="{Binding VisibleProjectItems}"
+                       SelectedItem="{Binding SelectedProjectItem}"
+                       ItemTemplate="{StaticResource ProjectExplorerItemTemplate}"
+                       SelectionMode="Single"
+                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                       IsVisible="{Binding HasVisibleProjectTreeItems}"
+                       Classes="project-tree-list">
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <VirtualizingStackPanel/>
+                  </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+              </ListBox>
               <TextBlock Text="{Binding ProjectTreeEmptyMessage}"
                          IsVisible="{Binding HasNoVisibleProjectTreeItems}"
                          Foreground="{DynamicResource TextControlPlaceholderForeground}"
@@ -530,27 +570,19 @@
                       Command="{Binding ClearProjectTreeSearchCommand}"/>
             </Grid>
             <Grid Grid.Row="2">
-              <TreeView ItemsSource="{Binding ProjectItems}"
-                        SelectedItem="{Binding SelectedProjectItem}"
-                        IsVisible="{Binding HasVisibleProjectTreeItems}">
-                <TreeView.ItemTemplate>
-                  <TreeDataTemplate ItemsSource="{Binding Children}"
-                                    DataType="vm:ProjectExplorerItemViewModel">
-                    <TextBlock Text="{Binding Title}"
-                               TextTrimming="CharacterEllipsis"
-                               Margin="0,2">
-                      <TextBlock.ContextMenu>
-                        <ContextMenu>
-                          <MenuItem Header="{DynamicResource Loc.Menu.DeleteResource}"
-                                    Command="{Binding $parent[UserControl].DataContext.ShowDeleteResourceDialogCommand}"
-                                    CommandParameter="{Binding}"
-                                    IsEnabled="{Binding IsSelectable}"/>
-                        </ContextMenu>
-                      </TextBlock.ContextMenu>
-                    </TextBlock>
-                  </TreeDataTemplate>
-                </TreeView.ItemTemplate>
-              </TreeView>
+              <ListBox ItemsSource="{Binding VisibleProjectItems}"
+                       SelectedItem="{Binding SelectedProjectItem}"
+                       ItemTemplate="{StaticResource ProjectExplorerItemTemplate}"
+                       SelectionMode="Single"
+                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                       IsVisible="{Binding HasVisibleProjectTreeItems}"
+                       Classes="project-tree-list">
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <VirtualizingStackPanel/>
+                  </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+              </ListBox>
               <TextBlock Text="{Binding ProjectTreeEmptyMessage}"
                          IsVisible="{Binding HasNoVisibleProjectTreeItems}"
                          Foreground="{DynamicResource TextControlPlaceholderForeground}"

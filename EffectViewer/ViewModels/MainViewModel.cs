@@ -49,11 +49,19 @@ namespace EffectViewer.ViewModels
         private readonly Dictionary<string, bool> _projectTreeExpansionState = new(StringComparer.OrdinalIgnoreCase);
         private string _appliedProjectTreeSearchText = string.Empty;
         private CancellationTokenSource _projectTreeSearchRefreshCancellation;
+        private IReadOnlyList<ProjectExplorerItemViewModel> _visibleProjectItems = Array.Empty<ProjectExplorerItemViewModel>();
+        private bool _suppressSelectedProjectItemOpen;
 
         public ObservableCollection<ProjectExplorerItemViewModel> ProjectItems { get; } = [];
         public ObservableCollection<ProjectExplorerItemViewModel> RecentlyOpenedProjectItems { get; } = [];
         public ObservableCollection<EditorViewModelBase> OpenEditors { get; } = [];
         public ObservableCollection<ProjectListItemViewModel> AvailableProjects { get; } = [];
+
+        public IReadOnlyList<ProjectExplorerItemViewModel> VisibleProjectItems
+        {
+            get => _visibleProjectItems;
+            private set => SetProperty(ref _visibleProjectItems, value ?? Array.Empty<ProjectExplorerItemViewModel>());
+        }
 
         [ObservableProperty]
         private EffectProject _currentProject;
@@ -238,7 +246,7 @@ namespace EffectViewer.ViewModels
         public bool CanUndoSelectedEditor => SelectedEditor?.CanUndo == true;
         public bool CanRedoSelectedEditor => SelectedEditor?.CanRedo == true;
         public bool HasProjectTreeSearchText => !string.IsNullOrWhiteSpace(ProjectTreeSearchText);
-        public bool HasVisibleProjectTreeItems => ProjectItems.Count > 0;
+        public bool HasVisibleProjectTreeItems => VisibleProjectItems.Count > 0;
         public bool HasNoVisibleProjectTreeItems => !HasVisibleProjectTreeItems;
         public bool HasRecentlyOpenedProjectItems => RecentlyOpenedProjectItems.Count > 0;
         public string ProjectTreeEmptyMessage => CurrentProject is null
@@ -667,6 +675,23 @@ namespace EffectViewer.ViewModels
         }
 
         [RelayCommand]
+        private void ToggleProjectExplorerItem(ProjectExplorerItemViewModel item)
+        {
+            if (item?.CanExpand != true)
+            {
+                return;
+            }
+
+            item.IsExpanded = !item.IsExpanded;
+            _projectTreeExpansionState[GetProjectTreeExpansionKey(item.Kind, item.AssetId)] = item.IsExpanded;
+            RefreshVisibleProjectItems();
+            if (SelectedProjectItem is not null && !VisibleProjectItems.Contains(SelectedProjectItem))
+            {
+                SetSelectedProjectItemWithoutOpening(null);
+            }
+        }
+
+        [RelayCommand]
         private void OpenProjectExplorerItem(ProjectExplorerItemViewModel item)
         {
             if (item?.IsSelectable != true)
@@ -675,7 +700,7 @@ namespace EffectViewer.ViewModels
             }
 
             ProjectExplorerItemViewModel visibleItem = FindProjectExplorerItem(ProjectItems, item.Kind, item.AssetId, item.Path);
-            if (visibleItem is not null)
+            if (visibleItem is not null && VisibleProjectItems.Contains(visibleItem))
             {
                 SelectedProjectItem = visibleItem;
                 return;
@@ -1706,6 +1731,7 @@ namespace EffectViewer.ViewModels
             CancelPendingProjectTreeSearchRefresh();
             _appliedProjectTreeSearchText = NormalizeProjectTreeSearchText(ProjectTreeSearchText);
             ProjectItems.Clear();
+            VisibleProjectItems = Array.Empty<ProjectExplorerItemViewModel>();
             SelectedProjectItem = null;
             ProjectTreeResourceCount = 0;
             _projectTreeExpansionState.Clear();
@@ -1742,12 +1768,30 @@ namespace EffectViewer.ViewModels
         {
             OnPropertyChanged(nameof(CanDeleteSelectedResource));
 
+            if (_suppressSelectedProjectItemOpen)
+            {
+                return;
+            }
+
             if (value is null || !value.IsSelectable)
             {
                 return;
             }
 
             OpenEditor(value);
+        }
+
+        private void SetSelectedProjectItemWithoutOpening(ProjectExplorerItemViewModel item)
+        {
+            _suppressSelectedProjectItemOpen = true;
+            try
+            {
+                SelectedProjectItem = item;
+            }
+            finally
+            {
+                _suppressSelectedProjectItemOpen = false;
+            }
         }
 
         private void OpenEditor(ProjectExplorerItemViewModel item)
@@ -2446,9 +2490,9 @@ namespace EffectViewer.ViewModels
             UpdateRecentlyOpenedResourceIdentity(kind, oldAssetId, newAssetId, path);
             RebuildProjectTree();
             ProjectExplorerItemViewModel item = FindProjectExplorerItem(ProjectItems, kind, newAssetId, path);
-            if (item is not null)
+            if (item is not null && VisibleProjectItems.Contains(item))
             {
-                SelectedProjectItem = item;
+                SetSelectedProjectItemWithoutOpening(item);
             }
         }
 
@@ -2486,19 +2530,6 @@ namespace EffectViewer.ViewModels
             return FindProjectExplorerItem(ProjectItems, kind, assetId, path);
         }
 
-        private static void InsertProjectExplorerItemSorted(
-            ObservableCollection<ProjectExplorerItemViewModel> siblings,
-            ProjectExplorerItemViewModel item)
-        {
-            int index = 0;
-            while (index < siblings.Count && CompareProjectExplorerItems(siblings[index], item) <= 0)
-            {
-                index++;
-            }
-
-            siblings.Insert(index, item);
-        }
-
         private static int CompareProjectExplorerItems(ProjectExplorerItemViewModel left, ProjectExplorerItemViewModel right)
         {
             int titleComparison = ProjectTreeNameComparer.Compare(left.Title, right.Title);
@@ -2516,7 +2547,9 @@ namespace EffectViewer.ViewModels
         private void RebuildProjectTree()
         {
             CaptureProjectTreeExpansionState();
+            ProjectExplorerItemViewModel previousSelection = SelectedProjectItem;
             ProjectItems.Clear();
+            VisibleProjectItems = Array.Empty<ProjectExplorerItemViewModel>();
 
             if (CurrentProject is null)
             {
@@ -2533,7 +2566,6 @@ namespace EffectViewer.ViewModels
                 CurrentProject.Manifest.Showcases.Count;
 
             bool isSearchActive = !string.IsNullOrWhiteSpace(_appliedProjectTreeSearchText);
-            int visibleCount = 0;
             ProjectExplorerItemViewModel root = new(
                 CurrentProject.Manifest.Name,
                 EffectAssetKind.Project)
@@ -2541,35 +2573,35 @@ namespace EffectViewer.ViewModels
                 IsExpanded = GetProjectTreeExpansionState(EffectAssetKind.Project, string.Empty, defaultValue: true)
             };
 
-            visibleCount += AddProjectTreeFolder(
+            AddProjectTreeFolder(
                 root,
                 ImagesProjectTreeGroupKey,
                 T("ProjectTree.Images"),
                 CreateFilteredResourceItems(CurrentProject.Manifest.Images, EffectAssetKind.Image, asset => asset.Id, asset => asset.Path),
                 isSearchActive);
 
-            visibleCount += AddProjectTreeFolder(
+            AddProjectTreeFolder(
                 root,
                 ReanimsProjectTreeGroupKey,
                 T("ProjectTree.Reanim"),
                 CreateFilteredResourceItems(CurrentProject.Manifest.Reanims, EffectAssetKind.Reanim, asset => asset.Id, asset => asset.Path),
                 isSearchActive);
 
-            visibleCount += AddProjectTreeFolder(
+            AddProjectTreeFolder(
                 root,
                 ParticlesProjectTreeGroupKey,
                 T("ProjectTree.Particles"),
                 CreateFilteredResourceItems(CurrentProject.Manifest.Particles, EffectAssetKind.Particle, asset => asset.Id, asset => asset.Path),
                 isSearchActive);
 
-            visibleCount += AddProjectTreeFolder(
+            AddProjectTreeFolder(
                 root,
                 TrailsProjectTreeGroupKey,
                 T("ProjectTree.Trails"),
                 CreateFilteredResourceItems(CurrentProject.Manifest.Trails, EffectAssetKind.Trail, asset => asset.Id, asset => asset.Path),
                 isSearchActive);
 
-            visibleCount += AddProjectTreeFolder(
+            AddProjectTreeFolder(
                 root,
                 ShowcasesProjectTreeGroupKey,
                 T("ProjectTree.Showcases"),
@@ -2581,16 +2613,24 @@ namespace EffectViewer.ViewModels
                 ProjectItems.Add(root);
             }
 
-            if (SelectedProjectItem is not null &&
-                FindProjectExplorerItem(ProjectItems, SelectedProjectItem.Kind, SelectedProjectItem.AssetId, SelectedProjectItem.Path) is null)
+            RefreshVisibleProjectItems();
+            if (previousSelection is not null)
             {
-                SelectedProjectItem = null;
+                ProjectExplorerItemViewModel replacement = FindProjectExplorerItem(
+                    ProjectItems,
+                    previousSelection.Kind,
+                    previousSelection.AssetId,
+                    previousSelection.Path);
+                SetSelectedProjectItemWithoutOpening(
+                    replacement is not null && VisibleProjectItems.Contains(replacement)
+                        ? replacement
+                        : null);
             }
 
             NotifyProjectTreeProperties();
         }
 
-        private int AddProjectTreeFolder(
+        private void AddProjectTreeFolder(
             ProjectExplorerItemViewModel root,
             string groupKey,
             string title,
@@ -2600,11 +2640,10 @@ namespace EffectViewer.ViewModels
             List<ProjectExplorerItemViewModel> childItems = children.ToList();
             if (isSearchActive && childItems.Count == 0)
             {
-                return 0;
+                return;
             }
 
             root.Children.Add(CreateFolder(groupKey, title, childItems));
-            return childItems.Count;
         }
 
         private ProjectExplorerItemViewModel CreateFolder(
@@ -2620,9 +2659,11 @@ namespace EffectViewer.ViewModels
                 IsExpanded = GetProjectTreeExpansionState(EffectAssetKind.Folder, groupKey, defaultValue: true)
             };
 
-            foreach (ProjectExplorerItemViewModel child in children)
+            List<ProjectExplorerItemViewModel> sortedChildren = children.ToList();
+            sortedChildren.Sort(CompareProjectExplorerItems);
+            foreach (ProjectExplorerItemViewModel child in sortedChildren)
             {
-                InsertProjectExplorerItemSorted(folder.Children, child);
+                folder.Children.Add(child);
             }
 
             return folder;
@@ -2655,6 +2696,42 @@ namespace EffectViewer.ViewModels
                 kind,
                 assetId,
                 path);
+        }
+
+        private void RefreshVisibleProjectItems()
+        {
+            List<ProjectExplorerItemViewModel> visibleItems = [];
+            foreach (ProjectExplorerItemViewModel item in ProjectItems)
+            {
+                AddVisibleProjectTreeItem(item, 0, visibleItems);
+            }
+
+            VisibleProjectItems = visibleItems;
+            NotifyProjectTreeProperties();
+        }
+
+        private static void AddVisibleProjectTreeItem(
+            ProjectExplorerItemViewModel item,
+            int depth,
+            List<ProjectExplorerItemViewModel> visibleItems)
+        {
+            if (item is null)
+            {
+                return;
+            }
+
+            item.Depth = depth;
+            visibleItems.Add(item);
+
+            if (!item.IsExpanded)
+            {
+                return;
+            }
+
+            foreach (ProjectExplorerItemViewModel child in item.Children)
+            {
+                AddVisibleProjectTreeItem(child, depth + 1, visibleItems);
+            }
         }
 
         private bool ProjectTreeResourceMatches(EffectAssetKind kind, string assetId, string path)
