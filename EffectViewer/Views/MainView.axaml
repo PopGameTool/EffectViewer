@@ -124,6 +124,9 @@
               <MenuItem Header="{DynamicResource Loc.Menu.NewResource}"
                         Command="{Binding ShowNewResourceDialogCommand}"
                         IsEnabled="{Binding CanModifyCurrentProject}"/>
+              <MenuItem Header="{DynamicResource Loc.Menu.DeleteResource}"
+                        Command="{Binding ShowDeleteSelectedResourceDialogCommand}"
+                        IsEnabled="{Binding CanDeleteSelectedResource}"/>
               <Separator/>
               <MenuItem Header="{DynamicResource Loc.Menu.ImportResourceFile}"
                         Click="ImportResourceFileMenuItem_Click"
@@ -246,7 +249,16 @@
               <TreeView.ItemTemplate>
                 <TreeDataTemplate ItemsSource="{Binding Children}"
                                   DataType="vm:ProjectExplorerItemViewModel">
-                  <TextBlock Text="{Binding Title}"/>
+                  <TextBlock Text="{Binding Title}">
+                    <TextBlock.ContextMenu>
+                      <ContextMenu>
+                        <MenuItem Header="{DynamicResource Loc.Menu.DeleteResource}"
+                                  Command="{Binding $parent[UserControl].DataContext.ShowDeleteResourceDialogCommand}"
+                                  CommandParameter="{Binding}"
+                                  IsEnabled="{Binding IsSelectable}"/>
+                      </ContextMenu>
+                    </TextBlock.ContextMenu>
+                  </TextBlock>
                 </TreeDataTemplate>
               </TreeView.ItemTemplate>
             </TreeView>
@@ -439,7 +451,16 @@
               <TreeView.ItemTemplate>
                 <TreeDataTemplate ItemsSource="{Binding Children}"
                                   DataType="vm:ProjectExplorerItemViewModel">
-                  <TextBlock Text="{Binding Title}"/>
+                  <TextBlock Text="{Binding Title}">
+                    <TextBlock.ContextMenu>
+                      <ContextMenu>
+                        <MenuItem Header="{DynamicResource Loc.Menu.DeleteResource}"
+                                  Command="{Binding $parent[UserControl].DataContext.ShowDeleteResourceDialogCommand}"
+                                  CommandParameter="{Binding}"
+                                  IsEnabled="{Binding IsSelectable}"/>
+                      </ContextMenu>
+                    </TextBlock.ContextMenu>
+                  </TextBlock>
                 </TreeDataTemplate>
               </TreeView.ItemTemplate>
             </TreeView>
@@ -821,6 +842,39 @@
             <Button Content="{DynamicResource Loc.Common.Cancel}"
                     MinWidth="80"
                     Command="{Binding CancelDeleteProjectCommand}"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <Border Background="#80000000"
+            IsVisible="{Binding IsDeleteResourceDialogOpen}">
+      <Border Width="460"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="18">
+        <StackPanel Spacing="14">
+          <TextBlock Text="{DynamicResource Loc.Dialog.DeleteResource}"
+                     FontSize="18"
+                     FontWeight="SemiBold"/>
+          <TextBlock Text="{Binding DeleteResourceMessage}"
+                     TextWrapping="Wrap"/>
+          <TextBlock Text="{DynamicResource Loc.Dialog.DeleteResourceWarning}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="8">
+            <Button Content="{DynamicResource Loc.Common.Delete}"
+                    MinWidth="80"
+                    Command="{Binding DeleteResourceCommand}"/>
+            <Button Content="{DynamicResource Loc.Common.Cancel}"
+                    MinWidth="80"
+                    Command="{Binding CancelDeleteResourceCommand}"/>
           </StackPanel>
         </StackPanel>
       </Border>

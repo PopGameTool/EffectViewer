@@ -35,6 +35,7 @@ namespace EffectViewer.ViewModels
         private TaskCompletionSource<UnsavedChangesChoice> _unsavedChangesCompletion;
         private ProjectListItemViewModel _projectBeingRenamed;
         private ProjectListItemViewModel _projectBeingDeleted;
+        private ProjectExplorerItemViewModel _resourceBeingDeleted;
         private static readonly StringComparer ProjectTreeNameComparer = StringComparer.OrdinalIgnoreCase;
         private const string ImagesProjectTreeGroupKey = "images";
         private const string ReanimsProjectTreeGroupKey = "reanims";
@@ -87,6 +88,12 @@ namespace EffectViewer.ViewModels
 
         [ObservableProperty]
         private string _deleteProjectMessage;
+
+        [ObservableProperty]
+        private bool _isDeleteResourceDialogOpen;
+
+        [ObservableProperty]
+        private string _deleteResourceMessage;
 
         [ObservableProperty]
         private bool _isProjectTransferInProgress;
@@ -193,6 +200,7 @@ namespace EffectViewer.ViewModels
         public bool CanExportSelectedFile => CanSaveCurrentProject && SelectedEditor?.SupportsFileExport == true;
         public bool CanExportSelectedPreview => SelectedEditor is not null && SelectedEditor.Kind != EffectAssetKind.Project;
         public bool CanModifyCurrentProject => CanSaveCurrentProject;
+        public bool CanDeleteSelectedResource => CanDeleteResourceItem(SelectedProjectItem);
         public bool IsEnglishLanguage => Loc.IsEnglish;
         public bool IsChineseLanguage => Loc.IsChinese;
         public bool HasOpenEditors => OpenEditors.Count > 0;
@@ -270,6 +278,14 @@ namespace EffectViewer.ViewModels
                     "Dialog.DeleteProjectMessage",
                     _projectBeingDeleted.Name,
                     _projectBeingDeleted.DirectoryName);
+            }
+
+            if (IsDeleteResourceDialogOpen && _resourceBeingDeleted is not null)
+            {
+                DeleteResourceMessage = F(
+                    "Dialog.DeleteResourceMessage",
+                    _resourceBeingDeleted.Kind,
+                    _resourceBeingDeleted.AssetId);
             }
 
             if (IsUnsavedChangesPromptOpen && SelectedEditor is not null)
@@ -374,6 +390,7 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(CanSaveSelectedFile));
             OnPropertyChanged(nameof(CanExportSelectedFile));
             OnPropertyChanged(nameof(CanModifyCurrentProject));
+            OnPropertyChanged(nameof(CanDeleteSelectedResource));
             OnPropertyChanged(nameof(CanSaveAnyEditor));
         }
 
@@ -641,6 +658,80 @@ namespace EffectViewer.ViewModels
         {
             IsNewResourceDialogOpen = false;
             StatusText = T("Status.CanceledCreatingResource");
+        }
+
+        [RelayCommand]
+        private void ShowDeleteSelectedResourceDialog()
+        {
+            ShowDeleteResourceDialog(SelectedProjectItem);
+        }
+
+        [RelayCommand]
+        private void ShowDeleteResourceDialog(ProjectExplorerItemViewModel item)
+        {
+            item ??= SelectedProjectItem;
+            if (!CanDeleteResourceItem(item))
+            {
+                StatusText = T("Status.NoResourceSelected");
+                return;
+            }
+
+            _resourceBeingDeleted = item;
+            SelectedProjectItem = item;
+            DeleteResourceMessage = F("Dialog.DeleteResourceMessage", item.Kind, item.AssetId);
+            IsDeleteResourceDialogOpen = true;
+            StatusText = F("Status.DeletingResource", item.Kind, item.AssetId);
+        }
+
+        [RelayCommand]
+        private async Task DeleteResourceAsync()
+        {
+            ProjectExplorerItemViewModel item = _resourceBeingDeleted;
+            if (!CanDeleteResourceItem(item))
+            {
+                StatusText = T("Status.NoResourceSelected");
+                return;
+            }
+
+            IsDeleteResourceDialogOpen = false;
+
+            EditorViewModelBase editor = FindOpenEditor(item.Kind, item.AssetId);
+            if (!await ConfirmUnsavedChangesAsync(editor))
+            {
+                StatusText = T("Status.CanceledDeletingResource");
+                IsDeleteResourceDialogOpen = true;
+                return;
+            }
+
+            EffectAssetKind kind = item.Kind;
+            string assetId = item.AssetId;
+            string path = item.Path;
+
+            try
+            {
+                ProjectResourceResult result = await _projectService.DeleteResourceAsync(CurrentProject, kind, assetId, path);
+                RefreshCurrentProjectState();
+                CloseResourceEditors(result.Kind, result.AssetId);
+                RemoveProjectExplorerItem(item);
+                SelectedProjectItem = null;
+                _resourceBeingDeleted = null;
+                DeleteResourceMessage = string.Empty;
+                StatusText = F("Status.DeletedResource", result.Kind, result.AssetId);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
+            {
+                StatusText = F("Status.CouldNotDeleteResource", ex.Message);
+                IsDeleteResourceDialogOpen = true;
+            }
+        }
+
+        [RelayCommand]
+        private void CancelDeleteResource()
+        {
+            IsDeleteResourceDialogOpen = false;
+            _resourceBeingDeleted = null;
+            DeleteResourceMessage = string.Empty;
+            StatusText = T("Status.CanceledDeletingResource");
         }
 
         public async Task ImportProjectZipAsync(Stream zipStream)
@@ -1524,6 +1615,8 @@ namespace EffectViewer.ViewModels
 
         partial void OnSelectedProjectItemChanged(ProjectExplorerItemViewModel value)
         {
+            OnPropertyChanged(nameof(CanDeleteSelectedResource));
+
             if (value is null || !value.IsSelectable)
             {
                 return;
@@ -1962,6 +2055,22 @@ namespace EffectViewer.ViewModels
             OpenEditorTab(editorFactory());
         }
 
+        private EditorViewModelBase FindOpenEditor(EffectAssetKind kind, string assetId)
+        {
+            string documentId = EditorViewModelBase.CreateDocumentId(kind, assetId);
+            return OpenEditors.FirstOrDefault(editor => editor.DocumentId == documentId);
+        }
+
+        private void CloseResourceEditors(EffectAssetKind kind, string assetId)
+        {
+            string documentId = EditorViewModelBase.CreateDocumentId(kind, assetId);
+            IReadOnlyList<EditorViewModelBase> targets = OpenEditors
+                .Where(editor => editor.DocumentId == documentId)
+                .ToList();
+
+            CloseEditorSetWithoutPrompt(targets);
+        }
+
         private void OpenEditorTab(EditorViewModelBase editor)
         {
             editor.PropertyChanged += OnOpenEditorPropertyChanged;
@@ -2259,6 +2368,46 @@ namespace EffectViewer.ViewModels
             return false;
         }
 
+        private bool RemoveProjectExplorerItem(ProjectExplorerItemViewModel item)
+        {
+            if (item is null)
+            {
+                return false;
+            }
+
+            if (RemoveProjectExplorerItem(ProjectItems, item))
+            {
+                return true;
+            }
+
+            if (TryFindProjectExplorerItem(ProjectItems, item.Kind, item.AssetId, item.Path, out ObservableCollection<ProjectExplorerItemViewModel> siblings, out ProjectExplorerItemViewModel found))
+            {
+                return siblings.Remove(found);
+            }
+
+            return false;
+        }
+
+        private static bool RemoveProjectExplorerItem(
+            ObservableCollection<ProjectExplorerItemViewModel> items,
+            ProjectExplorerItemViewModel target)
+        {
+            foreach (ProjectExplorerItemViewModel item in items.ToList())
+            {
+                if (ReferenceEquals(item, target))
+                {
+                    return items.Remove(item);
+                }
+
+                if (RemoveProjectExplorerItem(item.Children, target))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private ProjectExplorerItemViewModel AddOrUpdateProjectExplorerItem(
             EffectAssetKind kind,
             string assetId,
@@ -2396,6 +2545,11 @@ namespace EffectViewer.ViewModels
             }
 
             return folder;
+        }
+
+        private bool CanDeleteResourceItem(ProjectExplorerItemViewModel item)
+        {
+            return CanModifyCurrentProject && item?.IsSelectable == true;
         }
 
         private static string CreateSafeFileName(string value, string fallback)

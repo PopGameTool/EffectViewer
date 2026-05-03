@@ -425,6 +425,91 @@ namespace EffectViewer.Projects
             return new ProjectResourceResult(project, kind, assetId, relativePath);
         }
 
+        public async Task<ProjectResourceResult> DeleteResourceAsync(
+            EffectProject project,
+            EffectAssetKind kind,
+            string assetId,
+            string projectPath)
+        {
+            EnsureWritableProject(project);
+
+            string deletedAssetId;
+            string deletedProjectPath;
+            List<string> deletedPaths = [];
+            Action removeAsset;
+            switch (kind)
+            {
+                case EffectAssetKind.Image:
+                    int imageIndex = project.Manifest.Images.FindIndex(asset => AssetMatches(asset.Id, asset.Path, assetId, projectPath));
+                    if (imageIndex < 0)
+                    {
+                        throw new InvalidOperationException("The selected resource could not be found.");
+                    }
+
+                    ImageAsset image = project.Manifest.Images[imageIndex];
+                    deletedAssetId = image.Id;
+                    deletedProjectPath = image.Path;
+                    AddProjectPath(deletedPaths, image.Path);
+                    AddProjectPath(deletedPaths, image.AlphaPath);
+                    removeAsset = () => project.Manifest.Images.RemoveAt(imageIndex);
+                    break;
+
+                case EffectAssetKind.Reanim:
+                    int reanimIndex = FindManifestAssetIndex(project.Manifest.Reanims, assetId, projectPath);
+                    ReanimAsset reanim = project.Manifest.Reanims[reanimIndex];
+                    deletedAssetId = reanim.Id;
+                    deletedProjectPath = reanim.Path;
+                    AddProjectPath(deletedPaths, reanim.Path);
+                    removeAsset = () => project.Manifest.Reanims.RemoveAt(reanimIndex);
+                    break;
+
+                case EffectAssetKind.Particle:
+                    int particleIndex = FindManifestAssetIndex(project.Manifest.Particles, assetId, projectPath);
+                    EffectAsset particle = project.Manifest.Particles[particleIndex];
+                    deletedAssetId = particle.Id;
+                    deletedProjectPath = particle.Path;
+                    AddProjectPath(deletedPaths, particle.Path);
+                    removeAsset = () => project.Manifest.Particles.RemoveAt(particleIndex);
+                    break;
+
+                case EffectAssetKind.Trail:
+                    int trailIndex = FindManifestAssetIndex(project.Manifest.Trails, assetId, projectPath);
+                    EffectAsset trail = project.Manifest.Trails[trailIndex];
+                    deletedAssetId = trail.Id;
+                    deletedProjectPath = trail.Path;
+                    AddProjectPath(deletedPaths, trail.Path);
+                    removeAsset = () => project.Manifest.Trails.RemoveAt(trailIndex);
+                    break;
+
+                case EffectAssetKind.Showcase:
+                    int showcaseIndex = project.Manifest.Showcases.FindIndex(asset => AssetMatches(asset.Id, asset.Path, assetId, projectPath));
+                    if (showcaseIndex < 0)
+                    {
+                        throw new InvalidOperationException("The selected resource could not be found.");
+                    }
+
+                    ShowcaseAsset showcase = project.Manifest.Showcases[showcaseIndex];
+                    deletedAssetId = showcase.Id;
+                    deletedProjectPath = showcase.Path;
+                    AddProjectPath(deletedPaths, showcase.Path);
+                    removeAsset = () => project.Manifest.Showcases.RemoveAt(showcaseIndex);
+                    break;
+
+                default:
+                    throw new InvalidOperationException("The selected resource type cannot be deleted.");
+            }
+
+            foreach (string path in deletedPaths.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                DeleteProjectFileIfExists(project, path);
+            }
+
+            removeAsset();
+            await SaveAsync(project);
+            project.RebuildAssetIndex();
+            return new ProjectResourceResult(project, kind, deletedAssetId, deletedProjectPath);
+        }
+
         private string CreateUniqueProjectDirectory(string sourceName, string existingDirectory = null)
         {
             string baseName = ProjectPathUtility.CreateSafeName(sourceName, "project");
@@ -711,6 +796,43 @@ namespace EffectViewer.Projects
 
                 default:
                     throw new InvalidOperationException("The selected resource type cannot be added.");
+            }
+        }
+
+        private static int FindManifestAssetIndex<T>(List<T> assets, string assetId, string projectPath)
+            where T : EffectAsset
+        {
+            int index = assets.FindIndex(asset => AssetMatches(asset.Id, asset.Path, assetId, projectPath));
+            if (index < 0)
+            {
+                throw new InvalidOperationException("The selected resource could not be found.");
+            }
+
+            return index;
+        }
+
+        private static bool AssetMatches(string id, string path, string assetId, string projectPath)
+        {
+            return (!string.IsNullOrWhiteSpace(assetId) &&
+                    string.Equals(id, assetId, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(projectPath) &&
+                    string.Equals(path, projectPath, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static void AddProjectPath(List<string> paths, string path)
+        {
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                paths.Add(path);
+            }
+        }
+
+        private static void DeleteProjectFileIfExists(EffectProject project, string path)
+        {
+            string fullPath = ResolveProjectFilePath(project, path);
+            if (File.Exists(fullPath))
+            {
+                File.Delete(fullPath);
             }
         }
 
