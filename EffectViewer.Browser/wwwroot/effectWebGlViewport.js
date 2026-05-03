@@ -76,6 +76,7 @@ export function uploadTexture(canvas, id, width, height, rgbaPixels, byteCount) 
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    const uploadPixels = createPremultipliedPixels(pixels.subarray(0, width * height * 4));
     gl.texImage2D(
         gl.TEXTURE_2D,
         0,
@@ -85,7 +86,7 @@ export function uploadTexture(canvas, id, width, height, rgbaPixels, byteCount) 
         0,
         gl.RGBA,
         gl.UNSIGNED_BYTE,
-        pixels.subarray(0, width * height * 4));
+        uploadPixels);
     return true;
 }
 
@@ -146,14 +147,30 @@ export function renderFrame(
         }
 
         if ((batchBlendModes[i] | 0) === 1) {
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+            gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         } else {
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         }
 
         gl.bindTexture(gl.TEXTURE_2D, texture);
         gl.drawArrays(gl.TRIANGLES, firstVertex, vertexCount);
     }
+}
+
+function createPremultipliedPixels(source) {
+    const pixels = new Uint8Array(source);
+    for (let i = 0; i < pixels.length; i += 4) {
+        const alpha = pixels[i + 3];
+        if (alpha === 255) {
+            continue;
+        }
+
+        pixels[i] = Math.round(pixels[i] * alpha / 255);
+        pixels[i + 1] = Math.round(pixels[i + 1] * alpha / 255);
+        pixels[i + 2] = Math.round(pixels[i + 2] * alpha / 255);
+    }
+
+    return pixels;
 }
 
 function contextOptions() {

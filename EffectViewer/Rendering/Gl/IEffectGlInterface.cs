@@ -16,6 +16,7 @@ namespace EffectViewer.Rendering.Gl
         void BindFramebuffer(uint target, uint framebuffer);
         void Enable(uint cap);
         void BlendFunc(uint sourceFactor, uint destinationFactor);
+        void BlendFuncSeparate(uint sourceRgbFactor, uint destinationRgbFactor, uint sourceAlphaFactor, uint destinationAlphaFactor);
         uint CreateShader(uint shaderType);
         void ShaderSource(uint shader, string source);
         void CompileShader(uint shader);

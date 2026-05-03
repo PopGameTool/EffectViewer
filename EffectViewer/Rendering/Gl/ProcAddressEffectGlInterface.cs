@@ -10,6 +10,7 @@ namespace EffectViewer.Rendering.Gl
         private readonly delegate* unmanaged<uint, uint, void> _bindFramebuffer;
         private readonly delegate* unmanaged<uint, void> _enable;
         private readonly delegate* unmanaged<uint, uint, void> _blendFunc;
+        private readonly delegate* unmanaged<uint, uint, uint, uint, void> _blendFuncSeparate;
         private readonly delegate* unmanaged<uint, uint> _createShader;
         private readonly delegate* unmanaged<uint, int, IntPtr, IntPtr, void> _shaderSource;
         private readonly delegate* unmanaged<uint, void> _compileShader;
@@ -61,6 +62,7 @@ namespace EffectViewer.Rendering.Gl
             _bindFramebuffer = (delegate* unmanaged<uint, uint, void>)LoadAny(getProcAddress, "glBindFramebuffer", "glBindFramebufferEXT");
             _enable = (delegate* unmanaged<uint, void>)Load(getProcAddress, "glEnable");
             _blendFunc = (delegate* unmanaged<uint, uint, void>)Load(getProcAddress, "glBlendFunc");
+            _blendFuncSeparate = (delegate* unmanaged<uint, uint, uint, uint, void>)LoadAny(getProcAddress, "glBlendFuncSeparate", "glBlendFuncSeparateOES");
             _createShader = (delegate* unmanaged<uint, uint>)Load(getProcAddress, "glCreateShader");
             _shaderSource = (delegate* unmanaged<uint, int, IntPtr, IntPtr, void>)Load(getProcAddress, "glShaderSource");
             _compileShader = (delegate* unmanaged<uint, void>)Load(getProcAddress, "glCompileShader");
@@ -155,6 +157,18 @@ namespace EffectViewer.Rendering.Gl
             if (_blendFunc != null)
             {
                 _blendFunc(sourceFactor, destinationFactor);
+            }
+        }
+
+        public void BlendFuncSeparate(uint sourceRgbFactor, uint destinationRgbFactor, uint sourceAlphaFactor, uint destinationAlphaFactor)
+        {
+            if (_blendFuncSeparate != null)
+            {
+                _blendFuncSeparate(sourceRgbFactor, destinationRgbFactor, sourceAlphaFactor, destinationAlphaFactor);
+            }
+            else
+            {
+                BlendFunc(sourceRgbFactor, destinationRgbFactor);
             }
         }
 

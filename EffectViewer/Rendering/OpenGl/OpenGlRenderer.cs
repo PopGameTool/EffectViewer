@@ -107,7 +107,7 @@ namespace EffectViewer.Rendering.OpenGl
             Vector4 clear = clearColorOverride ?? frame.ClearColor;
             _gl.ClearColor(clear.X, clear.Y, clear.Z, clear.W);
             _gl.Enable(OpenGlConstants.Blend);
-            _gl.BlendFunc(OpenGlConstants.SrcAlpha, OpenGlConstants.OneMinusSrcAlpha);
+            _gl.BlendFunc(OpenGlConstants.One, OpenGlConstants.OneMinusSrcAlpha);
 
             _gl.Clear(OpenGlConstants.ColorBufferBit);
             if (checkerboardColor.HasValue)
@@ -287,11 +287,15 @@ namespace EffectViewer.Rendering.OpenGl
         {
             if (blendMode == RenderBlendMode.Additive)
             {
-                _gl.BlendFunc(OpenGlConstants.SrcAlpha, OpenGlConstants.One);
+                _gl.BlendFuncSeparate(
+                    OpenGlConstants.One,
+                    OpenGlConstants.One,
+                    OpenGlConstants.One,
+                    OpenGlConstants.OneMinusSrcAlpha);
             }
             else
             {
-                _gl.BlendFunc(OpenGlConstants.SrcAlpha, OpenGlConstants.OneMinusSrcAlpha);
+                _gl.BlendFunc(OpenGlConstants.One, OpenGlConstants.OneMinusSrcAlpha);
             }
         }
 
@@ -380,7 +384,8 @@ namespace EffectViewer.Rendering.OpenGl
             _gl.TexParameteri(OpenGlConstants.Texture2D, OpenGlConstants.TextureWrapS, OpenGlConstants.ClampToEdge);
             _gl.TexParameteri(OpenGlConstants.Texture2D, OpenGlConstants.TextureWrapT, OpenGlConstants.ClampToEdge);
             _gl.PixelStorei(OpenGlConstants.UnpackAlignment, 1);
-            GCHandle pixelsHandle = GCHandle.Alloc(data.RgbaPixels, GCHandleType.Pinned);
+            byte[] pixels = CreatePremultipliedPixels(data.RgbaPixels, data.Width * data.Height * 4);
+            GCHandle pixelsHandle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
             try
             {
                 _gl.TexImage2D(
@@ -400,6 +405,32 @@ namespace EffectViewer.Rendering.OpenGl
             }
 
             return (int)handle;
+        }
+
+        private static byte[] CreatePremultipliedPixels(byte[] source, int byteCount)
+        {
+            byte[] pixels = new byte[byteCount];
+            Array.Copy(source, pixels, byteCount);
+
+            for (int i = 0; i < pixels.Length; i += 4)
+            {
+                byte alpha = pixels[i + 3];
+                if (alpha == byte.MaxValue)
+                {
+                    continue;
+                }
+
+                pixels[i + 0] = Premultiply(pixels[i + 0], alpha);
+                pixels[i + 1] = Premultiply(pixels[i + 1], alpha);
+                pixels[i + 2] = Premultiply(pixels[i + 2], alpha);
+            }
+
+            return pixels;
+        }
+
+        private static byte Premultiply(byte color, byte alpha)
+        {
+            return (byte)((color * alpha + 127) / 255);
         }
 
         private static void AppendSprite(float[] vertices, ref int offset, RenderSpriteCommand sprite, int width, int height, float zoom, Vector2 pan)
