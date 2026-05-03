@@ -187,6 +187,13 @@
                         IsChecked="{Binding IsProjectExplorerVisible, Mode=OneWay}"
                         ToggleType="CheckBox"/>
               <Separator/>
+              <MenuItem Header="{DynamicResource Loc.Label.LightViewportBackground}"
+                        IsChecked="{Binding UseLightViewportBackground, Mode=TwoWay}"
+                        ToggleType="CheckBox"/>
+              <MenuItem Header="{DynamicResource Loc.Label.DarkViewportBackground}"
+                        IsChecked="{Binding UseDarkViewportBackground, Mode=TwoWay}"
+                        ToggleType="CheckBox"/>
+              <Separator/>
               <MenuItem Header="{DynamicResource Loc.Menu.DockExplorerLeft}"
                         Command="{Binding DockProjectExplorerLeftCommand}"
                         IsChecked="{Binding IsProjectExplorerDockedLeft, Mode=OneWay}"

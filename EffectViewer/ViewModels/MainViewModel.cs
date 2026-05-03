@@ -120,6 +120,12 @@ namespace EffectViewer.ViewModels
         private bool _isProjectExplorerVisible = true;
 
         [ObservableProperty]
+        private bool _useLightViewportBackground;
+
+        [ObservableProperty]
+        private bool _useDarkViewportBackground;
+
+        [ObservableProperty]
         private int _layoutResetRevision;
 
         [ObservableProperty]
@@ -317,6 +323,35 @@ namespace EffectViewer.ViewModels
                 ? T("Language.ChineseSimplified")
                 : T("Language.English");
             StatusText = F("Status.LanguageChanged", languageName);
+        }
+
+        partial void OnUseLightViewportBackgroundChanged(bool value)
+        {
+            if (value)
+            {
+                UseDarkViewportBackground = false;
+            }
+
+            ApplyViewportBackgroundMode();
+        }
+
+        partial void OnUseDarkViewportBackgroundChanged(bool value)
+        {
+            if (value)
+            {
+                UseLightViewportBackground = false;
+            }
+
+            ApplyViewportBackgroundMode();
+        }
+
+        private void ApplyViewportBackgroundMode()
+        {
+            ViewportBackgroundSettings.Mode = UseLightViewportBackground
+                ? ViewportBackgroundMode.Light
+                : UseDarkViewportBackground
+                    ? ViewportBackgroundMode.Dark
+                    : ViewportBackgroundMode.Theme;
         }
 
         public async Task LoadLanguageFileAsync(Stream stream, string fileName)

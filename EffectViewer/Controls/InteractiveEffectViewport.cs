@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using EffectViewer.Rendering;
 using EffectViewer.Rendering.TextureUpload;
 using System.ComponentModel;
@@ -54,6 +55,7 @@ namespace EffectViewer.Controls
             }
 
             _viewport = viewport;
+            ApplyViewportBackgroundMode();
 
             Grid root = new();
             _viewportControl.IsHitTestVisible = false;
@@ -120,6 +122,17 @@ namespace EffectViewer.Controls
 
                 InvalidateOverlay();
             }
+        }
+
+        private void ApplyViewportBackgroundMode()
+        {
+            _viewport.BackgroundMode = ViewportBackgroundSettings.Mode;
+        }
+
+        private void OnViewportBackgroundModeChanged(object sender, EventArgs e)
+        {
+            ApplyViewportBackgroundMode();
+            _viewportControl.InvalidateVisual();
         }
 
         protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
@@ -231,6 +244,19 @@ namespace EffectViewer.Controls
             ApplyViewTransform();
             InvalidateOverlay();
             e.Handled = true;
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+            ApplyViewportBackgroundMode();
+            ViewportBackgroundSettings.ModeChanged += OnViewportBackgroundModeChanged;
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            ViewportBackgroundSettings.ModeChanged -= OnViewportBackgroundModeChanged;
+            base.OnDetachedFromVisualTree(e);
         }
 
         private void ApplyViewTransform()

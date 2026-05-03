@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Browser;
 using Avalonia.Controls;
 using Avalonia.Platform;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using EffectViewer.Controls;
 using EffectViewer.Rendering;
@@ -20,6 +21,11 @@ namespace EffectViewer.Browser
         private static readonly byte[] EmptyVertexBytes = [];
         private static readonly int[] EmptyIntArray = [];
         private static readonly string[] EmptyStringArray = [];
+        private static readonly RenderTextureRef WhiteTexture = new(FrameCaptureGraphics.WhiteTextureId);
+        private const double CheckerboardCellSize = 12d;
+        private static readonly Vector4 DarkClearColor = new(0.08f, 0.09f, 0.1f, 1f);
+        private static readonly Vector4 LightCheckerboardBaseColor = new(0.965f, 0.973f, 0.984f, 1f);
+        private static readonly Vector4 LightCheckerboardAlternateColor = new(0.84f, 0.86f, 0.89f, 1f);
 
         private readonly List<float> _vertices = [];
         private readonly List<int> _batchFirstVertices = [];
@@ -35,6 +41,7 @@ namespace EffectViewer.Browser
         private DateTime _lastRenderUtc = DateTime.UtcNow;
         private Vector2 _panPixels = Vector2.Zero;
         private float _zoom = 1f;
+        private ViewportBackgroundMode _backgroundMode;
         private bool _isAttached;
         private bool _frameQueued;
 
@@ -76,6 +83,21 @@ namespace EffectViewer.Browser
             set
             {
                 _frameProvider = value;
+                QueueRenderFrame();
+            }
+        }
+
+        public ViewportBackgroundMode BackgroundMode
+        {
+            get => _backgroundMode;
+            set
+            {
+                if (_backgroundMode == value)
+                {
+                    return;
+                }
+
+                _backgroundMode = value;
                 QueueRenderFrame();
             }
         }
@@ -124,7 +146,8 @@ namespace EffectViewer.Browser
             base.OnPropertyChanged(change);
 
             if (change.Property == BoundsProperty ||
-                change.Property == IsVisibleProperty)
+                change.Property == IsVisibleProperty ||
+                string.Equals(change.Property.Name, nameof(ActualThemeVariant), StringComparison.Ordinal))
             {
                 QueueRenderFrame();
             }
@@ -173,7 +196,13 @@ namespace EffectViewer.Browser
             _lastRenderUtc = now;
 
             RenderFrame frame = _frameProvider?.GetFrame(deltaSeconds) ?? _frame ?? new RenderFrame();
-            BuildDrawData(frame, width, height);
+            Vector4 clear = GetBackgroundClearColor();
+            BuildDrawData(
+                frame,
+                width,
+                height,
+                GetCheckerboardColor(),
+                GetCheckerboardCellSize(scaling));
 
             float[] vertices = _vertices.Count == 0 ? EmptyVertices : _vertices.ToArray();
             byte[] vertexBytes = ToByteArray(vertices);
@@ -181,7 +210,6 @@ namespace EffectViewer.Browser
             int[] batchVertexCounts = _batchVertexCounts.Count == 0 ? EmptyIntArray : _batchVertexCounts.ToArray();
             int[] batchBlendModes = _batchBlendModes.Count == 0 ? EmptyIntArray : _batchBlendModes.ToArray();
             string[] batchTextureIds = _batchTextureIds.Count == 0 ? EmptyStringArray : _batchTextureIds.ToArray();
-            Vector4 clear = frame.ClearColor;
 
             BrowserWebGlInterop.RenderFrame(
                 _canvas,
@@ -199,6 +227,36 @@ namespace EffectViewer.Browser
                 batchTextureIds);
         }
 
+        private Vector4 GetBackgroundClearColor()
+        {
+            return ShouldUseLightBackground() ? LightCheckerboardBaseColor : DarkClearColor;
+        }
+
+        private Vector4? GetCheckerboardColor()
+        {
+            return ShouldUseLightBackground() ? LightCheckerboardAlternateColor : null;
+        }
+
+        private bool ShouldUseLightBackground()
+        {
+            if (BackgroundMode == ViewportBackgroundMode.Light)
+            {
+                return true;
+            }
+
+            if (BackgroundMode == ViewportBackgroundMode.Dark)
+            {
+                return false;
+            }
+
+            return ActualThemeVariant == ThemeVariant.Light;
+        }
+
+        private static int GetCheckerboardCellSize(double scaling)
+        {
+            return Math.Max(4, (int)Math.Round(CheckerboardCellSize * scaling));
+        }
+
         private static byte[] ToByteArray(float[] vertices)
         {
             if (vertices.Length == 0)
@@ -211,13 +269,28 @@ namespace EffectViewer.Browser
             return bytes;
         }
 
-        private void BuildDrawData(RenderFrame frame, int width, int height)
+        private void BuildDrawData(
+            RenderFrame frame,
+            int width,
+            int height,
+            Vector4? checkerboardColor,
+            int checkerboardCellSizePixels)
         {
             _vertices.Clear();
             _batchFirstVertices.Clear();
             _batchVertexCounts.Clear();
             _batchBlendModes.Clear();
             _batchTextureIds.Clear();
+
+            if (checkerboardColor.HasValue && EnsureTexture(WhiteTexture))
+            {
+                int firstVertex = _vertices.Count / FloatsPerVertex;
+                int vertexCount = AppendCheckerboard(width, height, checkerboardColor.Value, checkerboardCellSizePixels);
+                if (vertexCount > 0)
+                {
+                    AddBatch(firstVertex, vertexCount, RenderBlendMode.Normal, WhiteTexture);
+                }
+            }
 
             foreach (RenderSpriteCommand sprite in frame.Sprites)
             {
@@ -251,6 +324,33 @@ namespace EffectViewer.Browser
 
                 AddBatch(firstVertex, mesh.Vertices.Count, mesh.BlendMode, mesh.Texture);
             }
+        }
+
+        private int AppendCheckerboard(int width, int height, Vector4 alternateColor, int cellSizePixels)
+        {
+            int cellSize = Math.Max(4, cellSizePixels);
+            int columns = Math.Max(1, (width + cellSize - 1) / cellSize);
+            int rows = Math.Max(1, (height + cellSize - 1) / cellSize);
+            int startVertexCount = _vertices.Count / FloatsPerVertex;
+
+            for (int row = 0; row < rows; row++)
+            {
+                int top = row * cellSize;
+                int bottom = Math.Min(height, top + cellSize);
+                for (int column = 0; column < columns; column++)
+                {
+                    if (((row + column) & 1) == 0)
+                    {
+                        continue;
+                    }
+
+                    int left = column * cellSize;
+                    int right = Math.Min(width, left + cellSize);
+                    AppendScreenRect(left, top, right, bottom, width, height, alternateColor);
+                }
+            }
+
+            return _vertices.Count / FloatsPerVertex - startVertexCount;
         }
 
         private bool EnsureTexture(RenderTextureRef texture)
@@ -336,6 +436,21 @@ namespace EffectViewer.Browser
             _vertices.Add(color.Y);
             _vertices.Add(color.Z);
             _vertices.Add(color.W);
+        }
+
+        private void AppendScreenRect(float left, float top, float right, float bottom, int width, int height, Vector4 color)
+        {
+            float clipLeft = ToClipX(left, width);
+            float clipRight = ToClipX(right, width);
+            float clipTop = ToClipY(top, height);
+            float clipBottom = ToClipY(bottom, height);
+
+            AppendVertex(clipLeft, clipTop, 0f, 0f, color);
+            AppendVertex(clipRight, clipTop, 1f, 0f, color);
+            AppendVertex(clipRight, clipBottom, 1f, 1f, color);
+            AppendVertex(clipLeft, clipTop, 0f, 0f, color);
+            AppendVertex(clipRight, clipBottom, 1f, 1f, color);
+            AppendVertex(clipLeft, clipBottom, 0f, 1f, color);
         }
 
         private float ApplyViewX(float x)

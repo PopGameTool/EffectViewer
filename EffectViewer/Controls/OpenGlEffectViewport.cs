@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.OpenGL;
 using Avalonia.OpenGL.Controls;
+using Avalonia.Styling;
 using System.Numerics;
 using EffectViewer.Rendering;
 using EffectViewer.Rendering.Gl;
@@ -22,9 +23,16 @@ namespace EffectViewer.Controls
         public static readonly StyledProperty<IRenderFrameProvider> FrameProviderProperty =
             AvaloniaProperty.Register<OpenGlEffectViewport, IRenderFrameProvider>(nameof(FrameProvider));
 
+        public static readonly StyledProperty<ViewportBackgroundMode> BackgroundModeProperty =
+            AvaloniaProperty.Register<OpenGlEffectViewport, ViewportBackgroundMode>(nameof(BackgroundMode));
+
         public static IEffectGlInterfaceFactory GlInterfaceFactory { get; set; } =
             new ProcAddressEffectGlInterfaceFactory(EffectGlApi.OpenGl, "OpenGL");
 
+        private const double CheckerboardCellSize = 12d;
+        private static readonly Vector4 DarkClearColor = new(0.08f, 0.09f, 0.1f, 1f);
+        private static readonly Vector4 LightCheckerboardBaseColor = new(0.965f, 0.973f, 0.984f, 1f);
+        private static readonly Vector4 LightCheckerboardAlternateColor = new(0.84f, 0.86f, 0.89f, 1f);
         private readonly OpenGlRenderer _renderer = new();
         private DateTime _lastRenderUtc = DateTime.UtcNow;
         private Vector2 _panPixels = Vector2.Zero;
@@ -46,6 +54,12 @@ namespace EffectViewer.Controls
         {
             get => GetValue(FrameProviderProperty);
             set => SetValue(FrameProviderProperty, value);
+        }
+
+        public ViewportBackgroundMode BackgroundMode
+        {
+            get => GetValue(BackgroundModeProperty);
+            set => SetValue(BackgroundModeProperty, value);
         }
 
         public void SetViewTransform(float zoom, Vector2 panPixels)
@@ -76,8 +90,26 @@ namespace EffectViewer.Controls
             RenderFrame frame = FrameProvider?.GetFrame(deltaSeconds) ?? Frame ?? new RenderFrame();
             _renderer.ViewZoom = _zoom;
             _renderer.ViewPan = _panPixels;
-            _renderer.Render(frame, fb, size.Width, size.Height);
+            _renderer.Render(
+                frame,
+                fb,
+                size.Width,
+                size.Height,
+                GetBackgroundClearColor(),
+                GetCheckerboardColor(),
+                GetCheckerboardCellSize(scaling));
             RequestNextFrameRendering();
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+
+            if (change.Property == BackgroundModeProperty ||
+                string.Equals(change.Property.Name, nameof(ActualThemeVariant), StringComparison.Ordinal))
+            {
+                RequestNextFrameRendering();
+            }
         }
 
         protected override void OnOpenGlDeinit(GlInterface gl)
@@ -90,6 +122,36 @@ namespace EffectViewer.Controls
         {
             _renderer.Deinitialize();
             base.OnOpenGlLost();
+        }
+
+        private Vector4 GetBackgroundClearColor()
+        {
+            return ShouldUseLightBackground() ? LightCheckerboardBaseColor : DarkClearColor;
+        }
+
+        private Vector4? GetCheckerboardColor()
+        {
+            return ShouldUseLightBackground() ? LightCheckerboardAlternateColor : null;
+        }
+
+        private bool ShouldUseLightBackground()
+        {
+            if (BackgroundMode == ViewportBackgroundMode.Light)
+            {
+                return true;
+            }
+
+            if (BackgroundMode == ViewportBackgroundMode.Dark)
+            {
+                return false;
+            }
+
+            return ActualThemeVariant == ThemeVariant.Light;
+        }
+
+        private static int GetCheckerboardCellSize(double scaling)
+        {
+            return Math.Max(4, (int)Math.Round(CheckerboardCellSize * scaling));
         }
     }
 }

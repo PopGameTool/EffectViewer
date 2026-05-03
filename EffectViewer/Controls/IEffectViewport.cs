@@ -9,6 +9,7 @@ namespace EffectViewer.Controls
         RenderFrame Frame { get; set; }
         ITextureSource TextureSource { get; set; }
         IRenderFrameProvider FrameProvider { get; set; }
+        ViewportBackgroundMode BackgroundMode { get; set; }
 
         void SetViewTransform(float zoom, Vector2 panPixels);
     }

@@ -7,6 +7,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using EffectViewer.ViewModels;
 
@@ -22,22 +23,40 @@ namespace EffectViewer.Controls
         private const double CellHeight = 18d;
         private const double VisibilityBoxSize = 14d;
 
-        private static readonly IBrush BackgroundBrush = new SolidColorBrush(Color.FromRgb(24, 24, 24));
-        private static readonly IBrush HeaderBrush = new SolidColorBrush(Color.FromRgb(34, 34, 34));
-        private static readonly IBrush AlternateRowBrush = new SolidColorBrush(Color.FromArgb(26, 255, 255, 255));
-        private static readonly IBrush SelectedTrackBrush = new SolidColorBrush(Color.FromArgb(50, 78, 166, 255));
-        private static readonly IBrush CellEmptyBrush = new SolidColorBrush(Color.FromRgb(42, 42, 42));
-        private static readonly IBrush CellContentBrush = new SolidColorBrush(Color.FromArgb(48, 78, 166, 255));
-        private static readonly IBrush CellTweenBrush = new SolidColorBrush(Color.FromArgb(56, 255, 198, 77));
-        private static readonly IBrush CellSelectedBrush = new SolidColorBrush(Color.FromArgb(110, 255, 255, 255));
-        private static readonly IBrush CellPlayheadBrush = new SolidColorBrush(Color.FromArgb(90, 255, 90, 90));
-        private static readonly IBrush TextBrush = new SolidColorBrush(Color.FromRgb(230, 230, 230));
-        private static readonly IBrush MutedTextBrush = new SolidColorBrush(Color.FromRgb(170, 170, 170));
-        private static readonly Pen GridPen = new(new SolidColorBrush(Color.FromArgb(70, 255, 255, 255)), 1);
-        private static readonly Pen CellPen = new(new SolidColorBrush(Color.FromArgb(85, 255, 255, 255)), 1);
-        private static readonly Pen ContentPen = new(new SolidColorBrush(Color.FromRgb(123, 190, 255)), 1);
-        private static readonly Pen TweenPen = new(new SolidColorBrush(Color.FromRgb(245, 194, 74)), 1);
-        private static readonly Pen SelectedPen = new(new SolidColorBrush(Color.FromRgb(255, 255, 255)), 2);
+        private static readonly TimelinePalette DarkPalette = new(
+            backgroundBrush: new SolidColorBrush(Color.FromRgb(24, 24, 24)),
+            headerBrush: new SolidColorBrush(Color.FromRgb(34, 34, 34)),
+            alternateRowBrush: new SolidColorBrush(Color.FromArgb(26, 255, 255, 255)),
+            selectedTrackBrush: new SolidColorBrush(Color.FromArgb(50, 78, 166, 255)),
+            cellEmptyBrush: new SolidColorBrush(Color.FromRgb(42, 42, 42)),
+            cellContentBrush: new SolidColorBrush(Color.FromArgb(48, 78, 166, 255)),
+            cellTweenBrush: new SolidColorBrush(Color.FromArgb(56, 255, 198, 77)),
+            cellSelectedBrush: new SolidColorBrush(Color.FromArgb(110, 255, 255, 255)),
+            cellPlayheadBrush: new SolidColorBrush(Color.FromArgb(90, 255, 90, 90)),
+            textBrush: new SolidColorBrush(Color.FromRgb(230, 230, 230)),
+            mutedTextBrush: new SolidColorBrush(Color.FromRgb(170, 170, 170)),
+            gridPen: new Pen(new SolidColorBrush(Color.FromArgb(70, 255, 255, 255)), 1),
+            cellPen: new Pen(new SolidColorBrush(Color.FromArgb(85, 255, 255, 255)), 1),
+            contentPen: new Pen(new SolidColorBrush(Color.FromRgb(123, 190, 255)), 1),
+            tweenPen: new Pen(new SolidColorBrush(Color.FromRgb(245, 194, 74)), 1),
+            selectedPen: new Pen(new SolidColorBrush(Color.FromRgb(255, 255, 255)), 2));
+        private static readonly TimelinePalette LightPalette = new(
+            backgroundBrush: new SolidColorBrush(Color.FromRgb(247, 248, 250)),
+            headerBrush: new SolidColorBrush(Color.FromRgb(236, 239, 243)),
+            alternateRowBrush: new SolidColorBrush(Color.FromArgb(18, 0, 0, 0)),
+            selectedTrackBrush: new SolidColorBrush(Color.FromArgb(34, 24, 120, 216)),
+            cellEmptyBrush: new SolidColorBrush(Color.FromRgb(255, 255, 255)),
+            cellContentBrush: new SolidColorBrush(Color.FromRgb(216, 235, 255)),
+            cellTweenBrush: new SolidColorBrush(Color.FromRgb(255, 243, 199)),
+            cellSelectedBrush: new SolidColorBrush(Color.FromArgb(62, 24, 120, 216)),
+            cellPlayheadBrush: new SolidColorBrush(Color.FromArgb(54, 218, 64, 64)),
+            textBrush: new SolidColorBrush(Color.FromRgb(31, 35, 40)),
+            mutedTextBrush: new SolidColorBrush(Color.FromRgb(101, 109, 118)),
+            gridPen: new Pen(new SolidColorBrush(Color.FromArgb(42, 0, 0, 0)), 1),
+            cellPen: new Pen(new SolidColorBrush(Color.FromArgb(72, 0, 0, 0)), 1),
+            contentPen: new Pen(new SolidColorBrush(Color.FromRgb(34, 111, 191)), 1),
+            tweenPen: new Pen(new SolidColorBrush(Color.FromRgb(166, 109, 0)), 1),
+            selectedPen: new Pen(new SolidColorBrush(Color.FromRgb(24, 120, 216)), 2));
         private static readonly FontFamily TextFontFamily = new("avares://EffectViewer/Assets/Fonts#MiSans");
 
         private ScrollViewer _scrollViewer;
@@ -105,6 +124,10 @@ namespace EffectViewer.Controls
                 InvalidateMeasure();
                 InvalidateVisual();
             }
+            else if (string.Equals(change.Property.Name, nameof(ActualThemeVariant), StringComparison.Ordinal))
+            {
+                InvalidateVisual();
+            }
         }
 
         public override void Render(DrawingContext context)
@@ -116,21 +139,22 @@ namespace EffectViewer.Controls
                 return;
             }
 
+            TimelinePalette palette = GetPalette();
             Rect visible = GetVisibleContentRect();
-            context.FillRectangle(BackgroundBrush, visible);
+            context.FillRectangle(palette.BackgroundBrush, visible);
 
             EffectEditorViewModel editor = Editor;
             if (editor is null || editor.ReanimTracks.Count == 0 || editor.ReanimFrameCount == 0)
             {
-                DrawText(context, "No frames", new Point(visible.Left + 8, visible.Top + 6), MutedTextBrush, 12);
+                DrawText(context, "No frames", new Point(visible.Left + 8, visible.Top + 6), palette.MutedTextBrush, 12);
                 return;
             }
 
-            DrawRows(context, editor, visible);
-            DrawGridLines(context, editor, visible);
-            DrawTrackHeaders(context, editor, visible);
-            DrawHeader(context, editor, visible);
-            DrawCorner(context, visible);
+            DrawRows(context, editor, visible, palette);
+            DrawGridLines(context, editor, visible, palette);
+            DrawTrackHeaders(context, editor, visible, palette);
+            DrawHeader(context, editor, visible, palette);
+            DrawCorner(context, visible, palette);
         }
 
         protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -193,7 +217,7 @@ namespace EffectViewer.Controls
             }
         }
 
-        private void DrawHeader(DrawingContext context, EffectEditorViewModel editor, Rect visible)
+        private void DrawHeader(DrawingContext context, EffectEditorViewModel editor, Rect visible, TimelinePalette palette)
         {
             Rect headerBounds = new(visible.Left + TrackColumnWidth, visible.Top, Math.Max(0, visible.Width - TrackColumnWidth), HeaderHeight);
             if (headerBounds.Width <= 0)
@@ -201,8 +225,8 @@ namespace EffectViewer.Controls
                 return;
             }
 
-            context.FillRectangle(HeaderBrush, headerBounds);
-            context.DrawLine(GridPen, new Point(headerBounds.Left, headerBounds.Bottom - 0.5), new Point(headerBounds.Right, headerBounds.Bottom - 0.5));
+            context.FillRectangle(palette.HeaderBrush, headerBounds);
+            context.DrawLine(palette.GridPen, new Point(headerBounds.Left, headerBounds.Bottom - 0.5), new Point(headerBounds.Right, headerBounds.Bottom - 0.5));
 
             using (context.PushClip(headerBounds))
             {
@@ -214,21 +238,21 @@ namespace EffectViewer.Controls
                     Rect frameRect = new(x, visible.Top, FrameWidth, HeaderHeight);
                     if (frameIndex == editor.SelectedReanimFrameIndex)
                     {
-                        context.FillRectangle(CellPlayheadBrush, frameRect);
+                        context.FillRectangle(palette.CellPlayheadBrush, frameRect);
                     }
 
-                    context.DrawLine(GridPen, new Point(frameRect.Left, frameRect.Top), new Point(frameRect.Left, frameRect.Bottom));
+                    context.DrawLine(palette.GridPen, new Point(frameRect.Left, frameRect.Top), new Point(frameRect.Left, frameRect.Bottom));
                     DrawText(
                         context,
                         (frameIndex + 1).ToString(CultureInfo.InvariantCulture),
                         new Point(x + 4, visible.Top + 4),
-                        TextBrush,
+                        palette.TextBrush,
                         10);
                 }
             }
         }
 
-        private void DrawRows(DrawingContext context, EffectEditorViewModel editor, Rect visible)
+        private void DrawRows(DrawingContext context, EffectEditorViewModel editor, Rect visible, TimelinePalette palette)
         {
             int firstTrack = FirstVisibleTrack(visible);
             int lastTrack = LastVisibleTrack(visible, editor.ReanimTracks.Count);
@@ -241,19 +265,19 @@ namespace EffectViewer.Controls
                 Rect rowRect = new(visible.X, rowTop, visible.Width, RowHeight);
                 if (trackIndex % 2 == 1)
                 {
-                    context.FillRectangle(AlternateRowBrush, rowRect);
+                    context.FillRectangle(palette.AlternateRowBrush, rowRect);
                 }
 
                 if (ReferenceEquals(editor.ReanimTracks[trackIndex], editor.SelectedReanimTrack))
                 {
-                    context.FillRectangle(SelectedTrackBrush, rowRect);
+                    context.FillRectangle(palette.SelectedTrackBrush, rowRect);
                 }
 
-                DrawTrackFrames(context, editor, trackIndex, firstFrame, lastFrame, rowTop);
+                DrawTrackFrames(context, editor, trackIndex, firstFrame, lastFrame, rowTop, palette);
             }
         }
 
-        private void DrawTrackHeaders(DrawingContext context, EffectEditorViewModel editor, Rect visible)
+        private void DrawTrackHeaders(DrawingContext context, EffectEditorViewModel editor, Rect visible, TimelinePalette palette)
         {
             Rect headerBounds = new(visible.Left, visible.Top + HeaderHeight, TrackColumnWidth, Math.Max(0, visible.Height - HeaderHeight));
             if (headerBounds.Height <= 0)
@@ -270,31 +294,31 @@ namespace EffectViewer.Controls
                     double rowTop = HeaderHeight + trackIndex * RowHeight;
                     ReanimTrackViewModel track = editor.ReanimTracks[trackIndex];
                     Rect rowRect = new(visible.Left, rowTop, TrackColumnWidth, RowHeight);
-                    context.FillRectangle(trackIndex % 2 == 1 ? AlternateRowBrush : BackgroundBrush, rowRect);
+                    context.FillRectangle(trackIndex % 2 == 1 ? palette.AlternateRowBrush : palette.BackgroundBrush, rowRect);
                     if (ReferenceEquals(track, editor.SelectedReanimTrack))
                     {
-                        context.FillRectangle(SelectedTrackBrush, rowRect);
+                        context.FillRectangle(palette.SelectedTrackBrush, rowRect);
                     }
 
-                    DrawTrackHeader(context, track, visible.Left, rowTop);
+                    DrawTrackHeader(context, track, visible.Left, rowTop, palette);
                 }
             }
         }
 
-        private void DrawTrackHeader(DrawingContext context, ReanimTrackViewModel track, double left, double rowTop)
+        private void DrawTrackHeader(DrawingContext context, ReanimTrackViewModel track, double left, double rowTop, TimelinePalette palette)
         {
             Rect nameRect = new(left, rowTop, TrackColumnWidth, RowHeight);
             Rect visibilityRect = new(left + 8, rowTop + 7, VisibilityBoxSize, VisibilityBoxSize);
-            context.DrawRectangle(null, CellPen, visibilityRect, 2, 2);
+            context.DrawRectangle(null, palette.CellPen, visibilityRect, 2, 2);
             if (track.IsVisible)
             {
-                context.DrawLine(ContentPen, visibilityRect.TopLeft + new Vector(3, 7), visibilityRect.TopLeft + new Vector(6, 10));
-                context.DrawLine(ContentPen, visibilityRect.TopLeft + new Vector(6, 10), visibilityRect.TopLeft + new Vector(11, 4));
+                context.DrawLine(palette.ContentPen, visibilityRect.TopLeft + new Vector(3, 7), visibilityRect.TopLeft + new Vector(6, 10));
+                context.DrawLine(palette.ContentPen, visibilityRect.TopLeft + new Vector(6, 10), visibilityRect.TopLeft + new Vector(11, 4));
             }
 
             using (context.PushClip(nameRect))
             {
-                DrawText(context, track.DisplayName, new Point(left + 30, rowTop + 6), track.IsVisible ? TextBrush : MutedTextBrush, 12);
+                DrawText(context, track.DisplayName, new Point(left + 30, rowTop + 6), track.IsVisible ? palette.TextBrush : palette.MutedTextBrush, 12);
             }
         }
 
@@ -304,7 +328,8 @@ namespace EffectViewer.Controls
             int trackIndex,
             int firstFrame,
             int lastFrame,
-            double rowTop)
+            double rowTop,
+            TimelinePalette palette)
         {
             Rect gridBounds = GetGridBodyRect(GetVisibleContentRect());
             if (gridBounds.Width <= 0 || gridBounds.Height <= 0)
@@ -328,32 +353,32 @@ namespace EffectViewer.Controls
                         out bool hasImage,
                         out bool isTweened);
 
-                    IBrush fill = isTweened ? CellTweenBrush : hasContent ? CellContentBrush : CellEmptyBrush;
-                    Pen pen = isTweened ? TweenPen : hasContent ? ContentPen : CellPen;
+                    IBrush fill = isTweened ? palette.CellTweenBrush : hasContent ? palette.CellContentBrush : palette.CellEmptyBrush;
+                    Pen pen = isTweened ? palette.TweenPen : hasContent ? palette.ContentPen : palette.CellPen;
                     context.DrawRectangle(fill, pen, cellRect, 2, 2);
 
                     bool isPlayhead = frameIndex == editor.SelectedReanimFrameIndex;
                     bool isSelected = isPlayhead && ReferenceEquals(editor.ReanimTracks[trackIndex], editor.SelectedReanimTrack);
                     if (isPlayhead)
                     {
-                        context.DrawRectangle(CellPlayheadBrush, null, cellRect, 2, 2);
+                        context.DrawRectangle(palette.CellPlayheadBrush, null, cellRect, 2, 2);
                     }
 
                     if (isSelected)
                     {
-                        context.DrawRectangle(CellSelectedBrush, SelectedPen, cellRect, 2, 2);
+                        context.DrawRectangle(palette.CellSelectedBrush, palette.SelectedPen, cellRect, 2, 2);
                     }
 
                     string glyph = isTweened ? "T" : hasContent ? hasImage ? "I" : "*" : string.Empty;
                     if (!string.IsNullOrEmpty(glyph))
                     {
-                        DrawText(context, glyph, new Point(cellLeft + 7, cellTop + 1), TextBrush, 10, FontWeight.SemiBold);
+                        DrawText(context, glyph, new Point(cellLeft + 7, cellTop + 1), palette.TextBrush, 10, FontWeight.SemiBold);
                     }
                 }
             }
         }
 
-        private void DrawGridLines(DrawingContext context, EffectEditorViewModel editor, Rect visible)
+        private void DrawGridLines(DrawingContext context, EffectEditorViewModel editor, Rect visible, TimelinePalette palette)
         {
             Rect gridBounds = GetGridBodyRect(visible);
             if (gridBounds.Width <= 0 || gridBounds.Height <= 0)
@@ -368,7 +393,7 @@ namespace EffectViewer.Controls
                 for (int frameIndex = firstFrame; frameIndex <= lastFrame + 1; frameIndex++)
                 {
                     double x = TrackColumnWidth + frameIndex * FrameWidth;
-                    context.DrawLine(GridPen, new Point(x, gridBounds.Top), new Point(x, gridBounds.Bottom));
+                    context.DrawLine(palette.GridPen, new Point(x, gridBounds.Top), new Point(x, gridBounds.Bottom));
                 }
 
                 int firstTrack = FirstVisibleTrack(visible);
@@ -376,17 +401,58 @@ namespace EffectViewer.Controls
                 for (int trackIndex = firstTrack; trackIndex <= lastTrack + 1; trackIndex++)
                 {
                     double y = HeaderHeight + trackIndex * RowHeight;
-                    context.DrawLine(GridPen, new Point(gridBounds.Left, y), new Point(gridBounds.Right, y));
+                    context.DrawLine(palette.GridPen, new Point(gridBounds.Left, y), new Point(gridBounds.Right, y));
                 }
             }
         }
 
-        private void DrawCorner(DrawingContext context, Rect visible)
+        private void DrawCorner(DrawingContext context, Rect visible, TimelinePalette palette)
         {
             Rect corner = new(visible.Left, visible.Top, TrackColumnWidth, HeaderHeight);
-            context.FillRectangle(HeaderBrush, corner);
-            context.DrawLine(GridPen, new Point(corner.Left, corner.Bottom - 0.5), new Point(corner.Right, corner.Bottom - 0.5));
-            context.DrawLine(GridPen, new Point(corner.Right - 0.5, corner.Top), new Point(corner.Right - 0.5, visible.Bottom));
+            context.FillRectangle(palette.HeaderBrush, corner);
+            context.DrawLine(palette.GridPen, new Point(corner.Left, corner.Bottom - 0.5), new Point(corner.Right, corner.Bottom - 0.5));
+            context.DrawLine(palette.GridPen, new Point(corner.Right - 0.5, corner.Top), new Point(corner.Right - 0.5, visible.Bottom));
+        }
+
+        private TimelinePalette GetPalette()
+        {
+            return ActualThemeVariant == ThemeVariant.Light ? LightPalette : DarkPalette;
+        }
+
+        private sealed class TimelinePalette(
+            IBrush backgroundBrush,
+            IBrush headerBrush,
+            IBrush alternateRowBrush,
+            IBrush selectedTrackBrush,
+            IBrush cellEmptyBrush,
+            IBrush cellContentBrush,
+            IBrush cellTweenBrush,
+            IBrush cellSelectedBrush,
+            IBrush cellPlayheadBrush,
+            IBrush textBrush,
+            IBrush mutedTextBrush,
+            Pen gridPen,
+            Pen cellPen,
+            Pen contentPen,
+            Pen tweenPen,
+            Pen selectedPen)
+        {
+            public IBrush BackgroundBrush { get; } = backgroundBrush;
+            public IBrush HeaderBrush { get; } = headerBrush;
+            public IBrush AlternateRowBrush { get; } = alternateRowBrush;
+            public IBrush SelectedTrackBrush { get; } = selectedTrackBrush;
+            public IBrush CellEmptyBrush { get; } = cellEmptyBrush;
+            public IBrush CellContentBrush { get; } = cellContentBrush;
+            public IBrush CellTweenBrush { get; } = cellTweenBrush;
+            public IBrush CellSelectedBrush { get; } = cellSelectedBrush;
+            public IBrush CellPlayheadBrush { get; } = cellPlayheadBrush;
+            public IBrush TextBrush { get; } = textBrush;
+            public IBrush MutedTextBrush { get; } = mutedTextBrush;
+            public Pen GridPen { get; } = gridPen;
+            public Pen CellPen { get; } = cellPen;
+            public Pen ContentPen { get; } = contentPen;
+            public Pen TweenPen { get; } = tweenPen;
+            public Pen SelectedPen { get; } = selectedPen;
         }
 
         private Rect GetVisibleContentRect()

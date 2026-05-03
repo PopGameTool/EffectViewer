@@ -10,6 +10,7 @@ namespace EffectViewer.Rendering.OpenGl
     public sealed class OpenGlRenderer
     {
         private const int FloatsPerVertex = 8;
+        private static readonly RenderTextureRef WhiteTexture = new(FrameCaptureGraphics.WhiteTextureId);
 
         private enum ShaderDialect
         {
@@ -86,7 +87,14 @@ namespace EffectViewer.Rendering.OpenGl
             IsInitialized = true;
         }
 
-        public void Render(RenderFrame frame, int framebuffer, int width, int height)
+        public void Render(
+            RenderFrame frame,
+            int framebuffer,
+            int width,
+            int height,
+            Vector4? clearColorOverride = null,
+            Vector4? checkerboardColor = null,
+            int checkerboardCellSizePixels = 16)
         {
             if (!IsInitialized)
             {
@@ -96,12 +104,17 @@ namespace EffectViewer.Rendering.OpenGl
             _gl.BindFramebuffer(OpenGlConstants.Framebuffer, (uint)framebuffer);
 
             _gl.Viewport(0, 0, Math.Max(1, width), Math.Max(1, height));
-            Vector4 clear = frame.ClearColor;
+            Vector4 clear = clearColorOverride ?? frame.ClearColor;
             _gl.ClearColor(clear.X, clear.Y, clear.Z, clear.W);
             _gl.Enable(OpenGlConstants.Blend);
             _gl.BlendFunc(OpenGlConstants.SrcAlpha, OpenGlConstants.OneMinusSrcAlpha);
 
             _gl.Clear(OpenGlConstants.ColorBufferBit);
+            if (checkerboardColor.HasValue)
+            {
+                DrawCheckerboard(width, height, checkerboardColor.Value, checkerboardCellSizePixels);
+            }
+
             DrawSprites(frame.Sprites, width, height);
             DrawMeshes(frame.Meshes, width, height);
         }
@@ -178,8 +191,11 @@ namespace EffectViewer.Rendering.OpenGl
             foreach (RenderSpriteCommand sprite in sprites)
             {
                 SetBlendMode(sprite.BlendMode);
-                BindTexture(sprite.Texture);
-                _gl.DrawArrays(OpenGlConstants.Triangles, firstVertex, 6);
+                if (BindTexture(sprite.Texture))
+                {
+                    _gl.DrawArrays(OpenGlConstants.Triangles, firstVertex, 6);
+                }
+
                 firstVertex += 6;
             }
         }
@@ -214,9 +230,57 @@ namespace EffectViewer.Rendering.OpenGl
 
                 UploadVertices(vertices);
                 SetBlendMode(mesh.BlendMode);
-                BindTexture(mesh.Texture);
-                _gl.DrawArrays(OpenGlConstants.Triangles, 0, mesh.Vertices.Count);
+                if (BindTexture(mesh.Texture))
+                {
+                    _gl.DrawArrays(OpenGlConstants.Triangles, 0, mesh.Vertices.Count);
+                }
             }
+        }
+
+        private void DrawCheckerboard(int width, int height, Vector4 alternateColor, int cellSizePixels)
+        {
+            if (!_canDrawSprites || _program == 0 || _vertexBuffer == 0)
+            {
+                return;
+            }
+
+            int cellSize = Math.Max(4, cellSizePixels);
+            int columns = Math.Max(1, (width + cellSize - 1) / cellSize);
+            int rows = Math.Max(1, (height + cellSize - 1) / cellSize);
+            int squareCount = (columns * rows + 1) / 2;
+            float[] vertices = new float[squareCount * 6 * FloatsPerVertex];
+            int offset = 0;
+
+            for (int row = 0; row < rows; row++)
+            {
+                int top = row * cellSize;
+                int bottom = Math.Min(height, top + cellSize);
+                for (int column = 0; column < columns; column++)
+                {
+                    if (((row + column) & 1) == 0)
+                    {
+                        continue;
+                    }
+
+                    int left = column * cellSize;
+                    int right = Math.Min(width, left + cellSize);
+                    AppendScreenRect(vertices, ref offset, left, top, right, bottom, width, height, alternateColor);
+                }
+            }
+
+            if (offset == 0 || !BindTexture(WhiteTexture))
+            {
+                return;
+            }
+
+            if (offset != vertices.Length)
+            {
+                Array.Resize(ref vertices, offset);
+            }
+
+            UploadVertices(vertices);
+            SetBlendMode(RenderBlendMode.Normal);
+            _gl.DrawArrays(OpenGlConstants.Triangles, 0, offset / FloatsPerVertex);
         }
 
         private void SetBlendMode(RenderBlendMode blendMode)
@@ -274,14 +338,14 @@ namespace EffectViewer.Rendering.OpenGl
             }
         }
 
-        private void BindTexture(RenderTextureRef texture)
+        private bool BindTexture(RenderTextureRef texture)
         {
             if (!_textureCache.TryGetTexture(texture, out int handle))
             {
                 handle = CreateTexture(texture);
                 if (handle == 0)
                 {
-                    return;
+                    return false;
                 }
 
                 _textureCache.SetTexture(texture, handle);
@@ -289,6 +353,7 @@ namespace EffectViewer.Rendering.OpenGl
 
             _gl.ActiveTexture(OpenGlConstants.Texture0);
             _gl.BindTexture(OpenGlConstants.Texture2D, (uint)handle);
+            return true;
         }
 
         private int CreateTexture(RenderTextureRef texture)
@@ -370,6 +435,30 @@ namespace EffectViewer.Rendering.OpenGl
             vertices[offset++] = color.Y;
             vertices[offset++] = color.Z;
             vertices[offset++] = color.W;
+        }
+
+        private static void AppendScreenRect(
+            float[] vertices,
+            ref int offset,
+            float left,
+            float top,
+            float right,
+            float bottom,
+            int width,
+            int height,
+            Vector4 color)
+        {
+            float clipLeft = ToClipX(left, width);
+            float clipRight = ToClipX(right, width);
+            float clipTop = ToClipY(top, height);
+            float clipBottom = ToClipY(bottom, height);
+
+            AppendVertex(vertices, ref offset, clipLeft, clipTop, 0f, 0f, color);
+            AppendVertex(vertices, ref offset, clipRight, clipTop, 1f, 0f, color);
+            AppendVertex(vertices, ref offset, clipRight, clipBottom, 1f, 1f, color);
+            AppendVertex(vertices, ref offset, clipLeft, clipTop, 0f, 0f, color);
+            AppendVertex(vertices, ref offset, clipRight, clipBottom, 1f, 1f, color);
+            AppendVertex(vertices, ref offset, clipLeft, clipBottom, 0f, 1f, color);
         }
 
         private static float ToClipX(float x, int width)
