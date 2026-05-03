@@ -35,6 +35,12 @@ namespace EffectViewer.ViewModels
         private TaskCompletionSource<UnsavedChangesChoice> _unsavedChangesCompletion;
         private ProjectListItemViewModel _projectBeingRenamed;
         private ProjectListItemViewModel _projectBeingDeleted;
+        private static readonly StringComparer ProjectTreeNameComparer = StringComparer.OrdinalIgnoreCase;
+        private const string ImagesProjectTreeGroupKey = "images";
+        private const string ReanimsProjectTreeGroupKey = "reanims";
+        private const string ParticlesProjectTreeGroupKey = "particles";
+        private const string TrailsProjectTreeGroupKey = "trails";
+        private const string ShowcasesProjectTreeGroupKey = "showcases";
 
         public ObservableCollection<ProjectExplorerItemViewModel> ProjectItems { get; } = [];
         public ObservableCollection<EditorViewModelBase> OpenEditors { get; } = [];
@@ -569,7 +575,8 @@ namespace EffectViewer.ViewModels
             try
             {
                 ProjectResourceResult result = await _projectService.ImportResourceFileAsync(CurrentProject, sourceFileName, sourceStream);
-                RefreshCurrentProject();
+                RefreshCurrentProjectState();
+                AddOrUpdateProjectExplorerItem(result.Kind, result.AssetId, result.ProjectPath);
                 OpenResourceEditor(result.Kind, result.AssetId);
                 StatusText = F("Status.ImportedResource", result.Kind, result.AssetId);
             }
@@ -618,7 +625,8 @@ namespace EffectViewer.ViewModels
             try
             {
                 ProjectResourceResult result = await _projectService.CreateResourceAsync(CurrentProject, NewResourceKind, assetId);
-                RefreshCurrentProject();
+                RefreshCurrentProjectState();
+                AddOrUpdateProjectExplorerItem(result.Kind, result.AssetId, result.ProjectPath);
                 OpenResourceEditor(result.Kind, result.AssetId);
                 StatusText = F("Status.CreatedResource", result.Kind, result.AssetId);
             }
@@ -1501,11 +1509,16 @@ namespace EffectViewer.ViewModels
 
         private void RefreshCurrentProject()
         {
+            RefreshCurrentProjectState();
+            SelectedProjectItem = null;
+            RebuildProjectTree();
+        }
+
+        private void RefreshCurrentProjectState()
+        {
             CurrentProject?.RebuildAssetIndex();
             _effectWorld.LoadProject(CurrentProject);
             _luaHost = new LuaHost(_effectWorld);
-            SelectedProjectItem = null;
-            RebuildProjectTree();
             OnPropertyChanged(nameof(CurrentProject));
         }
 
@@ -2176,8 +2189,7 @@ namespace EffectViewer.ViewModels
             string newAssetId,
             string path)
         {
-            ProjectExplorerItemViewModel item = FindProjectExplorerItem(ProjectItems, kind, oldAssetId, path);
-            if (item is null)
+            if (!TryFindProjectExplorerItem(ProjectItems, kind, oldAssetId, path, out ObservableCollection<ProjectExplorerItemViewModel> siblings, out ProjectExplorerItemViewModel item))
             {
                 return;
             }
@@ -2185,6 +2197,7 @@ namespace EffectViewer.ViewModels
             item.Title = newAssetId;
             item.AssetId = newAssetId;
             item.Path = path;
+            MoveProjectExplorerItemIntoSortedPosition(siblings, item);
             if (ReferenceEquals(SelectedProjectItem, item))
             {
                 OnPropertyChanged(nameof(SelectedProjectItem));
@@ -2216,6 +2229,130 @@ namespace EffectViewer.ViewModels
             return null;
         }
 
+        private static bool TryFindProjectExplorerItem(
+            ObservableCollection<ProjectExplorerItemViewModel> items,
+            EffectAssetKind kind,
+            string assetId,
+            string path,
+            out ObservableCollection<ProjectExplorerItemViewModel> siblings,
+            out ProjectExplorerItemViewModel result)
+        {
+            foreach (ProjectExplorerItemViewModel item in items)
+            {
+                if (item.Kind == kind &&
+                    (string.Equals(item.AssetId, assetId, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(item.Path, path, StringComparison.OrdinalIgnoreCase)))
+                {
+                    siblings = items;
+                    result = item;
+                    return true;
+                }
+
+                if (TryFindProjectExplorerItem(item.Children, kind, assetId, path, out siblings, out result))
+                {
+                    return true;
+                }
+            }
+
+            siblings = null;
+            result = null;
+            return false;
+        }
+
+        private ProjectExplorerItemViewModel AddOrUpdateProjectExplorerItem(
+            EffectAssetKind kind,
+            string assetId,
+            string path)
+        {
+            ProjectExplorerItemViewModel folder = GetProjectExplorerFolder(kind);
+            if (folder is null)
+            {
+                RebuildProjectTree();
+                return FindProjectExplorerItem(ProjectItems, kind, assetId, path);
+            }
+
+            if (TryFindProjectExplorerItem(folder.Children, kind, assetId, path, out ObservableCollection<ProjectExplorerItemViewModel> siblings, out ProjectExplorerItemViewModel existing))
+            {
+                existing.Title = assetId;
+                existing.AssetId = assetId;
+                existing.Path = path;
+                MoveProjectExplorerItemIntoSortedPosition(siblings, existing);
+                return existing;
+            }
+
+            ProjectExplorerItemViewModel item = new(assetId, kind, assetId, path);
+            InsertProjectExplorerItemSorted(folder.Children, item);
+            return item;
+        }
+
+        private ProjectExplorerItemViewModel GetProjectExplorerFolder(EffectAssetKind kind)
+        {
+            if (ProjectItems.Count == 0)
+            {
+                return null;
+            }
+
+            string groupKey = GetProjectExplorerGroupKey(kind);
+            ProjectExplorerItemViewModel root = ProjectItems[0];
+            return root.Children.FirstOrDefault(item =>
+                item.Kind == EffectAssetKind.Folder &&
+                string.Equals(item.AssetId, groupKey, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string GetProjectExplorerGroupKey(EffectAssetKind kind)
+        {
+            return kind switch
+            {
+                EffectAssetKind.Image => ImagesProjectTreeGroupKey,
+                EffectAssetKind.Reanim => ReanimsProjectTreeGroupKey,
+                EffectAssetKind.Particle => ParticlesProjectTreeGroupKey,
+                EffectAssetKind.Trail => TrailsProjectTreeGroupKey,
+                EffectAssetKind.Showcase => ShowcasesProjectTreeGroupKey,
+                _ => string.Empty
+            };
+        }
+
+        private static void MoveProjectExplorerItemIntoSortedPosition(
+            ObservableCollection<ProjectExplorerItemViewModel> siblings,
+            ProjectExplorerItemViewModel item)
+        {
+            int oldIndex = siblings.IndexOf(item);
+            if (oldIndex < 0)
+            {
+                return;
+            }
+
+            siblings.RemoveAt(oldIndex);
+            InsertProjectExplorerItemSorted(siblings, item);
+        }
+
+        private static void InsertProjectExplorerItemSorted(
+            ObservableCollection<ProjectExplorerItemViewModel> siblings,
+            ProjectExplorerItemViewModel item)
+        {
+            int index = 0;
+            while (index < siblings.Count && CompareProjectExplorerItems(siblings[index], item) <= 0)
+            {
+                index++;
+            }
+
+            siblings.Insert(index, item);
+        }
+
+        private static int CompareProjectExplorerItems(ProjectExplorerItemViewModel left, ProjectExplorerItemViewModel right)
+        {
+            int titleComparison = ProjectTreeNameComparer.Compare(left.Title, right.Title);
+            if (titleComparison != 0)
+            {
+                return titleComparison;
+            }
+
+            int assetIdComparison = ProjectTreeNameComparer.Compare(left.AssetId, right.AssetId);
+            return assetIdComparison != 0
+                ? assetIdComparison
+                : ProjectTreeNameComparer.Compare(left.Path, right.Path);
+        }
+
         private void RebuildProjectTree()
         {
             ProjectItems.Clear();
@@ -2225,44 +2362,37 @@ namespace EffectViewer.ViewModels
                 IsExpanded = true
             };
 
-            root.Children.Add(CreateFolder(T("ProjectTree.Images"), CurrentProject.Manifest.Images.Select(asset =>
+            root.Children.Add(CreateFolder(ImagesProjectTreeGroupKey, T("ProjectTree.Images"), CurrentProject.Manifest.Images.Select(asset =>
                 new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Image, asset.Id, asset.Path))));
 
-            root.Children.Add(CreateFolder(T("ProjectTree.Reanim"), CurrentProject.Manifest.Reanims.Select(asset =>
+            root.Children.Add(CreateFolder(ReanimsProjectTreeGroupKey, T("ProjectTree.Reanim"), CurrentProject.Manifest.Reanims.Select(asset =>
                 new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Reanim, asset.Id, asset.Path))));
 
-            root.Children.Add(CreateFolder(T("ProjectTree.Particles"), CurrentProject.Manifest.Particles.Select(asset =>
+            root.Children.Add(CreateFolder(ParticlesProjectTreeGroupKey, T("ProjectTree.Particles"), CurrentProject.Manifest.Particles.Select(asset =>
                 new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Particle, asset.Id, asset.Path))));
 
-            root.Children.Add(CreateFolder(T("ProjectTree.Trails"), CurrentProject.Manifest.Trails.Select(asset =>
+            root.Children.Add(CreateFolder(TrailsProjectTreeGroupKey, T("ProjectTree.Trails"), CurrentProject.Manifest.Trails.Select(asset =>
                 new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Trail, asset.Id, asset.Path))));
 
-            ProjectExplorerItemViewModel showcases = new(T("ProjectTree.Showcases"), EffectAssetKind.Folder)
-            {
-                IsExpanded = true
-            };
-            foreach (ShowcaseAsset asset in CurrentProject.Manifest.Showcases)
-            {
-                showcases.Children.Add(new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Showcase, asset.Id, asset.Path));
-            }
-
-            root.Children.Add(showcases);
+            root.Children.Add(CreateFolder(ShowcasesProjectTreeGroupKey, T("ProjectTree.Showcases"), CurrentProject.Manifest.Showcases.Select(asset =>
+                new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Showcase, asset.Id, asset.Path))));
 
             ProjectItems.Add(root);
         }
 
         private static ProjectExplorerItemViewModel CreateFolder(
+            string groupKey,
             string title,
             IEnumerable<ProjectExplorerItemViewModel> children)
         {
-            ProjectExplorerItemViewModel folder = new(title, EffectAssetKind.Folder)
+            ProjectExplorerItemViewModel folder = new(title, EffectAssetKind.Folder, groupKey)
             {
                 IsExpanded = true
             };
 
             foreach (ProjectExplorerItemViewModel child in children)
             {
-                folder.Children.Add(child);
+                InsertProjectExplorerItemSorted(folder.Children, child);
             }
 
             return folder;
