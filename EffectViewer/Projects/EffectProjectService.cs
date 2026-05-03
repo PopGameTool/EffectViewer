@@ -114,6 +114,33 @@ namespace EffectViewer.Projects
             return await LoadAsync(projectDirectory);
         }
 
+        public async Task<EffectProject> RenameProjectAsync(string projectDirectory, string projectName)
+        {
+            string sourceDirectory = EnsureInternalProjectDirectory(projectDirectory);
+            string name = string.IsNullOrWhiteSpace(projectName)
+                ? "Untitled Effect Project"
+                : projectName.Trim();
+
+            EffectProject project = await LoadAsync(sourceDirectory);
+            project.Manifest.Name = name;
+            await SaveAsync(project);
+
+            string safeName = ProjectPathUtility.CreateSafeName(name, "untitled-project");
+            string targetDirectory = CreateUniqueProjectDirectory(safeName, sourceDirectory);
+            if (!PathsEqual(sourceDirectory, targetDirectory))
+            {
+                Directory.Move(sourceDirectory, targetDirectory);
+            }
+
+            return await LoadAsync(targetDirectory);
+        }
+
+        public Task DeleteProjectAsync(string projectDirectory)
+        {
+            string sourceDirectory = EnsureInternalProjectDirectory(projectDirectory);
+            return Task.Run(() => Directory.Delete(sourceDirectory, recursive: true));
+        }
+
         public async Task<FolderImportResult> ImportFolderAsync(
             string sourceDirectory,
             IProgress<ProjectTransferProgress> progress = null)
@@ -398,19 +425,13 @@ namespace EffectViewer.Projects
             return new ProjectResourceResult(project, kind, assetId, relativePath);
         }
 
-        private string CreateUniqueProjectDirectory(string sourceName)
+        private string CreateUniqueProjectDirectory(string sourceName, string existingDirectory = null)
         {
             string baseName = ProjectPathUtility.CreateSafeName(sourceName, "project");
-            string projectsRoot = _storageProvider.ProjectsRootPath;
-            if (string.IsNullOrWhiteSpace(projectsRoot))
-            {
-                projectsRoot = new DefaultProjectStorageProvider().ProjectsRootPath;
-            }
-
-            Directory.CreateDirectory(projectsRoot);
+            string projectsRoot = GetProjectsRootPath();
 
             string candidate = Path.Combine(projectsRoot, baseName);
-            if (!Directory.Exists(candidate) && !File.Exists(Path.Combine(candidate, ManifestFileName)))
+            if (IsAvailableProjectDirectory(candidate, existingDirectory))
             {
                 return candidate;
             }
@@ -418,11 +439,78 @@ namespace EffectViewer.Projects
             for (int i = 2; ; i++)
             {
                 candidate = Path.Combine(projectsRoot, $"{baseName}-{i}");
-                if (!Directory.Exists(candidate) && !File.Exists(Path.Combine(candidate, ManifestFileName)))
+                if (IsAvailableProjectDirectory(candidate, existingDirectory))
                 {
                     return candidate;
                 }
             }
+        }
+
+        private string GetProjectsRootPath()
+        {
+            string projectsRoot = _storageProvider.ProjectsRootPath;
+            if (string.IsNullOrWhiteSpace(projectsRoot))
+            {
+                projectsRoot = new DefaultProjectStorageProvider().ProjectsRootPath;
+            }
+
+            Directory.CreateDirectory(projectsRoot);
+            return Path.GetFullPath(projectsRoot);
+        }
+
+        private string EnsureInternalProjectDirectory(string projectDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(projectDirectory))
+            {
+                throw new InvalidOperationException("No internal project is selected.");
+            }
+
+            string projectsRoot = TrimTrailingSeparators(GetProjectsRootPath());
+            string fullPath = TrimTrailingSeparators(Path.GetFullPath(projectDirectory));
+            string parentPath = TrimTrailingSeparators(Path.GetFullPath(Path.GetDirectoryName(fullPath) ?? string.Empty));
+            if (!PathsEqual(parentPath, projectsRoot))
+            {
+                throw new InvalidOperationException("Only projects stored in the app private project folder can be managed.");
+            }
+
+            string manifestPath = Path.Combine(fullPath, ManifestFileName);
+            if (!Directory.Exists(fullPath) || !File.Exists(manifestPath))
+            {
+                throw new InvalidOperationException("The selected project could not be found.");
+            }
+
+            return fullPath;
+        }
+
+        private static bool IsAvailableProjectDirectory(string candidate, string existingDirectory)
+        {
+            if (!string.IsNullOrWhiteSpace(existingDirectory) &&
+                PathsEqual(candidate, existingDirectory))
+            {
+                return true;
+            }
+
+            return !Directory.Exists(candidate) &&
+                !File.Exists(candidate) &&
+                !File.Exists(Path.Combine(candidate, ManifestFileName));
+        }
+
+        private static string TrimTrailingSeparators(string path)
+        {
+            return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+
+        private static bool PathsEqual(string left, string right)
+        {
+            if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+            {
+                return false;
+            }
+
+            return string.Equals(
+                TrimTrailingSeparators(Path.GetFullPath(left)),
+                TrimTrailingSeparators(Path.GetFullPath(right)),
+                StringComparison.OrdinalIgnoreCase);
         }
 
         private static void EnsureWritableProject(EffectProject project)

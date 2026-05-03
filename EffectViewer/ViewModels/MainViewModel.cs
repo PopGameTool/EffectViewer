@@ -29,6 +29,8 @@ namespace EffectViewer.ViewModels
         private readonly EffectWorld _effectWorld = new();
         private LuaHost _luaHost;
         private TaskCompletionSource<UnsavedChangesChoice> _unsavedChangesCompletion;
+        private ProjectListItemViewModel _projectBeingRenamed;
+        private ProjectListItemViewModel _projectBeingDeleted;
 
         public ObservableCollection<ProjectExplorerItemViewModel> ProjectItems { get; } = [];
         public ObservableCollection<EditorViewModelBase> OpenEditors { get; } = [];
@@ -63,6 +65,18 @@ namespace EffectViewer.ViewModels
 
         [ObservableProperty]
         private string _openProjectMessage;
+
+        [ObservableProperty]
+        private bool _isRenameProjectDialogOpen;
+
+        [ObservableProperty]
+        private string _renameProjectName;
+
+        [ObservableProperty]
+        private bool _isDeleteProjectDialogOpen;
+
+        [ObservableProperty]
+        private string _deleteProjectMessage;
 
         [ObservableProperty]
         private bool _isProjectTransferInProgress;
@@ -155,6 +169,21 @@ namespace EffectViewer.ViewModels
             if (CurrentProject is not null)
             {
                 RebuildProjectTree();
+            }
+
+            if (IsOpenProjectDialogOpen)
+            {
+                OpenProjectMessage = HasAvailableProjects
+                    ? T("Status.OpenProjectMessageHasProjects")
+                    : T("Status.OpenProjectMessageEmpty");
+            }
+
+            if (IsDeleteProjectDialogOpen && _projectBeingDeleted is not null)
+            {
+                DeleteProjectMessage = F(
+                    "Dialog.DeleteProjectMessage",
+                    _projectBeingDeleted.Name,
+                    _projectBeingDeleted.DirectoryName);
             }
 
             if (IsUnsavedChangesPromptOpen && SelectedEditor is not null)
@@ -717,23 +746,147 @@ namespace EffectViewer.ViewModels
         [RelayCommand]
         private async Task ShowOpenProjectDialogAsync()
         {
-            AvailableProjects.Clear();
-            SelectedAvailableProject = null;
-
-            IReadOnlyList<ProjectInfo> projects = await _projectService.ListProjectsAsync();
-            foreach (ProjectInfo project in projects)
-            {
-                AvailableProjects.Add(new ProjectListItemViewModel(project));
-            }
-
-            OnPropertyChanged(nameof(HasAvailableProjects));
-            OpenProjectMessage = HasAvailableProjects
-                ? T("Status.OpenProjectMessageHasProjects")
-                : T("Status.OpenProjectMessageEmpty");
+            await RefreshAvailableProjectsAsync();
             IsOpenProjectDialogOpen = true;
             StatusText = HasAvailableProjects
                 ? F("Status.FoundProjects", AvailableProjects.Count)
                 : T("Status.NoInternalProjectsFound");
+        }
+
+        [RelayCommand]
+        private void ShowRenameProjectDialog(ProjectListItemViewModel projectItem)
+        {
+            projectItem ??= SelectedAvailableProject;
+            if (projectItem is null || string.IsNullOrWhiteSpace(projectItem.ProjectPath))
+            {
+                StatusText = T("Status.NoProjectSelected");
+                return;
+            }
+
+            _projectBeingRenamed = projectItem;
+            RenameProjectName = projectItem.Name;
+            IsRenameProjectDialogOpen = true;
+            StatusText = F("Status.RenamingProject", projectItem.Name);
+        }
+
+        [RelayCommand]
+        private async Task RenameProjectAsync()
+        {
+            ProjectListItemViewModel projectItem = _projectBeingRenamed;
+            if (projectItem is null || string.IsNullOrWhiteSpace(projectItem.ProjectPath))
+            {
+                StatusText = T("Status.NoProjectSelected");
+                return;
+            }
+
+            string projectName = string.IsNullOrWhiteSpace(RenameProjectName)
+                ? T("Dialog.UntitledEffectProject")
+                : RenameProjectName.Trim();
+            bool isCurrentProject = SameProjectPath(CurrentProject?.RootPath, projectItem.ProjectPath);
+            bool wasOpenProjectDialogOpen = IsOpenProjectDialogOpen;
+
+            IsRenameProjectDialogOpen = false;
+            if (isCurrentProject)
+            {
+                IsOpenProjectDialogOpen = false;
+            }
+
+            if (isCurrentProject && !await ConfirmAllUnsavedChangesAsync())
+            {
+                StatusText = T("Status.CanceledRenamingProject");
+                IsOpenProjectDialogOpen = wasOpenProjectDialogOpen;
+                IsRenameProjectDialogOpen = true;
+                return;
+            }
+
+            try
+            {
+                EffectProject renamedProject = await _projectService.RenameProjectAsync(projectItem.ProjectPath, projectName);
+                await RefreshAvailableProjectsAsync(renamedProject.RootPath);
+                if (isCurrentProject)
+                {
+                    LoadProject(renamedProject);
+                }
+
+                IsOpenProjectDialogOpen = wasOpenProjectDialogOpen;
+                _projectBeingRenamed = null;
+                StatusText = F("Status.RenamedProject", renamedProject.Manifest.Name);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                StatusText = F("Status.CouldNotRenameProject", ex.Message);
+                IsOpenProjectDialogOpen = wasOpenProjectDialogOpen;
+                IsRenameProjectDialogOpen = true;
+            }
+        }
+
+        [RelayCommand]
+        private void CancelRenameProject()
+        {
+            IsRenameProjectDialogOpen = false;
+            _projectBeingRenamed = null;
+            StatusText = T("Status.CanceledRenamingProject");
+        }
+
+        [RelayCommand]
+        private void ShowDeleteProjectDialog(ProjectListItemViewModel projectItem)
+        {
+            projectItem ??= SelectedAvailableProject;
+            if (projectItem is null || string.IsNullOrWhiteSpace(projectItem.ProjectPath))
+            {
+                StatusText = T("Status.NoProjectSelected");
+                return;
+            }
+
+            _projectBeingDeleted = projectItem;
+            DeleteProjectMessage = F("Dialog.DeleteProjectMessage", projectItem.Name, projectItem.DirectoryName);
+            IsDeleteProjectDialogOpen = true;
+            StatusText = F("Status.DeletingProject", projectItem.Name);
+        }
+
+        [RelayCommand]
+        private async Task DeleteProjectAsync()
+        {
+            ProjectListItemViewModel projectItem = _projectBeingDeleted;
+            if (projectItem is null || string.IsNullOrWhiteSpace(projectItem.ProjectPath))
+            {
+                StatusText = T("Status.NoProjectSelected");
+                return;
+            }
+
+            string deletedName = projectItem.Name;
+            bool isCurrentProject = SameProjectPath(CurrentProject?.RootPath, projectItem.ProjectPath);
+            IsDeleteProjectDialogOpen = false;
+
+            try
+            {
+                await _projectService.DeleteProjectAsync(projectItem.ProjectPath);
+                _projectBeingDeleted = null;
+
+                if (isCurrentProject)
+                {
+                    CurrentProject = null;
+                    _effectWorld.LoadProject(null);
+                    _luaHost = new LuaHost(_effectWorld);
+                    ShowWelcomePage();
+                }
+
+                await RefreshAvailableProjectsAsync();
+                StatusText = F("Status.DeletedProject", deletedName);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                StatusText = F("Status.CouldNotDeleteProject", ex.Message);
+                IsDeleteProjectDialogOpen = true;
+            }
+        }
+
+        [RelayCommand]
+        private void CancelDeleteProject()
+        {
+            IsDeleteProjectDialogOpen = false;
+            _projectBeingDeleted = null;
+            StatusText = T("Status.CanceledDeletingProject");
         }
 
         [RelayCommand]
@@ -765,6 +918,42 @@ namespace EffectViewer.ViewModels
             IsOpenProjectDialogOpen = false;
             SelectedAvailableProject = null;
             StatusText = T("Status.CanceledOpeningProject");
+        }
+
+        private async Task RefreshAvailableProjectsAsync(string selectedProjectPath = null)
+        {
+            AvailableProjects.Clear();
+            SelectedAvailableProject = null;
+
+            IReadOnlyList<ProjectInfo> projects = await _projectService.ListProjectsAsync();
+            foreach (ProjectInfo project in projects)
+            {
+                ProjectListItemViewModel item = new(project);
+                AvailableProjects.Add(item);
+                if (!string.IsNullOrWhiteSpace(selectedProjectPath) &&
+                    SameProjectPath(item.ProjectPath, selectedProjectPath))
+                {
+                    SelectedAvailableProject = item;
+                }
+            }
+
+            OnPropertyChanged(nameof(HasAvailableProjects));
+            OpenProjectMessage = HasAvailableProjects
+                ? T("Status.OpenProjectMessageHasProjects")
+                : T("Status.OpenProjectMessageEmpty");
+        }
+
+        private static bool SameProjectPath(string left, string right)
+        {
+            if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+            {
+                return false;
+            }
+
+            return string.Equals(
+                Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase);
         }
 
         private void LoadProject(EffectProject project)
