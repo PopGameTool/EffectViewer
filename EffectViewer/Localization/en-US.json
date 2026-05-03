@@ -58,6 +58,7 @@
       "MoveTabRight": "Move Tab _Right",
       "NewProject": "_New Project...",
       "NewResource": "_New Resource...",
+      "RecentlyOpened": "_Recent",
       "DeleteResource": "_Delete Resource...",
       "NextTab": "_Next Tab",
       "OpenProject": "_Open Project...",
@@ -188,6 +189,7 @@
       "FontID": "Font ID",
       "ImageResourceID": "Image resource ID",
       "ShowcaseScript": "Write Lua showcase script here",
+      "SearchProjectTree": "Search resources",
       "Text": "Text",
       "TrackName": "Track name"
     },
@@ -225,6 +227,7 @@
       "ZipArchive": "Zip archive"
     },
     "DocumentKind": {
+      "Folder": "Folder",
       "Image": "Image",
       "Particle": "Particle",
       "Project": "Project",
@@ -241,7 +244,10 @@
       "TabToolTipPinned": "{0} - {1} - pinned"
     },
     "ProjectTree": {
+      "ClearSearch": "Clear search",
       "Images": "Images",
+      "NoMatches": "No matching resources.",
+      "NoResources": "No resources in this project yet.",
       "Particles": "Particles",
       "Reanim": "Reanim",
       "Showcases": "Showcases",
@@ -352,6 +358,7 @@
       "DocumentCannotClose": "{0} cannot be closed.",
       "DocumentNoProjectFile": "{0} does not have a project file to export.",
       "DocumentSaveUnsupported": "{0} does not support file saving yet.",
+      "DropImportUnsupported": "Drop supported resource file(s).",
       "Editing": "Editing {0}.",
       "EditingImage": "Editing image {0}",
       "EditingParticle": "Editing particle {0}",
@@ -365,6 +372,8 @@
       "ExportingPreview": "Exporting preview for {0}.",
       "FoundProjects": "Found {0} project(s).",
       "ImportedFolder": "Imported {0} image(s), {1} reanim(s), {2} particle(s), {3} trail(s). Missing images: {4}.",
+      "ImportedDroppedItems": "Imported {0} dropped item(s).",
+      "ImportedDroppedItemsWithSkipped": "Imported {0} dropped item(s). Skipped {1}.",
       "ImportedProject": "Imported project {0}.",
       "ImportedResource": "Imported {0} {1}.",
       "LanguageChanged": "Language changed to {0}.",

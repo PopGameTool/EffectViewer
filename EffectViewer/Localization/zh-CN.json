@@ -58,6 +58,7 @@
       "MoveTabRight": "向右移动标签页(_R)",
       "NewProject": "新建项目(_N)...",
       "NewResource": "新建资源(_N)...",
+      "RecentlyOpened": "最近打开(_R)",
       "DeleteResource": "删除资源(_D)...",
       "NextTab": "下一个标签页(_N)",
       "OpenProject": "打开项目(_O)...",
@@ -188,6 +189,7 @@
       "FontID": "字体 ID",
       "ImageResourceID": "图像资源 ID",
       "ShowcaseScript": "在这里编写 Lua 展示脚本",
+      "SearchProjectTree": "搜索资源",
       "Text": "文本",
       "TrackName": "轨道名称"
     },
@@ -225,6 +227,7 @@
       "ZipArchive": "Zip 压缩包"
     },
     "DocumentKind": {
+      "Folder": "文件夹",
       "Image": "图像",
       "Particle": "粒子",
       "Project": "项目",
@@ -241,7 +244,10 @@
       "TabToolTipPinned": "{0} - {1} - 已固定"
     },
     "ProjectTree": {
+      "ClearSearch": "清空搜索",
       "Images": "图像",
+      "NoMatches": "没有匹配的资源。",
+      "NoResources": "这个项目还没有资源。",
       "Particles": "粒子",
       "Reanim": "动画",
       "Showcases": "展示",
@@ -352,6 +358,7 @@
       "DocumentCannotClose": "{0} 不能关闭。",
       "DocumentNoProjectFile": "{0} 没有可导出的项目文件。",
       "DocumentSaveUnsupported": "{0} 暂不支持文件保存。",
+      "DropImportUnsupported": "请拖入支持的资源文件。",
       "Editing": "正在编辑 {0}。",
       "EditingImage": "正在编辑图像 {0}",
       "EditingParticle": "正在编辑粒子 {0}",
@@ -365,6 +372,8 @@
       "ExportingPreview": "正在导出 {0} 的预览。",
       "FoundProjects": "找到 {0} 个项目。",
       "ImportedFolder": "已导入 {0} 张图像、{1} 个动画、{2} 个粒子、{3} 条轨迹。缺失图像：{4}。",
+      "ImportedDroppedItems": "已导入 {0} 个拖入项。",
+      "ImportedDroppedItemsWithSkipped": "已导入 {0} 个拖入项，跳过 {1} 个。",
       "ImportedProject": "已导入项目 {0}。",
       "ImportedResource": "已导入 {0} {1}。",
       "LanguageChanged": "语言已切换为 {0}。",

@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:EffectViewer.ViewModels"
+             xmlns:input="using:Avalonia.Input"
              mc:Ignorable="d"
              d:DesignWidth="1200"
              d:DesignHeight="760"
@@ -39,6 +40,9 @@
       </Style>
       <Style Selector="TextBlock.document-tab-title.selected">
         <Setter Property="FontWeight" Value="SemiBold"/>
+      </Style>
+      <Style Selector="TreeViewItem">
+        <Setter Property="IsExpanded" Value="{ReflectionBinding IsExpanded, Mode=TwoWay}"/>
       </Style>
       <Style Selector="Button.tab-strip-button">
         <Setter Property="Width" Value="30"/>
@@ -80,6 +84,13 @@
         <Setter Property="Foreground" Value="{DynamicResource SystemControlBackgroundAltHighBrush}"/>
         <Setter Property="HorizontalAlignment" Value="Center"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
+      </Style>
+      <Style Selector="Border.project-explorer-panel.drag-over">
+        <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}"/>
+        <Setter Property="BorderThickness" Value="2"/>
+      </Style>
+      <Style Selector="TextBox.project-tree-search">
+        <Setter Property="MinHeight" Value="30"/>
       </Style>
     </UserControl.Styles>
 
@@ -134,6 +145,9 @@
               <MenuItem Header="{DynamicResource Loc.Menu.ImportResourceFolder}"
                         Click="ImportFolderMenuItem_Click"/>
             </MenuItem>
+            <MenuItem x:Name="RecentlyOpenedMenuItem"
+                      Header="{DynamicResource Loc.Menu.RecentlyOpened}"
+                      IsVisible="{Binding HasRecentlyOpenedProjectItems}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.Document}">
                 <MenuItem Header="{DynamicResource Loc.Menu.SaveCurrentFile}"
                           Command="{Binding SaveFileCommand}"
@@ -245,30 +259,60 @@
                 BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                 BorderThickness="0,0,1,0"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
-                IsVisible="{Binding IsProjectExplorerVisibleLeft}">
-          <Grid RowDefinitions="Auto,*" Margin="12" RowSpacing="10">
+                IsVisible="{Binding IsProjectExplorerVisibleLeft}"
+                Classes="project-explorer-panel"
+                input:DragDrop.AllowDrop="True"
+                input:DragDrop.DragOver="ProjectExplorer_DragOver"
+                input:DragDrop.DragLeave="ProjectExplorer_DragLeave"
+                input:DragDrop.Drop="ProjectExplorer_Drop">
+          <Grid RowDefinitions="Auto,Auto,*" Margin="12" RowSpacing="8">
             <TextBlock Text="{DynamicResource Loc.Label.ProjectExplorer}"
                        FontSize="15"
                        FontWeight="SemiBold"/>
-            <TreeView Grid.Row="1"
-                      ItemsSource="{Binding ProjectItems}"
-                      SelectedItem="{Binding SelectedProjectItem}">
-              <TreeView.ItemTemplate>
-                <TreeDataTemplate ItemsSource="{Binding Children}"
-                                  DataType="vm:ProjectExplorerItemViewModel">
-                  <TextBlock Text="{Binding Title}">
-                    <TextBlock.ContextMenu>
-                      <ContextMenu>
-                        <MenuItem Header="{DynamicResource Loc.Menu.DeleteResource}"
-                                  Command="{Binding $parent[UserControl].DataContext.ShowDeleteResourceDialogCommand}"
-                                  CommandParameter="{Binding}"
-                                  IsEnabled="{Binding IsSelectable}"/>
-                      </ContextMenu>
-                    </TextBlock.ContextMenu>
-                  </TextBlock>
-                </TreeDataTemplate>
-              </TreeView.ItemTemplate>
-            </TreeView>
+            <Grid Grid.Row="1"
+                  ColumnDefinitions="*,Auto"
+                  ColumnSpacing="6">
+              <TextBox Text="{Binding ProjectTreeSearchText, UpdateSourceTrigger=PropertyChanged}"
+                       PlaceholderText="{DynamicResource Loc.Placeholder.SearchProjectTree}"
+                       Classes="project-tree-search"/>
+              <Button Grid.Column="1"
+                      Content="x"
+                      Width="30"
+                      Padding="0"
+                      ToolTip.Tip="{DynamicResource Loc.ProjectTree.ClearSearch}"
+                      IsVisible="{Binding HasProjectTreeSearchText}"
+                      Command="{Binding ClearProjectTreeSearchCommand}"/>
+            </Grid>
+            <Grid Grid.Row="2">
+              <TreeView ItemsSource="{Binding ProjectItems}"
+                        SelectedItem="{Binding SelectedProjectItem}"
+                        IsVisible="{Binding HasVisibleProjectTreeItems}">
+                <TreeView.ItemTemplate>
+                  <TreeDataTemplate ItemsSource="{Binding Children}"
+                                    DataType="vm:ProjectExplorerItemViewModel">
+                    <TextBlock Text="{Binding Title}"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="0,2">
+                      <TextBlock.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="{DynamicResource Loc.Menu.DeleteResource}"
+                                    Command="{Binding $parent[UserControl].DataContext.ShowDeleteResourceDialogCommand}"
+                                    CommandParameter="{Binding}"
+                                    IsEnabled="{Binding IsSelectable}"/>
+                        </ContextMenu>
+                      </TextBlock.ContextMenu>
+                    </TextBlock>
+                  </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+              </TreeView>
+              <TextBlock Text="{Binding ProjectTreeEmptyMessage}"
+                         IsVisible="{Binding HasNoVisibleProjectTreeItems}"
+                         Foreground="{DynamicResource TextControlPlaceholderForeground}"
+                         TextWrapping="Wrap"
+                         VerticalAlignment="Center"
+                         TextAlignment="Center"
+                         Margin="12"/>
+            </Grid>
           </Grid>
         </Border>
 
@@ -447,30 +491,60 @@
                 BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                 BorderThickness="1,0,0,0"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
-                IsVisible="{Binding IsProjectExplorerVisibleRight}">
-          <Grid RowDefinitions="Auto,*" Margin="12" RowSpacing="10">
+                IsVisible="{Binding IsProjectExplorerVisibleRight}"
+                Classes="project-explorer-panel"
+                input:DragDrop.AllowDrop="True"
+                input:DragDrop.DragOver="ProjectExplorer_DragOver"
+                input:DragDrop.DragLeave="ProjectExplorer_DragLeave"
+                input:DragDrop.Drop="ProjectExplorer_Drop">
+          <Grid RowDefinitions="Auto,Auto,*" Margin="12" RowSpacing="8">
             <TextBlock Text="{DynamicResource Loc.Label.ProjectExplorer}"
                        FontSize="15"
                        FontWeight="SemiBold"/>
-            <TreeView Grid.Row="1"
-                      ItemsSource="{Binding ProjectItems}"
-                      SelectedItem="{Binding SelectedProjectItem}">
-              <TreeView.ItemTemplate>
-                <TreeDataTemplate ItemsSource="{Binding Children}"
-                                  DataType="vm:ProjectExplorerItemViewModel">
-                  <TextBlock Text="{Binding Title}">
-                    <TextBlock.ContextMenu>
-                      <ContextMenu>
-                        <MenuItem Header="{DynamicResource Loc.Menu.DeleteResource}"
-                                  Command="{Binding $parent[UserControl].DataContext.ShowDeleteResourceDialogCommand}"
-                                  CommandParameter="{Binding}"
-                                  IsEnabled="{Binding IsSelectable}"/>
-                      </ContextMenu>
-                    </TextBlock.ContextMenu>
-                  </TextBlock>
-                </TreeDataTemplate>
-              </TreeView.ItemTemplate>
-            </TreeView>
+            <Grid Grid.Row="1"
+                  ColumnDefinitions="*,Auto"
+                  ColumnSpacing="6">
+              <TextBox Text="{Binding ProjectTreeSearchText, UpdateSourceTrigger=PropertyChanged}"
+                       PlaceholderText="{DynamicResource Loc.Placeholder.SearchProjectTree}"
+                       Classes="project-tree-search"/>
+              <Button Grid.Column="1"
+                      Content="x"
+                      Width="30"
+                      Padding="0"
+                      ToolTip.Tip="{DynamicResource Loc.ProjectTree.ClearSearch}"
+                      IsVisible="{Binding HasProjectTreeSearchText}"
+                      Command="{Binding ClearProjectTreeSearchCommand}"/>
+            </Grid>
+            <Grid Grid.Row="2">
+              <TreeView ItemsSource="{Binding ProjectItems}"
+                        SelectedItem="{Binding SelectedProjectItem}"
+                        IsVisible="{Binding HasVisibleProjectTreeItems}">
+                <TreeView.ItemTemplate>
+                  <TreeDataTemplate ItemsSource="{Binding Children}"
+                                    DataType="vm:ProjectExplorerItemViewModel">
+                    <TextBlock Text="{Binding Title}"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="0,2">
+                      <TextBlock.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="{DynamicResource Loc.Menu.DeleteResource}"
+                                    Command="{Binding $parent[UserControl].DataContext.ShowDeleteResourceDialogCommand}"
+                                    CommandParameter="{Binding}"
+                                    IsEnabled="{Binding IsSelectable}"/>
+                        </ContextMenu>
+                      </TextBlock.ContextMenu>
+                    </TextBlock>
+                  </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+              </TreeView>
+              <TextBlock Text="{Binding ProjectTreeEmptyMessage}"
+                         IsVisible="{Binding HasNoVisibleProjectTreeItems}"
+                         Foreground="{DynamicResource TextControlPlaceholderForeground}"
+                         TextWrapping="Wrap"
+                         VerticalAlignment="Center"
+                         TextAlignment="Center"
+                         Margin="12"/>
+            </Grid>
           </Grid>
         </Border>
       </Grid>

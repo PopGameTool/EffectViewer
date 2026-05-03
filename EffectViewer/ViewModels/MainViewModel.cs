@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EffectViewer.Assets;
@@ -42,8 +43,15 @@ namespace EffectViewer.ViewModels
         private const string ParticlesProjectTreeGroupKey = "particles";
         private const string TrailsProjectTreeGroupKey = "trails";
         private const string ShowcasesProjectTreeGroupKey = "showcases";
+        private const int MaxRecentlyOpenedProjectItems = 8;
+        private const int ProjectTreeSearchDebounceMilliseconds = 250;
+        private readonly List<ProjectExplorerResourceIdentity> _recentlyOpenedResources = [];
+        private readonly Dictionary<string, bool> _projectTreeExpansionState = new(StringComparer.OrdinalIgnoreCase);
+        private string _appliedProjectTreeSearchText = string.Empty;
+        private CancellationTokenSource _projectTreeSearchRefreshCancellation;
 
         public ObservableCollection<ProjectExplorerItemViewModel> ProjectItems { get; } = [];
+        public ObservableCollection<ProjectExplorerItemViewModel> RecentlyOpenedProjectItems { get; } = [];
         public ObservableCollection<EditorViewModelBase> OpenEditors { get; } = [];
         public ObservableCollection<ProjectListItemViewModel> AvailableProjects { get; } = [];
 
@@ -52,6 +60,12 @@ namespace EffectViewer.ViewModels
 
         [ObservableProperty]
         private ProjectExplorerItemViewModel _selectedProjectItem;
+
+        [ObservableProperty]
+        private string _projectTreeSearchText = string.Empty;
+
+        [ObservableProperty]
+        private int _projectTreeResourceCount;
 
         [ObservableProperty]
         private EditorViewModelBase _selectedEditor;
@@ -221,6 +235,15 @@ namespace EffectViewer.ViewModels
         public bool CanMoveSelectedEditorRight => CanMoveEditorRight(SelectedEditor);
         public bool CanSaveAnyEditor => CanSaveCurrentProject && OpenEditors.Any(editor => editor.IsDirty && editor.SupportsSave);
         public bool CanCloseSavedEditors => OpenEditors.Any(editor => editor.CanClose && !editor.IsDirty);
+        public bool HasProjectTreeSearchText => !string.IsNullOrWhiteSpace(ProjectTreeSearchText);
+        public bool HasVisibleProjectTreeItems => ProjectItems.Count > 0;
+        public bool HasNoVisibleProjectTreeItems => !HasVisibleProjectTreeItems;
+        public bool HasRecentlyOpenedProjectItems => RecentlyOpenedProjectItems.Count > 0;
+        public string ProjectTreeEmptyMessage => CurrentProject is null
+            ? T("Status.NoProjectLoaded")
+            : ProjectTreeResourceCount == 0
+                ? T("ProjectTree.NoResources")
+                : T("ProjectTree.NoMatches");
         public bool IsPreviewAnimationExport => PreviewExportFormat is PreviewExportFormat.PngSequenceZip or PreviewExportFormat.Gif or PreviewExportFormat.Webp;
         public bool IsPreviewExportParticle => SelectedEditor?.Kind == EffectAssetKind.Particle;
         public bool HasPreviewExportTimelineOptions => PreviewExportTimelines.Count > 0;
@@ -265,6 +288,9 @@ namespace EffectViewer.ViewModels
         {
             OnPropertyChanged(nameof(IsEnglishLanguage));
             OnPropertyChanged(nameof(IsChineseLanguage));
+
+            RebuildRecentlyOpenedProjectItems();
+            NotifyProjectTreeProperties();
 
             if (CurrentProject is not null)
             {
@@ -427,6 +453,13 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(CanModifyCurrentProject));
             OnPropertyChanged(nameof(CanDeleteSelectedResource));
             OnPropertyChanged(nameof(CanSaveAnyEditor));
+            OnPropertyChanged(nameof(ProjectTreeEmptyMessage));
+        }
+
+        partial void OnProjectTreeSearchTextChanged(string value)
+        {
+            OnPropertyChanged(nameof(HasProjectTreeSearchText));
+            ScheduleProjectTreeSearchRefresh(value);
         }
 
         partial void OnNewResourceKindChanged(EffectAssetKind value)
@@ -605,6 +638,30 @@ namespace EffectViewer.ViewModels
             ImportResourceFolderRequested?.Invoke(this, EventArgs.Empty);
         }
 
+        [RelayCommand]
+        private void ClearProjectTreeSearch()
+        {
+            ProjectTreeSearchText = string.Empty;
+        }
+
+        [RelayCommand]
+        private void OpenProjectExplorerItem(ProjectExplorerItemViewModel item)
+        {
+            if (item?.IsSelectable != true)
+            {
+                return;
+            }
+
+            ProjectExplorerItemViewModel visibleItem = FindProjectExplorerItem(ProjectItems, item.Kind, item.AssetId, item.Path);
+            if (visibleItem is not null)
+            {
+                SelectedProjectItem = visibleItem;
+                return;
+            }
+
+            OpenEditor(item);
+        }
+
         public async Task ImportResourceFileAsync(string sourceFileName, Stream sourceStream)
         {
             if (sourceStream is null)
@@ -747,7 +804,8 @@ namespace EffectViewer.ViewModels
                 ProjectResourceResult result = await _projectService.DeleteResourceAsync(CurrentProject, kind, assetId, path);
                 RefreshCurrentProjectState();
                 CloseResourceEditors(result.Kind, result.AssetId);
-                RemoveProjectExplorerItem(item);
+                RemoveRecentlyOpenedResource(result.Kind, result.AssetId, result.ProjectPath);
+                RebuildProjectTree();
                 SelectedProjectItem = null;
                 _resourceBeingDeleted = null;
                 DeleteResourceMessage = string.Empty;
@@ -1609,18 +1667,28 @@ namespace EffectViewer.ViewModels
 
         private void LoadProject(EffectProject project)
         {
+            CancelPendingProjectTreeSearchRefresh();
+            _appliedProjectTreeSearchText = NormalizeProjectTreeSearchText(ProjectTreeSearchText);
             CurrentProject = project;
             _effectWorld.LoadProject(CurrentProject);
             _luaHost = new LuaHost(_effectWorld);
             SelectedProjectItem = null;
+            _projectTreeExpansionState.Clear();
+            ClearRecentlyOpenedResources();
             RebuildProjectTree();
             CloseAllEditors();
         }
 
         private void ShowWelcomePage()
         {
+            CancelPendingProjectTreeSearchRefresh();
+            _appliedProjectTreeSearchText = NormalizeProjectTreeSearchText(ProjectTreeSearchText);
             ProjectItems.Clear();
             SelectedProjectItem = null;
+            ProjectTreeResourceCount = 0;
+            _projectTreeExpansionState.Clear();
+            ClearRecentlyOpenedResources();
+            NotifyProjectTreeProperties();
             CloseAllEditors();
             OpenEditorTab(CreateWelcomeEditor());
         }
@@ -1662,6 +1730,8 @@ namespace EffectViewer.ViewModels
 
         private void OpenEditor(ProjectExplorerItemViewModel item)
         {
+            AddRecentlyOpenedResource(item);
+
             switch (item.Kind)
             {
                 case EffectAssetKind.Image:
@@ -1710,6 +1780,7 @@ namespace EffectViewer.ViewModels
             if (kind == EffectAssetKind.Image &&
                 CurrentProject.Assets.Images.TryGetValue(assetId, out ImageAsset image))
             {
+                AddRecentlyOpenedResource(kind, image.Id, image.Path);
                 OpenOrSelectEditor(kind, assetId, () => new ImageEditorViewModel(image, CurrentProject));
                 return;
             }
@@ -1717,12 +1788,14 @@ namespace EffectViewer.ViewModels
             if (kind == EffectAssetKind.Showcase &&
                 CurrentProject.Assets.Showcases.TryGetValue(assetId, out ShowcaseAsset showcase))
             {
+                AddRecentlyOpenedResource(kind, showcase.Id, showcase.Path);
                 OpenOrSelectEditor(kind, assetId, () => new ShowcaseEditorViewModel(showcase, _luaHost, CurrentProject));
                 return;
             }
 
             if (asset is not null)
             {
+                AddRecentlyOpenedResource(kind, asset.Id, asset.Path);
                 OpenOrSelectEditor(kind, assetId, () => new EffectEditorViewModel(kind, assetId, asset.Path, CurrentProject));
             }
         }
@@ -2333,18 +2406,12 @@ namespace EffectViewer.ViewModels
             string newAssetId,
             string path)
         {
-            if (!TryFindProjectExplorerItem(ProjectItems, kind, oldAssetId, path, out ObservableCollection<ProjectExplorerItemViewModel> siblings, out ProjectExplorerItemViewModel item))
+            UpdateRecentlyOpenedResourceIdentity(kind, oldAssetId, newAssetId, path);
+            RebuildProjectTree();
+            ProjectExplorerItemViewModel item = FindProjectExplorerItem(ProjectItems, kind, newAssetId, path);
+            if (item is not null)
             {
-                return;
-            }
-
-            item.Title = newAssetId;
-            item.AssetId = newAssetId;
-            item.Path = path;
-            MoveProjectExplorerItemIntoSortedPosition(siblings, item);
-            if (ReferenceEquals(SelectedProjectItem, item))
-            {
-                OnPropertyChanged(nameof(SelectedProjectItem));
+                SelectedProjectItem = item;
             }
         }
 
@@ -2373,141 +2440,13 @@ namespace EffectViewer.ViewModels
             return null;
         }
 
-        private static bool TryFindProjectExplorerItem(
-            ObservableCollection<ProjectExplorerItemViewModel> items,
-            EffectAssetKind kind,
-            string assetId,
-            string path,
-            out ObservableCollection<ProjectExplorerItemViewModel> siblings,
-            out ProjectExplorerItemViewModel result)
-        {
-            foreach (ProjectExplorerItemViewModel item in items)
-            {
-                if (item.Kind == kind &&
-                    (string.Equals(item.AssetId, assetId, StringComparison.OrdinalIgnoreCase) ||
-                     string.Equals(item.Path, path, StringComparison.OrdinalIgnoreCase)))
-                {
-                    siblings = items;
-                    result = item;
-                    return true;
-                }
-
-                if (TryFindProjectExplorerItem(item.Children, kind, assetId, path, out siblings, out result))
-                {
-                    return true;
-                }
-            }
-
-            siblings = null;
-            result = null;
-            return false;
-        }
-
-        private bool RemoveProjectExplorerItem(ProjectExplorerItemViewModel item)
-        {
-            if (item is null)
-            {
-                return false;
-            }
-
-            if (RemoveProjectExplorerItem(ProjectItems, item))
-            {
-                return true;
-            }
-
-            if (TryFindProjectExplorerItem(ProjectItems, item.Kind, item.AssetId, item.Path, out ObservableCollection<ProjectExplorerItemViewModel> siblings, out ProjectExplorerItemViewModel found))
-            {
-                return siblings.Remove(found);
-            }
-
-            return false;
-        }
-
-        private static bool RemoveProjectExplorerItem(
-            ObservableCollection<ProjectExplorerItemViewModel> items,
-            ProjectExplorerItemViewModel target)
-        {
-            foreach (ProjectExplorerItemViewModel item in items.ToList())
-            {
-                if (ReferenceEquals(item, target))
-                {
-                    return items.Remove(item);
-                }
-
-                if (RemoveProjectExplorerItem(item.Children, target))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         private ProjectExplorerItemViewModel AddOrUpdateProjectExplorerItem(
             EffectAssetKind kind,
             string assetId,
             string path)
         {
-            ProjectExplorerItemViewModel folder = GetProjectExplorerFolder(kind);
-            if (folder is null)
-            {
-                RebuildProjectTree();
-                return FindProjectExplorerItem(ProjectItems, kind, assetId, path);
-            }
-
-            if (TryFindProjectExplorerItem(folder.Children, kind, assetId, path, out ObservableCollection<ProjectExplorerItemViewModel> siblings, out ProjectExplorerItemViewModel existing))
-            {
-                existing.Title = assetId;
-                existing.AssetId = assetId;
-                existing.Path = path;
-                MoveProjectExplorerItemIntoSortedPosition(siblings, existing);
-                return existing;
-            }
-
-            ProjectExplorerItemViewModel item = new(assetId, kind, assetId, path);
-            InsertProjectExplorerItemSorted(folder.Children, item);
-            return item;
-        }
-
-        private ProjectExplorerItemViewModel GetProjectExplorerFolder(EffectAssetKind kind)
-        {
-            if (ProjectItems.Count == 0)
-            {
-                return null;
-            }
-
-            string groupKey = GetProjectExplorerGroupKey(kind);
-            ProjectExplorerItemViewModel root = ProjectItems[0];
-            return root.Children.FirstOrDefault(item =>
-                item.Kind == EffectAssetKind.Folder &&
-                string.Equals(item.AssetId, groupKey, StringComparison.OrdinalIgnoreCase));
-        }
-
-        private static string GetProjectExplorerGroupKey(EffectAssetKind kind)
-        {
-            return kind switch
-            {
-                EffectAssetKind.Image => ImagesProjectTreeGroupKey,
-                EffectAssetKind.Reanim => ReanimsProjectTreeGroupKey,
-                EffectAssetKind.Particle => ParticlesProjectTreeGroupKey,
-                EffectAssetKind.Trail => TrailsProjectTreeGroupKey,
-                EffectAssetKind.Showcase => ShowcasesProjectTreeGroupKey,
-                _ => string.Empty
-            };
-        }
-
-        private static void MoveProjectExplorerItemIntoSortedPosition(
-            ObservableCollection<ProjectExplorerItemViewModel> siblings,
-            ProjectExplorerItemViewModel item)
-        {
-            int oldIndex = siblings.IndexOf(item);
-            if (oldIndex < 0)
-            {
-                return;
-            }
-
-            siblings.RemoveAt(oldIndex);
-            InsertProjectExplorerItemSorted(siblings, item);
+            RebuildProjectTree();
+            return FindProjectExplorerItem(ProjectItems, kind, assetId, path);
         }
 
         private static void InsertProjectExplorerItemSorted(
@@ -2539,39 +2478,109 @@ namespace EffectViewer.ViewModels
 
         private void RebuildProjectTree()
         {
+            CaptureProjectTreeExpansionState();
             ProjectItems.Clear();
 
-            ProjectExplorerItemViewModel root = new(CurrentProject.Manifest.Name, EffectAssetKind.Project)
+            if (CurrentProject is null)
             {
-                IsExpanded = true
+                ProjectTreeResourceCount = 0;
+                NotifyProjectTreeProperties();
+                return;
+            }
+
+            ProjectTreeResourceCount =
+                CurrentProject.Manifest.Images.Count +
+                CurrentProject.Manifest.Reanims.Count +
+                CurrentProject.Manifest.Particles.Count +
+                CurrentProject.Manifest.Trails.Count +
+                CurrentProject.Manifest.Showcases.Count;
+
+            bool isSearchActive = !string.IsNullOrWhiteSpace(_appliedProjectTreeSearchText);
+            int visibleCount = 0;
+            ProjectExplorerItemViewModel root = new(
+                CurrentProject.Manifest.Name,
+                EffectAssetKind.Project)
+            {
+                IsExpanded = GetProjectTreeExpansionState(EffectAssetKind.Project, string.Empty, defaultValue: true)
             };
 
-            root.Children.Add(CreateFolder(ImagesProjectTreeGroupKey, T("ProjectTree.Images"), CurrentProject.Manifest.Images.Select(asset =>
-                new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Image, asset.Id, asset.Path))));
+            visibleCount += AddProjectTreeFolder(
+                root,
+                ImagesProjectTreeGroupKey,
+                T("ProjectTree.Images"),
+                CreateFilteredResourceItems(CurrentProject.Manifest.Images, EffectAssetKind.Image, asset => asset.Id, asset => asset.Path),
+                isSearchActive);
 
-            root.Children.Add(CreateFolder(ReanimsProjectTreeGroupKey, T("ProjectTree.Reanim"), CurrentProject.Manifest.Reanims.Select(asset =>
-                new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Reanim, asset.Id, asset.Path))));
+            visibleCount += AddProjectTreeFolder(
+                root,
+                ReanimsProjectTreeGroupKey,
+                T("ProjectTree.Reanim"),
+                CreateFilteredResourceItems(CurrentProject.Manifest.Reanims, EffectAssetKind.Reanim, asset => asset.Id, asset => asset.Path),
+                isSearchActive);
 
-            root.Children.Add(CreateFolder(ParticlesProjectTreeGroupKey, T("ProjectTree.Particles"), CurrentProject.Manifest.Particles.Select(asset =>
-                new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Particle, asset.Id, asset.Path))));
+            visibleCount += AddProjectTreeFolder(
+                root,
+                ParticlesProjectTreeGroupKey,
+                T("ProjectTree.Particles"),
+                CreateFilteredResourceItems(CurrentProject.Manifest.Particles, EffectAssetKind.Particle, asset => asset.Id, asset => asset.Path),
+                isSearchActive);
 
-            root.Children.Add(CreateFolder(TrailsProjectTreeGroupKey, T("ProjectTree.Trails"), CurrentProject.Manifest.Trails.Select(asset =>
-                new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Trail, asset.Id, asset.Path))));
+            visibleCount += AddProjectTreeFolder(
+                root,
+                TrailsProjectTreeGroupKey,
+                T("ProjectTree.Trails"),
+                CreateFilteredResourceItems(CurrentProject.Manifest.Trails, EffectAssetKind.Trail, asset => asset.Id, asset => asset.Path),
+                isSearchActive);
 
-            root.Children.Add(CreateFolder(ShowcasesProjectTreeGroupKey, T("ProjectTree.Showcases"), CurrentProject.Manifest.Showcases.Select(asset =>
-                new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Showcase, asset.Id, asset.Path))));
+            visibleCount += AddProjectTreeFolder(
+                root,
+                ShowcasesProjectTreeGroupKey,
+                T("ProjectTree.Showcases"),
+                CreateFilteredResourceItems(CurrentProject.Manifest.Showcases, EffectAssetKind.Showcase, asset => asset.Id, asset => asset.Path),
+                isSearchActive);
 
-            ProjectItems.Add(root);
+            if (!isSearchActive || root.Children.Count > 0)
+            {
+                ProjectItems.Add(root);
+            }
+
+            if (SelectedProjectItem is not null &&
+                FindProjectExplorerItem(ProjectItems, SelectedProjectItem.Kind, SelectedProjectItem.AssetId, SelectedProjectItem.Path) is null)
+            {
+                SelectedProjectItem = null;
+            }
+
+            NotifyProjectTreeProperties();
         }
 
-        private static ProjectExplorerItemViewModel CreateFolder(
+        private int AddProjectTreeFolder(
+            ProjectExplorerItemViewModel root,
             string groupKey,
             string title,
-            IEnumerable<ProjectExplorerItemViewModel> children)
+            IEnumerable<ProjectExplorerItemViewModel> children,
+            bool isSearchActive)
         {
-            ProjectExplorerItemViewModel folder = new(title, EffectAssetKind.Folder, groupKey)
+            List<ProjectExplorerItemViewModel> childItems = children.ToList();
+            if (isSearchActive && childItems.Count == 0)
             {
-                IsExpanded = true
+                return 0;
+            }
+
+            root.Children.Add(CreateFolder(groupKey, title, childItems));
+            return childItems.Count;
+        }
+
+        private ProjectExplorerItemViewModel CreateFolder(
+            string groupKey,
+            string title,
+            IReadOnlyList<ProjectExplorerItemViewModel> children)
+        {
+            ProjectExplorerItemViewModel folder = new(
+                title,
+                EffectAssetKind.Folder,
+                groupKey)
+            {
+                IsExpanded = GetProjectTreeExpansionState(EffectAssetKind.Folder, groupKey, defaultValue: true)
             };
 
             foreach (ProjectExplorerItemViewModel child in children)
@@ -2582,9 +2591,384 @@ namespace EffectViewer.ViewModels
             return folder;
         }
 
+        private IEnumerable<ProjectExplorerItemViewModel> CreateFilteredResourceItems<T>(
+            IEnumerable<T> assets,
+            EffectAssetKind kind,
+            Func<T, string> idSelector,
+            Func<T, string> pathSelector)
+        {
+            foreach (T asset in assets)
+            {
+                string assetId = idSelector(asset) ?? string.Empty;
+                string path = pathSelector(asset) ?? string.Empty;
+                if (ProjectTreeResourceMatches(kind, assetId, path))
+                {
+                    yield return CreateResourceProjectTreeItem(kind, assetId, path);
+                }
+            }
+        }
+
+        private ProjectExplorerItemViewModel CreateResourceProjectTreeItem(
+            EffectAssetKind kind,
+            string assetId,
+            string path)
+        {
+            return new ProjectExplorerItemViewModel(
+                assetId,
+                kind,
+                assetId,
+                path);
+        }
+
+        private bool ProjectTreeResourceMatches(EffectAssetKind kind, string assetId, string path)
+        {
+            string query = _appliedProjectTreeSearchText;
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return true;
+            }
+
+            string kindName = Loc.Text($"DocumentKind.{kind}");
+            string[] terms = query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            return terms.All(term =>
+                ContainsSearchTerm(assetId, term) ||
+                ContainsSearchTerm(kind.ToString(), term) ||
+                ContainsSearchTerm(kindName, term));
+        }
+
+        private static bool ContainsSearchTerm(string value, string term)
+        {
+            return !string.IsNullOrWhiteSpace(value) &&
+                value.Contains(term, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void ScheduleProjectTreeSearchRefresh(string searchText)
+        {
+            CancelPendingProjectTreeSearchRefresh();
+
+            string normalizedSearchText = NormalizeProjectTreeSearchText(searchText);
+            if (string.IsNullOrWhiteSpace(normalizedSearchText))
+            {
+                ApplyProjectTreeSearchText(normalizedSearchText);
+                return;
+            }
+
+            CancellationTokenSource cancellation = new();
+            _projectTreeSearchRefreshCancellation = cancellation;
+            _ = ApplyProjectTreeSearchTextAfterDelayAsync(normalizedSearchText, cancellation);
+        }
+
+        private async Task ApplyProjectTreeSearchTextAfterDelayAsync(
+            string searchText,
+            CancellationTokenSource cancellation)
+        {
+            try
+            {
+                await Task.Delay(ProjectTreeSearchDebounceMilliseconds, cancellation.Token);
+                if (!cancellation.IsCancellationRequested)
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (!cancellation.IsCancellationRequested)
+                        {
+                            ApplyProjectTreeSearchText(searchText);
+                        }
+                    });
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            finally
+            {
+                if (ReferenceEquals(_projectTreeSearchRefreshCancellation, cancellation))
+                {
+                    _projectTreeSearchRefreshCancellation = null;
+                }
+
+                cancellation.Dispose();
+            }
+        }
+
+        private void ApplyProjectTreeSearchText(string searchText)
+        {
+            string normalizedSearchText = NormalizeProjectTreeSearchText(searchText);
+            if (string.Equals(_appliedProjectTreeSearchText, normalizedSearchText, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _appliedProjectTreeSearchText = normalizedSearchText;
+            RebuildProjectTree();
+        }
+
+        private void CancelPendingProjectTreeSearchRefresh()
+        {
+            CancellationTokenSource cancellation = _projectTreeSearchRefreshCancellation;
+            _projectTreeSearchRefreshCancellation = null;
+            cancellation?.Cancel();
+        }
+
+        private static string NormalizeProjectTreeSearchText(string searchText)
+        {
+            return string.IsNullOrWhiteSpace(searchText) ? string.Empty : searchText.Trim();
+        }
+
+        private void CaptureProjectTreeExpansionState()
+        {
+            foreach (ProjectExplorerItemViewModel item in ProjectItems)
+            {
+                CaptureProjectTreeExpansionState(item);
+            }
+        }
+
+        private void CaptureProjectTreeExpansionState(ProjectExplorerItemViewModel item)
+        {
+            if (item is null)
+            {
+                return;
+            }
+
+            if (item.Children.Count > 0)
+            {
+                _projectTreeExpansionState[GetProjectTreeExpansionKey(item.Kind, item.AssetId)] = item.IsExpanded;
+            }
+
+            foreach (ProjectExplorerItemViewModel child in item.Children)
+            {
+                CaptureProjectTreeExpansionState(child);
+            }
+        }
+
+        private bool GetProjectTreeExpansionState(EffectAssetKind kind, string assetId, bool defaultValue)
+        {
+            return _projectTreeExpansionState.TryGetValue(GetProjectTreeExpansionKey(kind, assetId), out bool isExpanded)
+                ? isExpanded
+                : defaultValue;
+        }
+
+        private static string GetProjectTreeExpansionKey(EffectAssetKind kind, string assetId)
+        {
+            return $"{kind}:{assetId ?? string.Empty}";
+        }
+
+        private void AddRecentlyOpenedResource(ProjectExplorerItemViewModel item)
+        {
+            if (item?.IsSelectable != true)
+            {
+                return;
+            }
+
+            AddRecentlyOpenedResource(item.Kind, item.AssetId, item.Path);
+        }
+
+        private void AddRecentlyOpenedResource(EffectAssetKind kind, string requestedAssetId, string requestedPath)
+        {
+            if (CurrentProject is null)
+            {
+                return;
+            }
+
+            if (!TryResolveProjectResource(kind, requestedAssetId, requestedPath, out string assetId, out string path))
+            {
+                assetId = requestedAssetId ?? string.Empty;
+                path = requestedPath ?? string.Empty;
+            }
+
+            RemoveRecentlyOpenedResourceIdentity(kind, assetId, path);
+            _recentlyOpenedResources.Insert(0, new ProjectExplorerResourceIdentity(kind, assetId, path));
+            while (_recentlyOpenedResources.Count > MaxRecentlyOpenedProjectItems)
+            {
+                _recentlyOpenedResources.RemoveAt(_recentlyOpenedResources.Count - 1);
+            }
+
+            RebuildRecentlyOpenedProjectItems();
+        }
+
+        private void RemoveRecentlyOpenedResource(EffectAssetKind kind, string assetId, string path)
+        {
+            if (RemoveRecentlyOpenedResourceIdentity(kind, assetId, path))
+            {
+                RebuildRecentlyOpenedProjectItems();
+            }
+        }
+
+        private bool RemoveRecentlyOpenedResourceIdentity(EffectAssetKind kind, string assetId, string path)
+        {
+            int removedCount = _recentlyOpenedResources.RemoveAll(identity =>
+                identity.Kind == kind &&
+                ResourceIdentityMatches(identity.AssetId, identity.Path, assetId, path));
+            return removedCount > 0;
+        }
+
+        private void UpdateRecentlyOpenedResourceIdentity(
+            EffectAssetKind kind,
+            string oldAssetId,
+            string newAssetId,
+            string path)
+        {
+            bool changed = false;
+            foreach (ProjectExplorerResourceIdentity identity in _recentlyOpenedResources)
+            {
+                if (identity.Kind == kind && ResourceIdentityMatches(identity.AssetId, identity.Path, oldAssetId, path))
+                {
+                    identity.AssetId = newAssetId;
+                    identity.Path = path;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                RebuildRecentlyOpenedProjectItems();
+            }
+        }
+
+        private void RebuildRecentlyOpenedProjectItems()
+        {
+            RecentlyOpenedProjectItems.Clear();
+
+            if (CurrentProject is null)
+            {
+                NotifyProjectTreeProperties();
+                return;
+            }
+
+            foreach (ProjectExplorerResourceIdentity identity in _recentlyOpenedResources.ToList())
+            {
+                if (!TryResolveProjectResource(identity.Kind, identity.AssetId, identity.Path, out string assetId, out string path))
+                {
+                    _recentlyOpenedResources.Remove(identity);
+                    continue;
+                }
+
+                RecentlyOpenedProjectItems.Add(CreateResourceProjectTreeItem(identity.Kind, assetId, path));
+            }
+
+            NotifyProjectTreeProperties();
+        }
+
+        private void ClearRecentlyOpenedResources()
+        {
+            _recentlyOpenedResources.Clear();
+            RecentlyOpenedProjectItems.Clear();
+            NotifyProjectTreeProperties();
+        }
+
+        private bool TryResolveProjectResource(
+            EffectAssetKind kind,
+            string assetId,
+            string path,
+            out string resolvedAssetId,
+            out string resolvedPath)
+        {
+            resolvedAssetId = string.Empty;
+            resolvedPath = string.Empty;
+            if (CurrentProject is null)
+            {
+                return false;
+            }
+
+            switch (kind)
+            {
+                case EffectAssetKind.Image:
+                    ImageAsset image = CurrentProject.Manifest.Images.FirstOrDefault(asset =>
+                        ResourceIdentityMatches(asset.Id, asset.Path, assetId, path));
+                    if (image is not null)
+                    {
+                        resolvedAssetId = image.Id;
+                        resolvedPath = image.Path;
+                        return true;
+                    }
+
+                    break;
+
+                case EffectAssetKind.Reanim:
+                    ReanimAsset reanim = CurrentProject.Manifest.Reanims.FirstOrDefault(asset =>
+                        ResourceIdentityMatches(asset.Id, asset.Path, assetId, path));
+                    if (reanim is not null)
+                    {
+                        resolvedAssetId = reanim.Id;
+                        resolvedPath = reanim.Path;
+                        return true;
+                    }
+
+                    break;
+
+                case EffectAssetKind.Particle:
+                    EffectAsset particle = CurrentProject.Manifest.Particles.FirstOrDefault(asset =>
+                        ResourceIdentityMatches(asset.Id, asset.Path, assetId, path));
+                    if (particle is not null)
+                    {
+                        resolvedAssetId = particle.Id;
+                        resolvedPath = particle.Path;
+                        return true;
+                    }
+
+                    break;
+
+                case EffectAssetKind.Trail:
+                    EffectAsset trail = CurrentProject.Manifest.Trails.FirstOrDefault(asset =>
+                        ResourceIdentityMatches(asset.Id, asset.Path, assetId, path));
+                    if (trail is not null)
+                    {
+                        resolvedAssetId = trail.Id;
+                        resolvedPath = trail.Path;
+                        return true;
+                    }
+
+                    break;
+
+                case EffectAssetKind.Showcase:
+                    ShowcaseAsset showcase = CurrentProject.Manifest.Showcases.FirstOrDefault(asset =>
+                        ResourceIdentityMatches(asset.Id, asset.Path, assetId, path));
+                    if (showcase is not null)
+                    {
+                        resolvedAssetId = showcase.Id;
+                        resolvedPath = showcase.Path;
+                        return true;
+                    }
+
+                    break;
+            }
+
+            return false;
+        }
+
+        private static bool ResourceIdentityMatches(string id, string path, string assetId, string projectPath)
+        {
+            return (!string.IsNullOrWhiteSpace(assetId) &&
+                    string.Equals(id, assetId, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(projectPath) &&
+                    string.Equals(path, projectPath, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void NotifyProjectTreeProperties()
+        {
+            OnPropertyChanged(nameof(HasProjectTreeSearchText));
+            OnPropertyChanged(nameof(HasVisibleProjectTreeItems));
+            OnPropertyChanged(nameof(HasNoVisibleProjectTreeItems));
+            OnPropertyChanged(nameof(HasRecentlyOpenedProjectItems));
+            OnPropertyChanged(nameof(ProjectTreeEmptyMessage));
+        }
+
         private bool CanDeleteResourceItem(ProjectExplorerItemViewModel item)
         {
             return CanModifyCurrentProject && item?.IsSelectable == true;
+        }
+
+        private sealed class ProjectExplorerResourceIdentity
+        {
+            public ProjectExplorerResourceIdentity(EffectAssetKind kind, string assetId, string path)
+            {
+                Kind = kind;
+                AssetId = assetId ?? string.Empty;
+                Path = path ?? string.Empty;
+            }
+
+            public EffectAssetKind Kind { get; }
+            public string AssetId { get; set; }
+            public string Path { get; set; }
         }
 
         private static string CreateSafeFileName(string value, string fallback)

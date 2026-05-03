@@ -5,7 +5,9 @@ using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using EffectViewer.Localization;
 using EffectViewer.ViewModels;
+using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -43,6 +45,7 @@ namespace EffectViewer.Views
                 _observedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
                 _observedViewModel.ImportResourceFolderRequested -= OnImportResourceFolderRequested;
                 _observedViewModel.PreviewExportRequested -= OnPreviewExportRequested;
+                _observedViewModel.RecentlyOpenedProjectItems.CollectionChanged -= OnRecentlyOpenedProjectItemsChanged;
             }
 
             _observedViewModel = DataContext as MainViewModel;
@@ -51,8 +54,10 @@ namespace EffectViewer.Views
                 _observedViewModel.PropertyChanged += OnViewModelPropertyChanged;
                 _observedViewModel.ImportResourceFolderRequested += OnImportResourceFolderRequested;
                 _observedViewModel.PreviewExportRequested += OnPreviewExportRequested;
+                _observedViewModel.RecentlyOpenedProjectItems.CollectionChanged += OnRecentlyOpenedProjectItemsChanged;
             }
 
+            RefreshRecentlyOpenedMenuItems();
             UpdateProjectExplorerLayout();
         }
 
@@ -68,6 +73,31 @@ namespace EffectViewer.Views
             {
                 ResetProjectExplorerWidths();
                 UpdateProjectExplorerLayout(captureCurrentWidth: false);
+            }
+        }
+
+        private void OnRecentlyOpenedProjectItemsChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            RefreshRecentlyOpenedMenuItems();
+        }
+
+        private void RefreshRecentlyOpenedMenuItems()
+        {
+            RecentlyOpenedMenuItem.Items.Clear();
+
+            if (_observedViewModel is null)
+            {
+                return;
+            }
+
+            foreach (ProjectExplorerItemViewModel item in _observedViewModel.RecentlyOpenedProjectItems)
+            {
+                RecentlyOpenedMenuItem.Items.Add(new MenuItem
+                {
+                    Header = item.Title,
+                    Command = _observedViewModel.OpenProjectExplorerItemCommand,
+                    CommandParameter = item
+                });
             }
         }
 
@@ -458,6 +488,128 @@ namespace EffectViewer.Views
                     .Any(button => button.Classes.Contains("tab-close-button"));
         }
 
+        private void ProjectExplorer_DragOver(object sender, DragEventArgs e)
+        {
+            bool canImport = CanImportDraggedData(e.DataTransfer);
+            e.DragEffects = canImport ? DragDropEffects.Copy : DragDropEffects.None;
+            SetProjectExplorerDragOver(sender, canImport);
+            e.Handled = true;
+        }
+
+        private void ProjectExplorer_DragLeave(object sender, DragEventArgs e)
+        {
+            SetProjectExplorerDragOver(sender, false);
+        }
+
+        private async void ProjectExplorer_Drop(object sender, DragEventArgs e)
+        {
+            SetProjectExplorerDragOver(sender, false);
+            e.Handled = true;
+
+            if (DataContext is not MainViewModel viewModel)
+            {
+                return;
+            }
+
+            IReadOnlyList<IStorageItem> items = e.DataTransfer.TryGetFiles()?.ToList() ?? [];
+            if (items.Count == 0)
+            {
+                viewModel.StatusText = Loc.Text("Status.DropImportUnsupported");
+                return;
+            }
+
+            int importedCount = 0;
+            int skippedCount = 0;
+            foreach (IStorageItem item in items)
+            {
+                if (await TryImportDroppedItemAsync(viewModel, item))
+                {
+                    importedCount++;
+                }
+                else
+                {
+                    skippedCount++;
+                }
+            }
+
+            if (importedCount > 0 && skippedCount > 0)
+            {
+                viewModel.StatusText = Loc.Format("Status.ImportedDroppedItemsWithSkipped", importedCount, skippedCount);
+            }
+            else if (importedCount > 1)
+            {
+                viewModel.StatusText = Loc.Format("Status.ImportedDroppedItems", importedCount);
+            }
+            else if (importedCount == 0)
+            {
+                viewModel.StatusText = Loc.Text("Status.DropImportUnsupported");
+            }
+        }
+
+        private static void SetProjectExplorerDragOver(object sender, bool isDragOver)
+        {
+            if (sender is Control control)
+            {
+                control.Classes.Set("drag-over", isDragOver);
+            }
+        }
+
+        private static bool CanImportDraggedData(IDataTransfer data)
+        {
+            return data?.TryGetFiles()?.Any(IsPotentiallyImportableStorageItem) == true;
+        }
+
+        private static bool IsPotentiallyImportableStorageItem(IStorageItem item)
+        {
+            if (item is null)
+            {
+                return false;
+            }
+
+            if (item is IStorageFile file)
+            {
+                return IsSupportedResourceFileName(file.Name);
+            }
+
+            string localPath = item.TryGetLocalPath();
+            return File.Exists(localPath) && IsSupportedResourceFileName(localPath);
+        }
+
+        private async Task<bool> TryImportDroppedItemAsync(MainViewModel viewModel, IStorageItem item)
+        {
+            if (item is null)
+            {
+                return false;
+            }
+
+            if (item is IStorageFile file)
+            {
+                if (!IsSupportedResourceFileName(file.Name))
+                {
+                    return false;
+                }
+
+                await using Stream resourceStream = await file.OpenReadAsync();
+                await viewModel.ImportResourceFileAsync(file.Name, resourceStream);
+                return true;
+            }
+
+            string localPath = item.TryGetLocalPath();
+            if (!File.Exists(localPath))
+            {
+                return false;
+            }
+
+            if (!IsSupportedResourceFileName(localPath))
+            {
+                return false;
+            }
+
+            await using FileStream localResourceStream = File.OpenRead(localPath);
+            await viewModel.ImportResourceFileAsync(Path.GetFileName(localPath), localResourceStream);
+            return true;
+        }
+
         private async void ImportFolderMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             await ImportResourceFolderFromPickerAsync();
@@ -688,6 +840,19 @@ namespace EffectViewer.Views
         }
 
         private static LocalizationManager Loc => LocalizationManager.Instance;
+
+        private static bool IsSupportedResourceFileName(string fileName)
+        {
+            string lower = Path.GetFileName(fileName ?? string.Empty).ToLowerInvariant();
+            return lower.EndsWith(".reanim", StringComparison.OrdinalIgnoreCase) ||
+                lower.EndsWith(".reanim.compiled", StringComparison.OrdinalIgnoreCase) ||
+                lower.EndsWith(".xml", StringComparison.OrdinalIgnoreCase) ||
+                lower.EndsWith(".xml.compiled", StringComparison.OrdinalIgnoreCase) ||
+                lower.EndsWith(".trail", StringComparison.OrdinalIgnoreCase) ||
+                lower.EndsWith(".trail.compiled", StringComparison.OrdinalIgnoreCase) ||
+                lower.EndsWith(".lua", StringComparison.OrdinalIgnoreCase) ||
+                Path.GetExtension(lower) is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".gif" or ".webp" or ".tga";
+        }
 
         private static FilePickerFileType ZipFileType => new(Loc.Text("FilePicker.ZipArchive"))
         {
