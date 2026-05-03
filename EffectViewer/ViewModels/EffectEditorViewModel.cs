@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EffectViewer.Assets;
+using EffectViewer.Localization;
 using EffectViewer.Projects;
 using EffectViewer.Rendering;
 using EffectViewer.Runtime;
@@ -79,7 +80,13 @@ namespace EffectViewer.ViewModels
 
         private string _savedAssetId;
         public string Path { get; }
-        public string EditorSummary { get; }
+        public string EditorSummary => Kind switch
+        {
+            EffectAssetKind.Reanim => T("EffectEditor.EditorSummaryReanim"),
+            EffectAssetKind.Particle => T("EffectEditor.EditorSummaryParticle"),
+            EffectAssetKind.Trail => T("EffectEditor.EditorSummaryTrail"),
+            _ => T("EffectEditor.EditorSummary")
+        };
         public EffectFileSummary FileSummary { get; }
         public ObservableCollection<string> ReanimLayers { get; } = [];
         public ObservableCollection<ReanimTrackViewModel> ReanimTracks { get; } = [];
@@ -115,11 +122,11 @@ namespace EffectViewer.ViewModels
             ? 0
             : _reanimDefinition.mTracks.Take(_reanimDefinition.mTrackCount).Max(track => track?.mTransformCount ?? 0);
         public string ReanimDurationSummary => ReanimFrameCount == 0 || ReanimFps <= 0d
-            ? "0.000 s"
-            : $"{ReanimFrameCount / ReanimFps:0.###} s";
+            ? T("EffectEditor.ZeroSeconds")
+            : F("EffectEditor.DurationSeconds", ReanimFrameCount / ReanimFps);
         public string SelectedReanimFrameSummary => HasSelectedReanimFrame
-            ? $"{SelectedReanimTrack.DisplayName} / Frame {SelectedReanimFrameIndex + 1}"
-            : "No frame selected";
+            ? F("EffectEditor.SelectedFrameSummary", SelectedReanimTrack.DisplayName, SelectedReanimFrameIndex + 1)
+            : T("EffectEditor.NoFrameSelected");
         public ReanimTransformDialogViewModel ReanimTransformDialog { get; }
         private ReanimTweenViewModel _selectedReanimTween;
         public ReanimTweenViewModel SelectedReanimTween
@@ -137,8 +144,8 @@ namespace EffectViewer.ViewModels
         }
 
         public string SelectedReanimTweenSummary => SelectedReanimTween is null
-            ? "No tween at selected frame"
-            : $"{SelectedReanimTween.TrackName} / Frames {SelectedReanimTween.StartFrameNumber:0}-{SelectedReanimTween.EndFrameNumber:0}";
+            ? T("EffectEditor.NoTweenAtSelectedFrame")
+            : F("EffectEditor.SelectedTweenSummary", SelectedReanimTween.TrackName, SelectedReanimTween.StartFrameNumber, SelectedReanimTween.EndFrameNumber);
         public bool HasParticleControls => Kind == EffectAssetKind.Particle && _particleDefinition is not null;
         public bool HasTrailControls => Kind == EffectAssetKind.Trail && _trailDefinition is not null;
         public bool CanRemoveParticleEmitter => SelectedParticleEmitter is not null;
@@ -418,13 +425,13 @@ namespace EffectViewer.ViewModels
         }
 
         public string ImageReferenceSummary => FileSummary.ImageIds.Count == 0
-            ? "No image references found."
+            ? T("EffectEditor.NoImageReferences")
             : string.Join(", ", FileSummary.ImageIds);
         public string ResolvedImageReferenceSummary => FileSummary.ImageResolutions.Count == 0
-            ? "No resolved image references."
+            ? T("EffectEditor.NoResolvedImageReferences")
             : string.Join(", ", FileSummary.ImageResolutions);
         public string MissingImageSummary => FileSummary.MissingImageIds.Count == 0
-            ? "No missing image references."
+            ? T("EffectEditor.NoMissingImageReferences")
             : string.Join(", ", FileSummary.MissingImageIds);
 
         public EffectEditorViewModel(EffectAssetKind kind, string assetId, string path, EffectProject project)
@@ -436,18 +443,12 @@ namespace EffectViewer.ViewModels
             Path = path;
             ReanimTransformDialog = new ReanimTransformDialogViewModel(ApplyTransformDialogChanges, CloseReanimTransformDialog);
             FileSummary = new EffectFileAnalyzer().Analyze(project, kind, path);
+            Loc.LanguageChanged += OnLanguageChanged;
             TrailWidthOverLength.Changed += OnTrailTrackChanged;
             TrailAlphaOverLength.Changed += OnTrailTrackChanged;
             TrailWidthOverTime.Changed += OnTrailTrackChanged;
             TrailAlphaOverTime.Changed += OnTrailTrackChanged;
             TrailDuration.Changed += OnTrailTrackChanged;
-            EditorSummary = kind switch
-            {
-                EffectAssetKind.Reanim => "Reanim editor shell: tracks, frames, transforms, and image bindings will live here.",
-                EffectAssetKind.Particle => "Particle editor shell: emitter list, parameter tracks, fields, and live preview are available here.",
-                EffectAssetKind.Trail => "Trail editor shell: width, alpha, duration, point settings, and path preview will live here.",
-                _ => "Effect editor shell."
-            };
             if (kind == EffectAssetKind.Reanim)
             {
                 _project.Assets.Reanims.TryGetValue(assetId, out _reanimAsset);
@@ -470,6 +471,34 @@ namespace EffectViewer.ViewModels
                 PreviewFrame = EffectPreviewFrameBuilder.BuildPlaceholder(kind, assetId);
             }
             TextureSource = new Rendering.TextureUpload.ProjectTextureSource(project);
+        }
+
+        private static LocalizationManager Loc => LocalizationManager.Instance;
+        private static string T(string key) => Loc.Text(key);
+        private static string F(string key, params object[] args) => Loc.Format(key, args);
+
+        private void OnLanguageChanged(object sender, EventArgs e)
+        {
+            OnPropertyChanged(nameof(EditorSummary));
+            OnPropertyChanged(nameof(ReanimDurationSummary));
+            OnPropertyChanged(nameof(SelectedReanimFrameSummary));
+            OnPropertyChanged(nameof(SelectedReanimTweenSummary));
+            OnPropertyChanged(nameof(ImageReferenceSummary));
+            OnPropertyChanged(nameof(ResolvedImageReferenceSummary));
+            OnPropertyChanged(nameof(MissingImageSummary));
+
+            if (!IsReanimEditor)
+            {
+                return;
+            }
+
+            foreach (ReanimTrackViewModel track in ReanimTracks)
+            {
+                track.RefreshLocalizedText();
+            }
+
+            RefreshReanimLayers();
+            ApplyReanimPreviewState();
         }
 
         partial void OnAssetIdChanged(string value)
@@ -953,7 +982,7 @@ namespace EffectViewer.ViewModels
         {
             if (string.IsNullOrWhiteSpace(AssetId))
             {
-                throw new InvalidOperationException("Asset ID cannot be empty.");
+                throw new InvalidOperationException(T("EffectEditor.AssetIdEmpty"));
             }
 
             if (Kind == EffectAssetKind.Reanim && _reanimDefinition is not null)
@@ -1219,7 +1248,7 @@ namespace EffectViewer.ViewModels
         {
             string previous = SelectedReanimLayer;
             ReanimLayers.Clear();
-            ReanimLayers.Add("Full timeline");
+            ReanimLayers.Add(T("EffectEditor.FullTimeline"));
             foreach (string layerName in BuildReanimLayerNames())
             {
                 if (!ReanimLayers.Contains(layerName))
@@ -1443,7 +1472,7 @@ namespace EffectViewer.ViewModels
 
             _reanimPreview.SetDefinition(_reanimDefinition);
             _reanimPreview.SetAnimRate((float)ReanimFps);
-            _reanimPreview.SetLayer(SelectedReanimLayer == "Full timeline" ? null : SelectedReanimLayer);
+            _reanimPreview.SetLayer(SelectedReanimLayer == T("EffectEditor.FullTimeline") ? null : SelectedReanimLayer);
             _reanimPreview.SetPaused(!ReanimIsPlaying);
             _reanimPreview.SetFrameIndex(SelectedReanimFrameIndex);
             ApplyReanimTrackVisibility();
@@ -2973,7 +3002,7 @@ namespace EffectViewer.ViewModels
         {
             return new TodEmitterDefinition
             {
-                mName = $"Emitter {index + 1}"
+                mName = F("EffectEditor.DefaultEmitterName", index + 1)
             };
         }
 
@@ -3193,6 +3222,7 @@ namespace EffectViewer.ViewModels
 
         public override void Dispose()
         {
+            Loc.LanguageChanged -= OnLanguageChanged;
             TrailWidthOverLength.Changed -= OnTrailTrackChanged;
             TrailAlphaOverLength.Changed -= OnTrailTrackChanged;
             TrailWidthOverTime.Changed -= OnTrailTrackChanged;

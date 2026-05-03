@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using EffectViewer.Localization;
 using EffectViewer.Projects;
 using EffectViewer.Rendering;
 using EffectViewer.Runtime;
@@ -17,12 +18,15 @@ namespace EffectViewer.ViewModels
     {
         private readonly LuaHost _luaHost;
         private readonly EffectProject _project;
+        private const string UserScriptPath = "User script";
 
         public string AssetId { get; }
         public string Path { get; }
+        public string DisplayAssetId => IsUserScript ? Loc.Text("Showcase.Showcases") : AssetId;
+        public string DisplayPath => IsUserScript ? Loc.Text("Showcase.UserScript") : Path;
         public ObservableCollection<ShowcaseLogEntry> Logs { get; } = [];
         public ObservableCollection<SceneObject> SceneObjects { get; } = [];
-        public override bool SupportsSave => !string.IsNullOrWhiteSpace(Path) && Path != "User script";
+        public override bool SupportsSave => !string.IsNullOrWhiteSpace(Path) && Path != UserScriptPath;
         public override bool SupportsFileExport => SupportsSave;
         public override string ExportPath => SupportsSave ? Path : string.Empty;
 
@@ -30,15 +34,15 @@ namespace EffectViewer.ViewModels
         private string _scriptText;
 
         [ObservableProperty]
-        private string _status = "Ready";
+        private string _status = LocalizationManager.Instance.Text("Showcase.Ready");
 
         [ObservableProperty]
         private ShowcaseLogEntry _selectedLog;
 
-        public string SelectedLogDetail => SelectedLog?.Detail ?? "No log selected.";
+        public string SelectedLogDetail => SelectedLog?.Detail ?? Loc.Text("Showcase.NoLogSelected");
 
         public ShowcaseEditorViewModel(LuaHost luaHost, EffectProject project)
-            : this(new ShowcaseAsset { Id = "Showcases", Path = "User script" }, luaHost, project)
+            : this(new ShowcaseAsset { Id = "Showcases", Path = UserScriptPath }, luaHost, project)
         {
         }
 
@@ -49,10 +53,22 @@ namespace EffectViewer.ViewModels
             Path = asset.Path;
             _luaHost = luaHost;
             _project = project;
+            if (IsUserScript)
+            {
+                Title = Loc.Text("Showcase.Showcases");
+            }
+
             PreviewFrame = EffectPreviewFrameBuilder.BuildPlaceholder(EffectAssetKind.Showcase, asset.Id);
             TextureSource = new Rendering.TextureUpload.ProjectTextureSource(project);
             _scriptText = LoadScriptText(asset, project);
+            Loc.LanguageChanged += OnLanguageChanged;
             MarkClean();
+        }
+
+        public override void Dispose()
+        {
+            Loc.LanguageChanged -= OnLanguageChanged;
+            base.Dispose();
         }
 
         partial void OnScriptTextChanged(string value)
@@ -103,8 +119,8 @@ namespace EffectViewer.ViewModels
                 : null;
 
             Status = result.Success
-                ? $"Ran script, created {result.SceneObjects.Count} object(s)."
-                : "Script failed.";
+                ? Loc.Format("Showcase.RanScript", result.SceneObjects.Count)
+                : Loc.Text("Showcase.ScriptFailed");
 
             if (!Logs.Any())
             {
@@ -188,7 +204,7 @@ namespace EffectViewer.ViewModels
 
         private static string ResolveShowcasePath(EffectProject project, string path)
         {
-            if (string.IsNullOrWhiteSpace(path) || path == "User script")
+            if (string.IsNullOrWhiteSpace(path) || path == UserScriptPath)
             {
                 return string.Empty;
             }
@@ -197,6 +213,21 @@ namespace EffectViewer.ViewModels
             return System.IO.Path.IsPathRooted(normalizedPath) || string.IsNullOrWhiteSpace(project?.RootPath)
                 ? normalizedPath
                 : System.IO.Path.Combine(project.RootPath, normalizedPath);
+        }
+
+        private static LocalizationManager Loc => LocalizationManager.Instance;
+        private bool IsUserScript => Path == UserScriptPath;
+
+        private void OnLanguageChanged(object sender, EventArgs e)
+        {
+            if (IsUserScript)
+            {
+                Title = Loc.Text("Showcase.Showcases");
+            }
+
+            OnPropertyChanged(nameof(DisplayAssetId));
+            OnPropertyChanged(nameof(DisplayPath));
+            OnPropertyChanged(nameof(SelectedLogDetail));
         }
     }
 }

@@ -9,6 +9,7 @@
   
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+    <EmbeddedResource Include="Localization\*.json" />
   </ItemGroup>
 
   <ItemGroup>

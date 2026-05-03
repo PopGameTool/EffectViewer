@@ -8,28 +8,28 @@
     <DockPanel LastChildFill="True">
       <Menu DockPanel.Dock="Right"
             Background="Transparent">
-        <MenuItem Header="_Layout">
-          <MenuItem Header="_Script Panel"
+        <MenuItem Header="{DynamicResource Loc.Menu.Layout}">
+          <MenuItem Header="{DynamicResource Loc.Menu.ScriptPanel}"
                     Command="{Binding ToggleSidePanelCommand}"
                     IsChecked="{Binding IsSidePanelVisible, Mode=OneWay}"
                     ToggleType="CheckBox"/>
           <Separator/>
-          <MenuItem Header="Dock Script Panel _Left"
+          <MenuItem Header="{DynamicResource Loc.Menu.DockScriptPanelLeft}"
                     Command="{Binding DockSidePanelLeftCommand}"
                     IsChecked="{Binding IsSidePanelOnLeft, Mode=OneWay}"
                     ToggleType="Radio"/>
-          <MenuItem Header="Dock Script Panel _Right"
+          <MenuItem Header="{DynamicResource Loc.Menu.DockScriptPanelRight}"
                     Command="{Binding DockSidePanelRightCommand}"
                     IsChecked="{Binding IsSidePanelOnRight, Mode=OneWay}"
                     ToggleType="Radio"/>
           <Separator/>
-          <MenuItem Header="_Reset Editor Layout"
+          <MenuItem Header="{DynamicResource Loc.Menu.ResetEditorLayout}"
                     Command="{Binding ResetEditorLayoutCommand}"/>
         </MenuItem>
       </Menu>
       <StackPanel Spacing="4">
-        <TextBlock Text="{Binding AssetId}" FontSize="24" FontWeight="SemiBold"/>
-        <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+        <TextBlock Text="{Binding DisplayAssetId}" FontSize="24" FontWeight="SemiBold"/>
+        <TextBlock Text="{Binding DisplayPath}" Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
       </StackPanel>
     </DockPanel>
 
@@ -57,10 +57,10 @@
         <Grid RowDefinitions="Auto,*,Auto,5,120" RowSpacing="10">
           <DockPanel LastChildFill="True">
             <Button DockPanel.Dock="Right"
-                    Content="Run"
+                    Content="{DynamicResource Loc.Common.Run}"
                     Command="{Binding RunScriptCommand}"
                     MinWidth="92"/>
-            <TextBlock Text="Script" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock Text="{DynamicResource Loc.Label.Script}" FontSize="16" FontWeight="SemiBold"/>
           </DockPanel>
 
           <TextBox Grid.Row="1"
@@ -80,7 +80,7 @@
                         Classes="layout-splitter horizontal-splitter"/>
           <Grid Grid.Row="4" ColumnDefinitions="*,5,*">
             <Grid RowDefinitions="Auto,*" RowSpacing="4">
-              <TextBlock Text="Objects" FontWeight="SemiBold"/>
+              <TextBlock Text="{DynamicResource Loc.Label.Objects}" FontWeight="SemiBold"/>
               <ListBox Grid.Row="1" ItemsSource="{Binding SceneObjects}">
                 <ListBox.ItemTemplate>
                   <DataTemplate>
@@ -95,7 +95,7 @@
                           ResizeDirection="Columns"
                           Classes="layout-splitter vertical-splitter"/>
             <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto,72" RowSpacing="4">
-              <TextBlock Text="Logs" FontWeight="SemiBold"/>
+              <TextBlock Text="{DynamicResource Loc.Label.Logs}" FontWeight="SemiBold"/>
               <ListBox Grid.Row="1"
                        ItemsSource="{Binding Logs}"
                        SelectedItem="{Binding SelectedLog}">
@@ -107,7 +107,7 @@
                 </ListBox.ItemTemplate>
               </ListBox>
               <TextBlock Grid.Row="2"
-                         Text="Details"
+                         Text="{DynamicResource Loc.Label.Details}"
                          FontWeight="SemiBold"/>
               <TextBox Grid.Row="3"
                        Text="{Binding SelectedLogDetail}"

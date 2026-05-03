@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using EffectViewer.Localization;
 using EffectViewer.TodLib.Common;
 using EffectViewer.TodLib.Particle;
 
@@ -40,8 +41,10 @@ namespace EffectViewer.ViewModels
         private bool _hardwareOnly;
 
         public int Index { get; private set; }
-        public string DisplayName => string.IsNullOrWhiteSpace(Name) ? $"Emitter {Index + 1}" : $"{Index + 1}. {Name}";
-        public string Detail => string.IsNullOrWhiteSpace(ImageId) ? "No image" : ImageId;
+        public string DisplayName => string.IsNullOrWhiteSpace(Name)
+            ? Loc.Format("Particle.EmitterFallbackName", Index + 1)
+            : Loc.Format("Particle.EmitterDisplayName", Index + 1, Name);
+        public string Detail => string.IsNullOrWhiteSpace(ImageId) ? Loc.Text("Particle.NoImage") : ImageId;
         public EmitterType[] EmitterTypeOptions { get; } = Enum.GetValues<EmitterType>();
         public ObservableCollection<ParticleFieldViewModel> ParticleFields { get; } = [];
         public ObservableCollection<ParticleFieldViewModel> SystemFields { get; } = [];
@@ -90,6 +93,7 @@ namespace EffectViewer.ViewModels
         public ParticleEmitterViewModel(int index, TodEmitterDefinition emitter)
         {
             Index = index;
+            Loc.LanguageChanged += OnLanguageChanged;
             Bind(SystemDuration, static emitter => emitter.mSystemDuration, 0f);
             Bind(CrossFadeDuration, static emitter => emitter.mCrossFadeDuration, 0f);
             Bind(SpawnRate, static emitter => emitter.mSpawnRate, 0f);
@@ -384,6 +388,7 @@ namespace EffectViewer.ViewModels
 
         public void Dispose()
         {
+            Loc.LanguageChanged -= OnLanguageChanged;
             foreach (TrackBinding binding in _trackBindings)
             {
                 binding.ViewModel.Changed -= OnTrackChanged;
@@ -391,6 +396,14 @@ namespace EffectViewer.ViewModels
 
             DisposeFields(ParticleFields);
             DisposeFields(SystemFields);
+        }
+
+        private static LocalizationManager Loc => LocalizationManager.Instance;
+
+        private void OnLanguageChanged(object sender, EventArgs e)
+        {
+            OnPropertyChanged(nameof(DisplayName));
+            OnPropertyChanged(nameof(Detail));
         }
 
         [RelayCommand]

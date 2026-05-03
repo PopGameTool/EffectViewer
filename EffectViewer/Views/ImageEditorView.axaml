@@ -8,22 +8,22 @@
     <DockPanel LastChildFill="True">
       <Menu DockPanel.Dock="Right"
             Background="Transparent">
-        <MenuItem Header="_Layout">
-          <MenuItem Header="_Properties"
+        <MenuItem Header="{DynamicResource Loc.Menu.Layout}">
+          <MenuItem Header="{DynamicResource Loc.Menu.Properties}"
                     Command="{Binding ToggleSidePanelCommand}"
                     IsChecked="{Binding IsSidePanelVisible, Mode=OneWay}"
                     ToggleType="CheckBox"/>
           <Separator/>
-          <MenuItem Header="Dock Properties _Left"
+          <MenuItem Header="{DynamicResource Loc.Menu.DockPropertiesLeft}"
                     Command="{Binding DockSidePanelLeftCommand}"
                     IsChecked="{Binding IsSidePanelOnLeft, Mode=OneWay}"
                     ToggleType="Radio"/>
-          <MenuItem Header="Dock Properties _Right"
+          <MenuItem Header="{DynamicResource Loc.Menu.DockPropertiesRight}"
                     Command="{Binding DockSidePanelRightCommand}"
                     IsChecked="{Binding IsSidePanelOnRight, Mode=OneWay}"
                     ToggleType="Radio"/>
           <Separator/>
-          <MenuItem Header="_Reset Editor Layout"
+          <MenuItem Header="{DynamicResource Loc.Menu.ResetEditorLayout}"
                     Command="{Binding ResetEditorLayoutCommand}"/>
         </MenuItem>
       </Menu>
@@ -56,26 +56,26 @@
           <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                         VerticalScrollBarVisibility="Auto">
             <StackPanel Spacing="12" Margin="14">
-              <TextBlock Text="Properties" FontSize="16" FontWeight="SemiBold"/>
-              <TextBlock Text="Metadata" FontWeight="SemiBold"/>
-              <TextBlock Text="ID"/>
+              <TextBlock Text="{DynamicResource Loc.Label.Properties}" FontSize="16" FontWeight="SemiBold"/>
+              <TextBlock Text="{DynamicResource Loc.Label.Metadata}" FontWeight="SemiBold"/>
+              <TextBlock Text="{DynamicResource Loc.Label.ID}"/>
               <TextBox Text="{Binding AssetId, UpdateSourceTrigger=LostFocus}"/>
-              <TextBlock Text="Rows"/>
+              <TextBlock Text="{DynamicResource Loc.Label.Rows}"/>
               <NumericUpDown Value="{Binding Rows}" Minimum="1" Maximum="128" Increment="1"/>
-              <TextBlock Text="Cols"/>
+              <TextBlock Text="{DynamicResource Loc.Label.Cols}"/>
               <NumericUpDown Value="{Binding Cols}" Minimum="1" Maximum="128" Increment="1"/>
               <Separator Margin="0,8"/>
-              <TextBlock Text="Frame" FontWeight="SemiBold"/>
+              <TextBlock Text="{DynamicResource Loc.Label.Frame}" FontWeight="SemiBold"/>
               <NumericUpDown Value="{Binding FrameIndex}"
                              Minimum="0"
                              Maximum="{Binding MaxFrameIndex}"
                              Increment="1"/>
               <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
-                <TextBlock Text="Cells"/>
+                <TextBlock Text="{DynamicResource Loc.Label.Cells}"/>
                 <TextBlock Grid.Column="1" Text="{Binding CellCount}"/>
-                <TextBlock Grid.Row="1" Text="Row"/>
+                <TextBlock Grid.Row="1" Text="{DynamicResource Loc.Label.Row}"/>
                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CurrentRow}"/>
-                <TextBlock Grid.Row="2" Text="Col"/>
+                <TextBlock Grid.Row="2" Text="{DynamicResource Loc.Label.Col}"/>
                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CurrentCol}"/>
               </Grid>
             </StackPanel>

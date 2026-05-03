@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using EffectViewer.Localization;
 using EffectViewer.ViewModels;
 
 namespace EffectViewer.Views
@@ -34,7 +35,7 @@ namespace EffectViewer.Views
             }
             else
             {
-                viewModel.StatusText = "Canceled closing application.";
+                viewModel.StatusText = LocalizationManager.Instance.Text("Status.CanceledClosingApplication");
             }
         }
     }

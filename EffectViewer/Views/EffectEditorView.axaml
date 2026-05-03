@@ -16,10 +16,10 @@
           <StackPanel Orientation="Horizontal"
                       HorizontalAlignment="Right"
                       Spacing="6">
-            <Button Content="Reset"
+            <Button Content="{DynamicResource Loc.Common.Reset}"
                     MinWidth="64"
                     Command="{Binding ResetCommand}"/>
-            <Button Content="Add"
+            <Button Content="{DynamicResource Loc.Common.Add}"
                     MinWidth="64"
                     Command="{Binding AddNodeCommand}"/>
           </StackPanel>
@@ -40,41 +40,41 @@
                       Margin="0,0,0,8">
                 <StackPanel Spacing="6">
                   <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="6">
-                    <TextBlock Text="Time"/>
+                    <TextBlock Text="{DynamicResource Loc.Label.Time}"/>
                     <NumericUpDown Grid.Column="1"
                                    Value="{Binding TimePercent}"
                                    Minimum="0"
                                    Maximum="100"
                                    Increment="1"
                                    FormatString="0.###"/>
-                    <TextBlock Grid.Row="1" Text="Low"/>
+                    <TextBlock Grid.Row="1" Text="{DynamicResource Loc.Label.Low}"/>
                     <NumericUpDown Grid.Row="1"
                                    Grid.Column="1"
                                    Value="{Binding LowValue}"
                                    Increment="0.1"
                                    FormatString="0.###"/>
-                    <TextBlock Grid.Row="2" Text="High"/>
+                    <TextBlock Grid.Row="2" Text="{DynamicResource Loc.Label.High}"/>
                     <NumericUpDown Grid.Row="2"
                                    Grid.Column="1"
                                    Value="{Binding HighValue}"
                                    Increment="0.1"
                                    FormatString="0.###"/>
                   </Grid>
-                  <TextBlock Text="Curve"/>
+                  <TextBlock Text="{DynamicResource Loc.Label.Curve}"/>
                   <ComboBox ItemsSource="{Binding CurveOptions}"
                             SelectedItem="{Binding CurveType}"
                             HorizontalAlignment="Stretch"/>
-                  <TextBlock Text="Distribution"/>
+                  <TextBlock Text="{DynamicResource Loc.Label.Distribution}"/>
                   <ComboBox ItemsSource="{Binding CurveOptions}"
                             SelectedItem="{Binding Distribution}"
                             HorizontalAlignment="Stretch"/>
                   <WrapPanel HorizontalAlignment="Right"
                              ItemSpacing="6"
                              LineSpacing="6">
-                    <Button Content="Copy"
+                    <Button Content="{DynamicResource Loc.Common.Copy}"
                             MinWidth="64"
                             Command="{Binding CopyCommand}"/>
-                    <Button Content="Remove"
+                    <Button Content="{DynamicResource Loc.Common.Remove}"
                             MinWidth="76"
                             Command="{Binding RemoveCommand}"/>
                   </WrapPanel>
@@ -101,12 +101,12 @@
             <StackPanel Orientation="Horizontal"
                         HorizontalAlignment="Right"
                         Spacing="6">
-              <Button Content="Remove"
+              <Button Content="{DynamicResource Loc.Common.Remove}"
                       MinWidth="76"
                       Command="{Binding RemoveCommand}"/>
             </StackPanel>
           </StackPanel>
-          <TextBlock Text="FieldType"/>
+          <TextBlock Text="{DynamicResource Loc.Label.FieldType}"/>
           <ComboBox ItemsSource="{Binding FieldTypeOptions}"
                     SelectedItem="{Binding FieldType}"
                     HorizontalAlignment="Stretch"/>
@@ -128,40 +128,40 @@
               ColumnSpacing="8"
               RowSpacing="8">
           <StackPanel Spacing="4">
-            <TextBlock Text="Track"/>
+            <TextBlock Text="{DynamicResource Loc.Label.Track}"/>
             <TextBox Text="{Binding TrackNumberText, UpdateSourceTrigger=PropertyChanged}"
                      Tag="TrackNumber"
                      LostFocus="ReanimTweenTextBox_LostFocus"
                      HorizontalContentAlignment="Right"/>
           </StackPanel>
           <StackPanel Grid.Column="1" Spacing="4">
-            <TextBlock Text="Track Name"/>
+            <TextBlock Text="{DynamicResource Loc.Label.TrackName}"/>
             <TextBox Text="{Binding TrackName, Mode=OneWay}"
                      IsReadOnly="True"/>
           </StackPanel>
           <StackPanel Grid.Row="1" Spacing="4">
-            <TextBlock Text="Start Frame"/>
+            <TextBlock Text="{DynamicResource Loc.Label.StartFrame}"/>
             <TextBox Text="{Binding StartFrameNumberText, UpdateSourceTrigger=PropertyChanged}"
                      Tag="StartFrameNumber"
                      LostFocus="ReanimTweenTextBox_LostFocus"
                      HorizontalContentAlignment="Right"/>
           </StackPanel>
           <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
-            <TextBlock Text="End Frame"/>
+            <TextBlock Text="{DynamicResource Loc.Label.EndFrame}"/>
             <TextBox Text="{Binding EndFrameNumberText, UpdateSourceTrigger=PropertyChanged}"
                      Tag="EndFrameNumber"
                      LostFocus="ReanimTweenTextBox_LostFocus"
                      HorizontalContentAlignment="Right"/>
           </StackPanel>
           <StackPanel Grid.Row="2" Spacing="4">
-            <TextBlock Text="Anchor X"/>
+            <TextBlock Text="{DynamicResource Loc.Label.AnchorX}"/>
             <TextBox Text="{Binding AnchorXText, UpdateSourceTrigger=PropertyChanged}"
                      Tag="AnchorX"
                      LostFocus="ReanimTweenTextBox_LostFocus"
                      HorizontalContentAlignment="Right"/>
           </StackPanel>
           <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
-            <TextBlock Text="Anchor Y"/>
+            <TextBlock Text="{DynamicResource Loc.Label.AnchorY}"/>
             <TextBox Text="{Binding AnchorYText, UpdateSourceTrigger=PropertyChanged}"
                      Tag="AnchorY"
                      LostFocus="ReanimTweenTextBox_LostFocus"
@@ -171,14 +171,14 @@
         <WrapPanel HorizontalAlignment="Right"
                    ItemSpacing="6"
                    LineSpacing="6">
-          <Button Content="Keyframe"
+          <Button Content="{DynamicResource Loc.Common.Keyframe}"
                   MinWidth="82"
                   IsEnabled="{Binding $parent[UserControl].DataContext.CanMakeSelectedReanimFrameKeyframe}"
                   Command="{Binding $parent[UserControl].DataContext.MakeSelectedReanimFrameKeyframeCommand}"/>
-          <Button Content="Bake"
+          <Button Content="{DynamicResource Loc.Common.Bake}"
                   MinWidth="64"
                   Command="{Binding $parent[UserControl].DataContext.BakeSelectedReanimTweenCommand}"/>
-          <Button Content="Remove"
+          <Button Content="{DynamicResource Loc.Common.Remove}"
                   MinWidth="76"
                   Command="{Binding $parent[UserControl].DataContext.RemoveReanimTweenCommand}"/>
         </WrapPanel>
@@ -188,17 +188,17 @@
     <DataTemplate x:Key="ParticleEmitterEditorTemplate"
                   DataType="vm:ParticleEmitterViewModel">
       <StackPanel Spacing="10" HorizontalAlignment="Stretch">
-        <Expander Header="General" IsExpanded="True" HorizontalAlignment="Stretch">
+        <Expander Header="{DynamicResource Loc.Label.General}" IsExpanded="True" HorizontalAlignment="Stretch">
           <StackPanel Spacing="8">
-            <TextBlock Text="Name"/>
+            <TextBlock Text="{DynamicResource Loc.Label.Name}"/>
             <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
-                     PlaceholderText="Emitter name"/>
-            <TextBlock Text="Image ID"/>
+                     PlaceholderText="{DynamicResource Loc.Placeholder.EmitterName}"/>
+            <TextBlock Text="{DynamicResource Loc.Label.ImageID}"/>
             <TextBox Text="{Binding ImageId, UpdateSourceTrigger=PropertyChanged}"
-                     PlaceholderText="Image resource ID"/>
+                     PlaceholderText="{DynamicResource Loc.Placeholder.ImageResourceID}"/>
             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="8">
               <StackPanel Spacing="4">
-                <TextBlock Text="ImageRow"/>
+                <TextBlock Text="{DynamicResource Loc.Label.ImageRow}"/>
                 <NumericUpDown Value="{Binding ImageRow}"
                                Minimum="0"
                                Maximum="10000"
@@ -206,7 +206,7 @@
                                FormatString="0"/>
               </StackPanel>
               <StackPanel Grid.Column="1" Spacing="4">
-                <TextBlock Text="ImageCol"/>
+                <TextBlock Text="{DynamicResource Loc.Label.ImageCol}"/>
                 <NumericUpDown Value="{Binding ImageCol}"
                                Minimum="0"
                                Maximum="10000"
@@ -214,7 +214,7 @@
                                FormatString="0"/>
               </StackPanel>
               <StackPanel Grid.Row="1" Spacing="4">
-                <TextBlock Text="ImageFrames"/>
+                <TextBlock Text="{DynamicResource Loc.Label.ImageFrames}"/>
                 <NumericUpDown Value="{Binding ImageFrames}"
                                Minimum="1"
                                Maximum="10000"
@@ -222,36 +222,36 @@
                                FormatString="0"/>
               </StackPanel>
               <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
-                <TextBlock Text="EmitterType"/>
+                <TextBlock Text="{DynamicResource Loc.Label.EmitterType}"/>
                 <ComboBox ItemsSource="{Binding EmitterTypeOptions}"
                           SelectedItem="{Binding EmitterType}"
                           HorizontalAlignment="Stretch"/>
               </StackPanel>
               <CheckBox Grid.Row="2"
                         Grid.ColumnSpan="2"
-                        Content="Animated"
+                        Content="{DynamicResource Loc.Label.Animated}"
                         IsChecked="{Binding Animated}"/>
             </Grid>
           </StackPanel>
         </Expander>
 
-        <Expander Header="Flags" IsExpanded="False" HorizontalAlignment="Stretch">
+        <Expander Header="{DynamicResource Loc.Label.Flags}" IsExpanded="False" HorizontalAlignment="Stretch">
           <StackPanel Spacing="4">
-            <CheckBox Content="RandomLaunchSpin" IsChecked="{Binding RandomLaunchSpin}"/>
-            <CheckBox Content="AlignLaunchSpin" IsChecked="{Binding AlignLaunchSpin}"/>
-            <CheckBox Content="AlignToPixels" IsChecked="{Binding AlignToPixels}"/>
-            <CheckBox Content="SystemLoops" IsChecked="{Binding SystemLoops}"/>
-            <CheckBox Content="ParticleLoops" IsChecked="{Binding ParticleLoops}"/>
-            <CheckBox Content="ParticlesDontFollow" IsChecked="{Binding ParticlesDontFollow}"/>
-            <CheckBox Content="DieIfOverloaded" IsChecked="{Binding DieIfOverloaded}"/>
-            <CheckBox Content="Additive" IsChecked="{Binding Additive}"/>
-            <CheckBox Content="Fullscreen" IsChecked="{Binding Fullscreen}"/>
-            <CheckBox Content="SoftwareOnly" IsChecked="{Binding SoftwareOnly}"/>
-            <CheckBox Content="HardwareOnly" IsChecked="{Binding HardwareOnly}"/>
+            <CheckBox Content="{DynamicResource Loc.Label.RandomLaunchSpin}" IsChecked="{Binding RandomLaunchSpin}"/>
+            <CheckBox Content="{DynamicResource Loc.Label.AlignLaunchSpin}" IsChecked="{Binding AlignLaunchSpin}"/>
+            <CheckBox Content="{DynamicResource Loc.Label.AlignToPixels}" IsChecked="{Binding AlignToPixels}"/>
+            <CheckBox Content="{DynamicResource Loc.Label.SystemLoops}" IsChecked="{Binding SystemLoops}"/>
+            <CheckBox Content="{DynamicResource Loc.Label.ParticleLoops}" IsChecked="{Binding ParticleLoops}"/>
+            <CheckBox Content="{DynamicResource Loc.Label.ParticlesDontFollow}" IsChecked="{Binding ParticlesDontFollow}"/>
+            <CheckBox Content="{DynamicResource Loc.Label.DieIfOverloaded}" IsChecked="{Binding DieIfOverloaded}"/>
+            <CheckBox Content="{DynamicResource Loc.Label.Additive}" IsChecked="{Binding Additive}"/>
+            <CheckBox Content="{DynamicResource Loc.Label.Fullscreen}" IsChecked="{Binding Fullscreen}"/>
+            <CheckBox Content="{DynamicResource Loc.Label.SoftwareOnly}" IsChecked="{Binding SoftwareOnly}"/>
+            <CheckBox Content="{DynamicResource Loc.Label.HardwareOnly}" IsChecked="{Binding HardwareOnly}"/>
           </StackPanel>
         </Expander>
 
-        <Expander Header="Lifetime" IsExpanded="True" HorizontalAlignment="Stretch">
+        <Expander Header="{DynamicResource Loc.Label.Lifetime}" IsExpanded="True" HorizontalAlignment="Stretch">
           <StackPanel Spacing="10">
             <ContentControl Content="{Binding SystemDuration}"
                             ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
@@ -262,7 +262,7 @@
           </StackPanel>
         </Expander>
 
-        <Expander Header="Spawn" IsExpanded="True" HorizontalAlignment="Stretch">
+        <Expander Header="{DynamicResource Loc.Label.Spawn}" IsExpanded="True" HorizontalAlignment="Stretch">
           <StackPanel Spacing="10">
             <ContentControl Content="{Binding SpawnRate}"
                             ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
@@ -275,7 +275,7 @@
           </StackPanel>
         </Expander>
 
-        <Expander Header="Emitter Shape" IsExpanded="False" HorizontalAlignment="Stretch">
+        <Expander Header="{DynamicResource Loc.Label.EmitterShape}" IsExpanded="False" HorizontalAlignment="Stretch">
           <StackPanel Spacing="10">
             <ContentControl Content="{Binding EmitterRadius}"
                             ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
@@ -296,7 +296,7 @@
           </StackPanel>
         </Expander>
 
-        <Expander Header="Launch" IsExpanded="False" HorizontalAlignment="Stretch">
+        <Expander Header="{DynamicResource Loc.Label.Launch}" IsExpanded="False" HorizontalAlignment="Stretch">
           <StackPanel Spacing="10">
             <ContentControl Content="{Binding LaunchSpeed}"
                             ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
@@ -305,7 +305,7 @@
           </StackPanel>
         </Expander>
 
-        <Expander Header="System Color" IsExpanded="False" HorizontalAlignment="Stretch">
+        <Expander Header="{DynamicResource Loc.Label.SystemColor}" IsExpanded="False" HorizontalAlignment="Stretch">
           <StackPanel Spacing="10">
             <ContentControl Content="{Binding SystemRed}"
                             ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
@@ -320,7 +320,7 @@
           </StackPanel>
         </Expander>
 
-        <Expander Header="Particle Color" IsExpanded="False" HorizontalAlignment="Stretch">
+        <Expander Header="{DynamicResource Loc.Label.ParticleColor}" IsExpanded="False" HorizontalAlignment="Stretch">
           <StackPanel Spacing="10">
             <ContentControl Content="{Binding ParticleRed}"
                             ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
@@ -335,7 +335,7 @@
           </StackPanel>
         </Expander>
 
-        <Expander Header="Particle Transform" IsExpanded="False" HorizontalAlignment="Stretch">
+        <Expander Header="{DynamicResource Loc.Label.ParticleTransform}" IsExpanded="False" HorizontalAlignment="Stretch">
           <StackPanel Spacing="10">
             <ContentControl Content="{Binding ParticleScale}"
                             ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
@@ -348,7 +348,7 @@
           </StackPanel>
         </Expander>
 
-        <Expander Header="Rendering" IsExpanded="False" HorizontalAlignment="Stretch">
+        <Expander Header="{DynamicResource Loc.Label.Rendering}" IsExpanded="False" HorizontalAlignment="Stretch">
           <StackPanel Spacing="10">
             <ContentControl Content="{Binding AnimationRate}"
                             ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
@@ -363,7 +363,7 @@
           </StackPanel>
         </Expander>
 
-        <Expander Header="Collision" IsExpanded="False" HorizontalAlignment="Stretch">
+        <Expander Header="{DynamicResource Loc.Label.Collision}" IsExpanded="False" HorizontalAlignment="Stretch">
           <StackPanel Spacing="10">
             <ContentControl Content="{Binding CollisionReflect}"
                             ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
@@ -372,12 +372,12 @@
           </StackPanel>
         </Expander>
 
-        <Expander Header="Particle Fields" IsExpanded="False" HorizontalAlignment="Stretch">
+        <Expander Header="{DynamicResource Loc.Label.ParticleFields}" IsExpanded="False" HorizontalAlignment="Stretch">
           <StackPanel Spacing="8">
             <StackPanel Orientation="Horizontal"
                         HorizontalAlignment="Right"
                         Spacing="6">
-              <Button Content="Add"
+              <Button Content="{DynamicResource Loc.Common.Add}"
                       MinWidth="58"
                       Command="{Binding AddParticleFieldCommand}"/>
             </StackPanel>
@@ -389,12 +389,12 @@
           </StackPanel>
         </Expander>
 
-        <Expander Header="System Fields" IsExpanded="False" HorizontalAlignment="Stretch">
+        <Expander Header="{DynamicResource Loc.Label.SystemFields}" IsExpanded="False" HorizontalAlignment="Stretch">
           <StackPanel Spacing="8">
             <StackPanel Orientation="Horizontal"
                         HorizontalAlignment="Right"
                         Spacing="6">
-              <Button Content="Add"
+              <Button Content="{DynamicResource Loc.Common.Add}"
                       MinWidth="58"
                       Command="{Binding AddSystemFieldCommand}"/>
             </StackPanel>
@@ -415,36 +415,36 @@
       <DockPanel LastChildFill="True">
         <Menu DockPanel.Dock="Right"
               Background="Transparent">
-          <MenuItem Header="_Animation"
+          <MenuItem Header="{DynamicResource Loc.Menu.Animation}"
                     IsVisible="{Binding IsReanimEditor}">
-            <MenuItem Header="_Add Track"
+            <MenuItem Header="{DynamicResource Loc.Menu.AddTrack}"
                       Command="{Binding AddReanimTrackCommand}"/>
-            <MenuItem Header="_Remove Track"
+            <MenuItem Header="{DynamicResource Loc.Menu.RemoveTrack}"
                       IsEnabled="{Binding CanRemoveReanimTrack}"
                       Command="{Binding RemoveReanimTrackCommand}"/>
             <Separator/>
-            <MenuItem Header="Add _Frame"
+            <MenuItem Header="{DynamicResource Loc.Menu.AddFrame}"
                       Command="{Binding AddReanimFrameCommand}"/>
-            <MenuItem Header="Remove Frame"
+            <MenuItem Header="{DynamicResource Loc.Menu.RemoveFrame}"
                       IsEnabled="{Binding CanRemoveReanimFrame}"
                       Command="{Binding RemoveReanimFrameCommand}"/>
           </MenuItem>
-          <MenuItem Header="_Layout">
-            <MenuItem Header="_Properties"
+          <MenuItem Header="{DynamicResource Loc.Menu.Layout}">
+            <MenuItem Header="{DynamicResource Loc.Menu.Properties}"
                       Command="{Binding ToggleSidePanelCommand}"
                       IsChecked="{Binding IsSidePanelVisible, Mode=OneWay}"
                       ToggleType="CheckBox"/>
             <Separator/>
-            <MenuItem Header="Dock Properties _Left"
+            <MenuItem Header="{DynamicResource Loc.Menu.DockPropertiesLeft}"
                       Command="{Binding DockSidePanelLeftCommand}"
                       IsChecked="{Binding IsSidePanelOnLeft, Mode=OneWay}"
                       ToggleType="Radio"/>
-            <MenuItem Header="Dock Properties _Right"
+            <MenuItem Header="{DynamicResource Loc.Menu.DockPropertiesRight}"
                       Command="{Binding DockSidePanelRightCommand}"
                       IsChecked="{Binding IsSidePanelOnRight, Mode=OneWay}"
                       ToggleType="Radio"/>
             <Separator/>
-            <MenuItem Header="_Reset Editor Layout"
+            <MenuItem Header="{DynamicResource Loc.Menu.ResetEditorLayout}"
                       Command="{Binding ResetEditorLayoutCommand}"/>
           </MenuItem>
         </Menu>
@@ -481,42 +481,42 @@
         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="10" Margin="14" HorizontalAlignment="Stretch">
-            <TextBlock Text="Properties" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock Text="{DynamicResource Loc.Label.Properties}" FontSize="16" FontWeight="SemiBold"/>
 
-            <Expander Header="Structure" IsExpanded="True" HorizontalAlignment="Stretch">
+            <Expander Header="{DynamicResource Loc.Label.Structure}" IsExpanded="True" HorizontalAlignment="Stretch">
               <StackPanel Spacing="8">
                 <StackPanel Spacing="4">
-                  <TextBlock Text="ID"/>
+                  <TextBlock Text="{DynamicResource Loc.Label.ID}"/>
                   <TextBox Text="{Binding AssetId, UpdateSourceTrigger=LostFocus}"/>
                 </StackPanel>
                 <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6" IsVisible="{Binding IsReanimEditor}">
-                  <TextBlock Text="Tracks"/>
+                  <TextBlock Text="{DynamicResource Loc.Label.Tracks}"/>
                   <TextBlock Grid.Column="1" Text="{Binding ReanimTrackCount}"/>
-                  <TextBlock Grid.Row="1" Text="Frames"/>
+                  <TextBlock Grid.Row="1" Text="{DynamicResource Loc.Label.Frames}"/>
                   <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ReanimFrameCount}"/>
-                  <TextBlock Grid.Row="2" Text="FPS"/>
+                  <TextBlock Grid.Row="2" Text="{DynamicResource Loc.Label.FPS}"/>
                   <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ReanimFps}"/>
-                  <TextBlock Grid.Row="3" Text="Duration"/>
+                  <TextBlock Grid.Row="3" Text="{DynamicResource Loc.Label.Duration}"/>
                   <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ReanimDurationSummary}"/>
-                  <TextBlock Grid.Row="4" Text="Tweens"/>
+                  <TextBlock Grid.Row="4" Text="{DynamicResource Loc.Label.Tweens}"/>
                   <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ReanimTweenCount}"/>
                 </Grid>
                 <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6" IsVisible="{Binding IsParticleEditor}">
-                  <TextBlock Text="Emitters"/>
+                  <TextBlock Text="{DynamicResource Loc.Label.Emitters}"/>
                   <TextBlock Grid.Column="1" Text="{Binding ParticleEmitters.Count}"/>
-                  <TextBlock Grid.Row="1" Text="Fields"/>
+                  <TextBlock Grid.Row="1" Text="{DynamicResource Loc.Label.Fields}"/>
                   <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FileSummary.FieldCount}"/>
                 </Grid>
                 <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6" IsVisible="{Binding IsTrailEditor}">
-                  <TextBlock Text="MaxPoints"/>
+                  <TextBlock Text="{DynamicResource Loc.Label.MaxPoints}"/>
                   <TextBlock Grid.Column="1" Text="{Binding TrailMaxPoints}"/>
-                  <TextBlock Grid.Row="1" Text="MinDist"/>
+                  <TextBlock Grid.Row="1" Text="{DynamicResource Loc.Label.MinDist}"/>
                   <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TrailMinPointDistance}"/>
                 </Grid>
               </StackPanel>
             </Expander>
 
-            <Expander Header="Transform"
+            <Expander Header="{DynamicResource Loc.Label.Transform}"
                       IsExpanded="True"
                       IsVisible="{Binding IsReanimEditor}"
                       IsEnabled="{Binding CanTransformSelectedReanimFrame}"
@@ -526,24 +526,24 @@
                       ColumnSpacing="8"
                       RowSpacing="8">
                   <StackPanel Grid.ColumnSpan="2" Spacing="4">
-                    <TextBlock Text="Track Name"/>
+                    <TextBlock Text="{DynamicResource Loc.Label.TrackName}"/>
                     <TextBox Text="{Binding ReanimTransformDialog.TrackName, UpdateSourceTrigger=PropertyChanged}"
-                             PlaceholderText="Track name"/>
+                             PlaceholderText="{DynamicResource Loc.Placeholder.TrackName}"/>
                   </StackPanel>
                   <StackPanel Grid.Row="1" Spacing="4">
-                    <TextBlock Text="Image ID"/>
+                    <TextBlock Text="{DynamicResource Loc.Label.ImageID}"/>
                     <TextBox Text="{Binding ReanimTransformDialog.ImageId, UpdateSourceTrigger=PropertyChanged}"
-                             PlaceholderText="Image resource ID"/>
+                             PlaceholderText="{DynamicResource Loc.Placeholder.ImageResourceID}"/>
                   </StackPanel>
                   <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
-                    <TextBlock Text="Font"/>
+                    <TextBlock Text="{DynamicResource Loc.Label.Font}"/>
                     <TextBox Text="{Binding ReanimTransformDialog.FontId, UpdateSourceTrigger=PropertyChanged}"
-                             PlaceholderText="Font ID"/>
+                             PlaceholderText="{DynamicResource Loc.Placeholder.FontID}"/>
                   </StackPanel>
                   <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Spacing="4">
-                    <TextBlock Text="Text"/>
+                    <TextBlock Text="{DynamicResource Loc.Label.Text}"/>
                     <TextBox Text="{Binding ReanimTransformDialog.Text, UpdateSourceTrigger=PropertyChanged}"
-                             PlaceholderText="Text"/>
+                             PlaceholderText="{DynamicResource Loc.Placeholder.Text}"/>
                   </StackPanel>
                 </Grid>
 
@@ -551,56 +551,56 @@
                       ColumnSpacing="8"
                       RowSpacing="8">
                   <StackPanel Spacing="4">
-                    <TextBlock Text="X"/>
+                    <TextBlock Text="{DynamicResource Loc.Label.X}"/>
                     <TextBox Text="{Binding ReanimTransformDialog.XText, UpdateSourceTrigger=PropertyChanged}"
                              Tag="X"
                              LostFocus="ReanimTransformTextBox_LostFocus"
                              HorizontalContentAlignment="Right"/>
                   </StackPanel>
                   <StackPanel Grid.Column="1" Spacing="4">
-                    <TextBlock Text="Y"/>
+                    <TextBlock Text="{DynamicResource Loc.Label.Y}"/>
                     <TextBox Text="{Binding ReanimTransformDialog.YText, UpdateSourceTrigger=PropertyChanged}"
                              Tag="Y"
                              LostFocus="ReanimTransformTextBox_LostFocus"
                              HorizontalContentAlignment="Right"/>
                   </StackPanel>
                   <StackPanel Grid.Row="1" Spacing="4">
-                    <TextBlock Text="Scale X"/>
+                    <TextBlock Text="{DynamicResource Loc.Label.ScaleX}"/>
                     <TextBox Text="{Binding ReanimTransformDialog.ScaleXText, UpdateSourceTrigger=PropertyChanged}"
                              Tag="ScaleX"
                              LostFocus="ReanimTransformTextBox_LostFocus"
                              HorizontalContentAlignment="Right"/>
                   </StackPanel>
                   <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
-                    <TextBlock Text="Scale Y"/>
+                    <TextBlock Text="{DynamicResource Loc.Label.ScaleY}"/>
                     <TextBox Text="{Binding ReanimTransformDialog.ScaleYText, UpdateSourceTrigger=PropertyChanged}"
                              Tag="ScaleY"
                              LostFocus="ReanimTransformTextBox_LostFocus"
                              HorizontalContentAlignment="Right"/>
                   </StackPanel>
                   <StackPanel Grid.Row="2" Spacing="4">
-                    <TextBlock Text="Skew X"/>
+                    <TextBlock Text="{DynamicResource Loc.Label.SkewX}"/>
                     <TextBox Text="{Binding ReanimTransformDialog.SkewXText, UpdateSourceTrigger=PropertyChanged}"
                              Tag="SkewX"
                              LostFocus="ReanimTransformTextBox_LostFocus"
                              HorizontalContentAlignment="Right"/>
                   </StackPanel>
                   <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
-                    <TextBlock Text="Skew Y"/>
+                    <TextBlock Text="{DynamicResource Loc.Label.SkewY}"/>
                     <TextBox Text="{Binding ReanimTransformDialog.SkewYText, UpdateSourceTrigger=PropertyChanged}"
                              Tag="SkewY"
                              LostFocus="ReanimTransformTextBox_LostFocus"
                              HorizontalContentAlignment="Right"/>
                   </StackPanel>
                   <StackPanel Grid.Row="3" Spacing="4">
-                    <TextBlock Text="Frame"/>
+                    <TextBlock Text="{DynamicResource Loc.Label.Frame}"/>
                     <TextBox Text="{Binding ReanimTransformDialog.FrameText, UpdateSourceTrigger=PropertyChanged}"
                              Tag="Frame"
                              LostFocus="ReanimTransformTextBox_LostFocus"
                              HorizontalContentAlignment="Right"/>
                   </StackPanel>
                   <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
-                    <TextBlock Text="Alpha"/>
+                    <TextBlock Text="{DynamicResource Loc.Label.Alpha}"/>
                     <TextBox Text="{Binding ReanimTransformDialog.AlphaText, UpdateSourceTrigger=PropertyChanged}"
                              Tag="Alpha"
                              LostFocus="ReanimTransformTextBox_LostFocus"
@@ -608,13 +608,13 @@
                   </StackPanel>
                   <CheckBox Grid.Row="4"
                             Grid.ColumnSpan="2"
-                            Content="Visible"
+                            Content="{DynamicResource Loc.Label.Visible}"
                             IsChecked="{Binding ReanimTransformDialog.Visible}"/>
                 </Grid>
               </StackPanel>
             </Expander>
 
-            <Expander Header="Tweens"
+            <Expander Header="{DynamicResource Loc.Label.Tweens}"
                       IsExpanded="True"
                       IsVisible="{Binding IsReanimEditor}"
                       HorizontalAlignment="Stretch">
@@ -622,19 +622,19 @@
                 <WrapPanel HorizontalAlignment="Right"
                            ItemSpacing="6"
                            LineSpacing="6">
-                  <Button Content="Detect"
+                  <Button Content="{DynamicResource Loc.Common.Detect}"
                           MinWidth="64"
                           Command="{Binding RecognizeReanimTweensCommand}"/>
-                  <Button Content="Add"
+                  <Button Content="{DynamicResource Loc.Common.Add}"
                           MinWidth="58"
                           IsEnabled="{Binding CanEditReanimTweens}"
                           Command="{Binding AddReanimTweenCommand}"/>
-                  <Button Content="Bake All"
+                  <Button Content="{DynamicResource Loc.Common.BakeAll}"
                           MinWidth="78"
                           IsEnabled="{Binding HasReanimTweenMetadata}"
                           Command="{Binding BakeAllReanimTweensCommand}"/>
                 </WrapPanel>
-                <TextBlock Text="No tweens"
+                <TextBlock Text="{DynamicResource Loc.Label.NoTweens}"
                            IsVisible="{Binding HasNoReanimTweenMetadata}"
                            Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
                 <ContentControl Content="{Binding SelectedReanimTween}"
@@ -642,7 +642,7 @@
               </StackPanel>
             </Expander>
 
-            <Expander Header="Definition"
+            <Expander Header="{DynamicResource Loc.Label.Definition}"
                       IsExpanded="True"
                       IsVisible="{Binding HasParticleControls}"
                       HorizontalAlignment="Stretch">
@@ -667,10 +667,10 @@
                   <StackPanel Orientation="Horizontal"
                               HorizontalAlignment="Right"
                               Spacing="6">
-                    <Button Content="Add"
+                    <Button Content="{DynamicResource Loc.Common.Add}"
                             MinWidth="58"
                             Command="{Binding AddParticleEmitterCommand}"/>
-                    <Button Content="Remove"
+                    <Button Content="{DynamicResource Loc.Common.Remove}"
                             MinWidth="76"
                             IsEnabled="{Binding CanRemoveParticleEmitter}"
                             Command="{Binding RemoveParticleEmitterCommand}"/>
@@ -685,26 +685,26 @@
               </StackPanel>
             </Expander>
 
-            <Expander Header="Definition"
+            <Expander Header="{DynamicResource Loc.Label.Definition}"
                       IsExpanded="True"
                       IsVisible="{Binding HasTrailControls}"
                       HorizontalAlignment="Stretch">
               <StackPanel Spacing="8">
-                <TextBlock Text="Image ID"/>
+                <TextBlock Text="{DynamicResource Loc.Label.ImageID}"/>
                 <TextBox Text="{Binding TrailImageId, UpdateSourceTrigger=PropertyChanged}"
-                         PlaceholderText="Image resource ID"/>
-                <TextBlock Text="MaxPoints"/>
+                         PlaceholderText="{DynamicResource Loc.Placeholder.ImageResourceID}"/>
+                <TextBlock Text="{DynamicResource Loc.Label.MaxPoints}"/>
                 <NumericUpDown Value="{Binding TrailMaxPoints}"
                                Minimum="2"
                                Maximum="20"
                                Increment="1"/>
-                <TextBlock Text="MinDist"/>
+                <TextBlock Text="{DynamicResource Loc.Label.MinDist}"/>
                 <NumericUpDown Value="{Binding TrailMinPointDistance}"
                                Minimum="0"
                                Maximum="10000"
                                Increment="1"
                                FormatString="0.###"/>
-                <CheckBox Content="Loops"
+                <CheckBox Content="{DynamicResource Loc.Label.Loops}"
                           IsChecked="{Binding TrailLoops}"/>
                 <ContentControl Content="{Binding TrailWidthOverLength}"
                                 ContentTemplate="{StaticResource FloatParameterTrackEditorTemplate}"/>
@@ -723,18 +723,18 @@
               </StackPanel>
             </Expander>
 
-            <Expander Header="Image References" IsExpanded="False" HorizontalAlignment="Stretch">
+            <Expander Header="{DynamicResource Loc.Label.ImageReferences}" IsExpanded="False" HorizontalAlignment="Stretch">
               <StackPanel Spacing="8">
-                <TextBlock Text="References" FontWeight="SemiBold"/>
+                <TextBlock Text="{DynamicResource Loc.Label.References}" FontWeight="SemiBold"/>
                 <TextBlock Text="{Binding ImageReferenceSummary}" TextWrapping="Wrap"/>
-                <TextBlock Text="Resolved" FontWeight="SemiBold"/>
+                <TextBlock Text="{DynamicResource Loc.Label.Resolved}" FontWeight="SemiBold"/>
                 <TextBlock Text="{Binding ResolvedImageReferenceSummary}" TextWrapping="Wrap"/>
-                <TextBlock Text="Missing" FontWeight="SemiBold"/>
+                <TextBlock Text="{DynamicResource Loc.Label.Missing}" FontWeight="SemiBold"/>
                 <TextBlock Text="{Binding MissingImageSummary}" TextWrapping="Wrap"/>
               </StackPanel>
             </Expander>
 
-            <Expander Header="Errors" IsExpanded="False" HorizontalAlignment="Stretch">
+            <Expander Header="{DynamicResource Loc.Label.Errors}" IsExpanded="False" HorizontalAlignment="Stretch">
               <TextBlock Text="{Binding FileSummary.Error}" TextWrapping="Wrap"/>
             </Expander>
           </StackPanel>
@@ -758,7 +758,7 @@
                 Margin="10"
                 RowSpacing="8">
             <DockPanel LastChildFill="False">
-              <TextBlock Text="Timeline"
+              <TextBlock Text="{DynamicResource Loc.Label.Timeline}"
                          FontSize="16"
                          FontWeight="SemiBold"
                          VerticalAlignment="Center"/>
@@ -769,7 +769,7 @@
                 <ComboBox ItemsSource="{Binding ReanimLayers}"
                           SelectedItem="{Binding SelectedReanimLayer}"
                           Width="150"/>
-                <TextBlock Text="FPS"
+                <TextBlock Text="{DynamicResource Loc.Label.FPS}"
                            VerticalAlignment="Center"/>
                 <NumericUpDown Value="{Binding ReanimFps}"
                                Width="112"
@@ -777,10 +777,10 @@
                                Maximum="240"
                                Increment="1"
                                FormatString="0.###"/>
-                <CheckBox Content="Play"
+                <CheckBox Content="{DynamicResource Loc.Label.Play}"
                           IsChecked="{Binding ReanimIsPlaying}"
                           VerticalAlignment="Center"/>
-                <CheckBox Content="Free Transform"
+                <CheckBox Content="{DynamicResource Loc.Label.FreeTransform}"
                           IsChecked="{Binding IsViewportFreeTransformEnabled}"
                           IsEnabled="{Binding CanTransformSelectedReanimFrame}"
                           VerticalAlignment="Center"/>

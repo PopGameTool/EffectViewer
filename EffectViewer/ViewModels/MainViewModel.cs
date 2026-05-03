@@ -10,6 +10,7 @@ using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EffectViewer.Assets;
+using EffectViewer.Localization;
 using EffectViewer.Projects;
 using EffectViewer.Runtime;
 using EffectViewer.Runtime.Lua;
@@ -43,7 +44,7 @@ namespace EffectViewer.ViewModels
         private EditorViewModelBase _selectedEditor;
 
         [ObservableProperty]
-        private string _statusText = "No project loaded";
+        private string _statusText = LocalizationManager.Instance.Text("Status.NoProjectLoaded");
 
         [ObservableProperty]
         private bool _isUnsavedChangesPromptOpen;
@@ -94,7 +95,7 @@ namespace EffectViewer.ViewModels
         private bool _isNewProjectDialogOpen;
 
         [ObservableProperty]
-        private string _newProjectName = "Untitled Effect Project";
+        private string _newProjectName = LocalizationManager.Instance.Text("Dialog.UntitledEffectProject");
 
         [ObservableProperty]
         private bool _isNewResourceDialogOpen;
@@ -122,6 +123,8 @@ namespace EffectViewer.ViewModels
         public bool CanSaveSelectedFile => CanSaveCurrentProject && SelectedEditor?.SupportsSave == true;
         public bool CanExportSelectedFile => CanSaveCurrentProject && SelectedEditor?.SupportsFileExport == true;
         public bool CanModifyCurrentProject => CanSaveCurrentProject;
+        public bool IsEnglishLanguage => Loc.IsEnglish;
+        public bool IsChineseLanguage => Loc.IsChinese;
 
         private enum UnsavedChangesChoice
         {
@@ -133,8 +136,64 @@ namespace EffectViewer.ViewModels
         public MainViewModel(IProjectStorageProvider storageProvider)
         {
             _projectService = new EffectProjectService(storageProvider);
+            Loc.LanguageChanged += OnLanguageChanged;
             LoadProject(_projectService.CreateDemoProject());
-            StatusText = "Demo project loaded";
+            StatusText = T("Status.DemoProjectLoaded");
+        }
+
+        private static LocalizationManager Loc => LocalizationManager.Instance;
+        private static string T(string key) => Loc.Text(key);
+        private static string F(string key, params object[] args) => Loc.Format(key, args);
+
+        private void OnLanguageChanged(object sender, EventArgs e)
+        {
+            OnPropertyChanged(nameof(IsEnglishLanguage));
+            OnPropertyChanged(nameof(IsChineseLanguage));
+
+            if (CurrentProject is not null)
+            {
+                RebuildProjectTree();
+            }
+
+            if (IsUnsavedChangesPromptOpen && SelectedEditor is not null)
+            {
+                UnsavedChangesTitle = T("Dialog.UnsavedChangesTitle");
+                UnsavedChangesMessage = F("Dialog.UnsavedChangesMessage", SelectedEditor.Title);
+            }
+        }
+
+        [RelayCommand]
+        private void SetEnglishLanguage()
+        {
+            SetLanguage(LocalizationManager.EnglishLanguageCode);
+        }
+
+        [RelayCommand]
+        private void SetChineseLanguage()
+        {
+            SetLanguage(LocalizationManager.ChineseLanguageCode);
+        }
+
+        private void SetLanguage(string languageCode)
+        {
+            Loc.UseBuiltInLanguage(languageCode);
+            string languageName = languageCode == LocalizationManager.ChineseLanguageCode
+                ? T("Language.ChineseSimplified")
+                : T("Language.English");
+            StatusText = F("Status.LanguageChanged", languageName);
+        }
+
+        public async Task LoadLanguageFileAsync(Stream stream, string fileName)
+        {
+            try
+            {
+                await Loc.LoadLanguageFileAsync(stream, Path.GetFileNameWithoutExtension(fileName));
+                StatusText = F("Status.LanguageFileLoaded", fileName);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException)
+            {
+                StatusText = F("Status.CouldNotLoadLanguageFile", ex.Message);
+            }
         }
 
         partial void OnProjectExplorerDockSideChanged(ProjectExplorerDockSide value)
@@ -160,7 +219,7 @@ namespace EffectViewer.ViewModels
         {
             ProjectExplorerDockSide = ProjectExplorerDockSide.Left;
             IsProjectExplorerVisible = true;
-            StatusText = "Project Explorer docked left.";
+            StatusText = T("Status.ProjectExplorerDockedLeft");
         }
 
         [RelayCommand]
@@ -168,7 +227,7 @@ namespace EffectViewer.ViewModels
         {
             ProjectExplorerDockSide = ProjectExplorerDockSide.Right;
             IsProjectExplorerVisible = true;
-            StatusText = "Project Explorer docked right.";
+            StatusText = T("Status.ProjectExplorerDockedRight");
         }
 
         [RelayCommand]
@@ -176,8 +235,8 @@ namespace EffectViewer.ViewModels
         {
             IsProjectExplorerVisible = !IsProjectExplorerVisible;
             StatusText = IsProjectExplorerVisible
-                ? "Project Explorer shown."
-                : "Project Explorer hidden.";
+                ? T("Status.ProjectExplorerShown")
+                : T("Status.ProjectExplorerHidden");
         }
 
         [RelayCommand]
@@ -186,7 +245,7 @@ namespace EffectViewer.ViewModels
             ProjectExplorerDockSide = ProjectExplorerDockSide.Left;
             IsProjectExplorerVisible = true;
             LayoutResetRevision++;
-            StatusText = "Layout reset.";
+            StatusText = T("Status.LayoutReset");
         }
 
         partial void OnCurrentProjectChanged(EffectProject value)
@@ -218,33 +277,33 @@ namespace EffectViewer.ViewModels
         {
             if (!await ConfirmAllUnsavedChangesAsync())
             {
-                StatusText = "Canceled opening demo project.";
+                StatusText = T("Status.CanceledOpeningDemoProject");
                 return;
             }
 
             LoadProject(_projectService.CreateDemoProject());
-            StatusText = "Demo project loaded";
+            StatusText = T("Status.DemoProjectLoaded");
         }
 
         [RelayCommand]
         private void ShowNewProjectDialog()
         {
-            NewProjectName = "Untitled Effect Project";
+            NewProjectName = T("Dialog.UntitledEffectProject");
             IsNewProjectDialogOpen = true;
-            StatusText = "Creating new project.";
+            StatusText = T("Status.CreatingNewProject");
         }
 
         [RelayCommand]
         private async Task CreateProjectAsync()
         {
             string projectName = string.IsNullOrWhiteSpace(NewProjectName)
-                ? "Untitled Effect Project"
+                ? T("Dialog.UntitledEffectProject")
                 : NewProjectName.Trim();
 
             IsNewProjectDialogOpen = false;
             if (!await ConfirmAllUnsavedChangesAsync())
             {
-                StatusText = "Canceled creating project.";
+                StatusText = T("Status.CanceledCreatingProject");
                 IsNewProjectDialogOpen = true;
                 return;
             }
@@ -253,11 +312,11 @@ namespace EffectViewer.ViewModels
             {
                 EffectProject project = await _projectService.CreateProjectAsync(projectName);
                 LoadProject(project);
-                StatusText = $"Created project {project.Manifest.Name}.";
+                StatusText = F("Status.CreatedProject", project.Manifest.Name);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
             {
-                StatusText = $"Could not create project: {ex.Message}";
+                StatusText = F("Status.CouldNotCreateProject", ex.Message);
             }
         }
 
@@ -265,7 +324,7 @@ namespace EffectViewer.ViewModels
         private void CancelNewProject()
         {
             IsNewProjectDialogOpen = false;
-            StatusText = "Canceled creating project.";
+            StatusText = T("Status.CanceledCreatingProject");
         }
 
         [RelayCommand]
@@ -273,7 +332,7 @@ namespace EffectViewer.ViewModels
         {
             if (CurrentProject is null || string.IsNullOrWhiteSpace(CurrentProject.RootPath))
             {
-                StatusText = "No writable project is loaded.";
+                StatusText = T("Status.NoWritableProjectLoaded");
                 return;
             }
 
@@ -281,7 +340,7 @@ namespace EffectViewer.ViewModels
             {
                 if (!imageEditor.ApplyPendingAssetId())
                 {
-                    StatusText = $"Could not save {imageEditor.Title}: Image ID cannot be empty.";
+                    StatusText = F("Status.CouldNotSaveImageIdEmpty", imageEditor.Title);
                     return;
                 }
             }
@@ -290,7 +349,7 @@ namespace EffectViewer.ViewModels
             {
                 if (string.IsNullOrWhiteSpace(effectEditor.AssetId))
                 {
-                    StatusText = $"Could not save {effectEditor.Title}: Asset ID cannot be empty.";
+                    StatusText = F("Status.CouldNotSaveAssetIdEmpty", effectEditor.Title);
                     return;
                 }
             }
@@ -301,7 +360,7 @@ namespace EffectViewer.ViewModels
                 editor.AcceptSavedState();
             }
 
-            StatusText = $"Saved {CurrentProject.Manifest.Name}.";
+            StatusText = F("Status.Saved", CurrentProject.Manifest.Name);
         }
 
         [RelayCommand]
@@ -309,7 +368,7 @@ namespace EffectViewer.ViewModels
         {
             if (SelectedEditor is null)
             {
-                StatusText = "No document is selected.";
+                StatusText = T("Status.NoDocumentSelected");
                 return;
             }
 
@@ -325,22 +384,22 @@ namespace EffectViewer.ViewModels
 
             if (!await ConfirmAllUnsavedChangesAsync())
             {
-                StatusText = "Canceled folder import.";
+                StatusText = T("Status.CanceledFolderImport");
                 return;
             }
 
             try
             {
-                BeginProjectTransfer("Importing Resource Folder", "Scanning resource folder");
+                BeginProjectTransfer(T("Transfer.ImportingResourceFolder"), T("Transfer.ScanningResourceFolder"));
                 Progress<ProjectTransferProgress> progress = new(UpdateProjectTransferProgress);
                 FolderImportResult result = await _projectService.ImportFolderAsync(sourceDirectory, progress);
 
                 LoadProject(result.Project);
-                StatusText = $"Imported {result.ImageCount} image(s), {result.ReanimCount} reanim(s), {result.ParticleCount} particle(s), {result.TrailCount} trail(s). Missing images: {result.MissingImageCount}.";
+                StatusText = F("Status.ImportedFolder", result.ImageCount, result.ReanimCount, result.ParticleCount, result.TrailCount, result.MissingImageCount);
             }
             catch (Exception ex)
             {
-                StatusText = $"Could not import folder: {ex.Message}";
+                StatusText = F("Status.CouldNotImportFolder", ex.Message);
             }
             finally
             {
@@ -357,22 +416,22 @@ namespace EffectViewer.ViewModels
 
             if (!await ConfirmAllUnsavedChangesAsync())
             {
-                StatusText = "Canceled folder import.";
+                StatusText = T("Status.CanceledFolderImport");
                 return;
             }
 
             try
             {
-                BeginProjectTransfer("Importing Resource Folder", "Reading folder");
+                BeginProjectTransfer(T("Transfer.ImportingResourceFolder"), T("Transfer.ReadingFolder"));
                 Progress<ProjectTransferProgress> progress = new(UpdateProjectTransferProgress);
                 FolderImportResult result = await _projectService.ImportFolderAsync(sourceFolder, progress);
 
                 LoadProject(result.Project);
-                StatusText = $"Imported {result.ImageCount} image(s), {result.ReanimCount} reanim(s), {result.ParticleCount} particle(s), {result.TrailCount} trail(s). Missing images: {result.MissingImageCount}.";
+                StatusText = F("Status.ImportedFolder", result.ImageCount, result.ReanimCount, result.ParticleCount, result.TrailCount, result.MissingImageCount);
             }
             catch (Exception ex)
             {
-                StatusText = $"Could not import folder: {ex.Message}";
+                StatusText = F("Status.CouldNotImportFolder", ex.Message);
             }
             finally
             {
@@ -389,13 +448,13 @@ namespace EffectViewer.ViewModels
 
             if (!CanModifyCurrentProject)
             {
-                StatusText = "Create or open a writable project before importing a resource.";
+                StatusText = T("Status.CreateWritableProjectForImport");
                 return;
             }
 
             if (!await ConfirmAllUnsavedChangesAsync())
             {
-                StatusText = "Canceled resource import.";
+                StatusText = T("Status.CanceledResourceImport");
                 return;
             }
 
@@ -404,11 +463,11 @@ namespace EffectViewer.ViewModels
                 ProjectResourceResult result = await _projectService.ImportResourceFileAsync(CurrentProject, sourceFileName, sourceStream);
                 RefreshCurrentProject();
                 OpenResourceEditor(result.Kind, result.AssetId);
-                StatusText = $"Imported {result.Kind} {result.AssetId}.";
+                StatusText = F("Status.ImportedResource", result.Kind, result.AssetId);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
             {
-                StatusText = $"Could not import resource: {ex.Message}";
+                StatusText = F("Status.CouldNotImportResource", ex.Message);
             }
         }
 
@@ -417,14 +476,14 @@ namespace EffectViewer.ViewModels
         {
             if (!CanModifyCurrentProject)
             {
-                StatusText = "Create or open a writable project before creating a resource.";
+                StatusText = T("Status.CreateWritableProjectForResource");
                 return;
             }
 
             NewResourceKind = EffectAssetKind.Reanim;
             NewResourceId = "new_reanim";
             IsNewResourceDialogOpen = true;
-            StatusText = "Creating new resource.";
+            StatusText = T("Status.CreatingNewResource");
         }
 
         [RelayCommand]
@@ -432,7 +491,7 @@ namespace EffectViewer.ViewModels
         {
             if (!CanModifyCurrentProject)
             {
-                StatusText = "Create or open a writable project before creating a resource.";
+                StatusText = T("Status.CreateWritableProjectForResource");
                 return;
             }
 
@@ -443,7 +502,7 @@ namespace EffectViewer.ViewModels
             IsNewResourceDialogOpen = false;
             if (!await ConfirmAllUnsavedChangesAsync())
             {
-                StatusText = "Canceled creating resource.";
+                StatusText = T("Status.CanceledCreatingResource");
                 IsNewResourceDialogOpen = true;
                 return;
             }
@@ -453,11 +512,11 @@ namespace EffectViewer.ViewModels
                 ProjectResourceResult result = await _projectService.CreateResourceAsync(CurrentProject, NewResourceKind, assetId);
                 RefreshCurrentProject();
                 OpenResourceEditor(result.Kind, result.AssetId);
-                StatusText = $"Created {result.Kind} {result.AssetId}.";
+                StatusText = F("Status.CreatedResource", result.Kind, result.AssetId);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
             {
-                StatusText = $"Could not create resource: {ex.Message}";
+                StatusText = F("Status.CouldNotCreateResource", ex.Message);
             }
         }
 
@@ -465,7 +524,7 @@ namespace EffectViewer.ViewModels
         private void CancelNewResource()
         {
             IsNewResourceDialogOpen = false;
-            StatusText = "Canceled creating resource.";
+            StatusText = T("Status.CanceledCreatingResource");
         }
 
         public async Task ImportProjectZipAsync(Stream zipStream)
@@ -477,21 +536,21 @@ namespace EffectViewer.ViewModels
 
             if (!await ConfirmAllUnsavedChangesAsync())
             {
-                StatusText = "Canceled project import.";
+                StatusText = T("Status.CanceledProjectImport");
                 return;
             }
 
             try
             {
-                BeginProjectTransfer("Importing Project", "Reading archive");
+                BeginProjectTransfer(T("Transfer.ImportingProject"), T("Transfer.ReadingArchive"));
                 Progress<ProjectTransferProgress> progress = new(UpdateProjectTransferProgress);
                 EffectProject project = await _projectService.ImportProjectZipAsync(zipStream, progress);
                 LoadProject(project);
-                StatusText = $"Imported project {project.Manifest.Name}.";
+                StatusText = F("Status.ImportedProject", project.Manifest.Name);
             }
             catch (System.Exception ex) when (ex is IOException or System.IO.InvalidDataException or System.Text.Json.JsonException or System.InvalidOperationException)
             {
-                StatusText = $"Could not import project: {ex.Message}";
+                StatusText = F("Status.CouldNotImportProject", ex.Message);
             }
             finally
             {
@@ -508,7 +567,7 @@ namespace EffectViewer.ViewModels
 
             if (CurrentProject is null || string.IsNullOrWhiteSpace(CurrentProject.RootPath))
             {
-                StatusText = "No internal project is loaded.";
+                StatusText = T("Status.NoInternalProjectLoaded");
                 return;
             }
 
@@ -516,21 +575,21 @@ namespace EffectViewer.ViewModels
             {
                 if (!await SaveEditorAsync(editor))
                 {
-                    StatusText = $"Canceled exporting {CurrentProject.Manifest.Name}.";
+                    StatusText = F("Status.CanceledExporting", CurrentProject.Manifest.Name);
                     return;
                 }
             }
 
             try
             {
-                BeginProjectTransfer("Exporting Project", "Preparing archive");
+                BeginProjectTransfer(T("Transfer.ExportingProject"), T("Transfer.PreparingArchive"));
                 Progress<ProjectTransferProgress> progress = new(UpdateProjectTransferProgress);
                 await _projectService.ExportProjectZipAsync(CurrentProject, outputStream, progress);
-                StatusText = $"Exported {CurrentProject.Manifest.Name}.";
+                StatusText = F("Status.Exported", CurrentProject.Manifest.Name);
             }
             catch (System.Exception ex) when (ex is IOException or System.UnauthorizedAccessException or System.InvalidOperationException)
             {
-                StatusText = $"Could not export project: {ex.Message}";
+                StatusText = F("Status.CouldNotExportProject", ex.Message);
             }
             finally
             {
@@ -579,25 +638,25 @@ namespace EffectViewer.ViewModels
             EditorViewModelBase editor = SelectedEditor;
             if (editor is null)
             {
-                StatusText = "No document is selected.";
+                StatusText = T("Status.NoDocumentSelected");
                 return false;
             }
 
             if (!editor.SupportsFileExport)
             {
-                StatusText = $"{editor.Title} does not have a project file to export.";
+                StatusText = F("Status.DocumentNoProjectFile", editor.Title);
                 return false;
             }
 
             if (CurrentProject is null || string.IsNullOrWhiteSpace(CurrentProject.RootPath))
             {
-                StatusText = "No internal project is loaded.";
+                StatusText = T("Status.NoInternalProjectLoaded");
                 return false;
             }
 
             if (editor.IsDirty && !await SaveEditorAsync(editor))
             {
-                StatusText = $"Canceled exporting {editor.Title}.";
+                StatusText = F("Status.CanceledExporting", editor.Title);
                 return false;
             }
 
@@ -616,11 +675,11 @@ namespace EffectViewer.ViewModels
             try
             {
                 await editor.ExportAsync(_projectService, CurrentProject, outputStream, targetFileName);
-                StatusText = $"Exported {editor.Title}.";
+                StatusText = F("Status.Exported", editor.Title);
             }
             catch (System.Exception ex) when (ex is IOException or System.UnauthorizedAccessException or System.InvalidOperationException)
             {
-                StatusText = $"Could not export {editor.Title}: {ex.Message}";
+                StatusText = F("Status.CouldNotExport", editor.Title, ex.Message);
             }
         }
 
@@ -648,7 +707,7 @@ namespace EffectViewer.ViewModels
             ProjectTransferProgressValue = progress.Ratio * 100d;
             IsProjectTransferProgressIndeterminate = progress.TotalItems <= 0;
             ProjectTransferProgressText = progress.TotalItems <= 0
-                ? progress.CompletedItems > 0 ? $"{progress.CompletedItems} scanned" : string.Empty
+                ? progress.CompletedItems > 0 ? F("Transfer.CompletedScanned", progress.CompletedItems) : string.Empty
                 : $"{progress.CompletedItems} / {progress.TotalItems}";
         }
 
@@ -674,12 +733,12 @@ namespace EffectViewer.ViewModels
 
             OnPropertyChanged(nameof(HasAvailableProjects));
             OpenProjectMessage = HasAvailableProjects
-                ? "Select a project from the app private project folder."
-                : "No imported projects were found in the app private project folder.";
+                ? T("Status.OpenProjectMessageHasProjects")
+                : T("Status.OpenProjectMessageEmpty");
             IsOpenProjectDialogOpen = true;
             StatusText = HasAvailableProjects
-                ? $"Found {AvailableProjects.Count} project(s)."
-                : "No internal projects found.";
+                ? F("Status.FoundProjects", AvailableProjects.Count)
+                : T("Status.NoInternalProjectsFound");
         }
 
         [RelayCommand]
@@ -688,21 +747,21 @@ namespace EffectViewer.ViewModels
             ProjectListItemViewModel projectItem = SelectedAvailableProject;
             if (projectItem is null || string.IsNullOrWhiteSpace(projectItem.ProjectPath))
             {
-                StatusText = "No project is selected.";
+                StatusText = T("Status.NoProjectSelected");
                 return;
             }
 
             IsOpenProjectDialogOpen = false;
             if (!await ConfirmAllUnsavedChangesAsync())
             {
-                StatusText = "Canceled opening project.";
+                StatusText = T("Status.CanceledOpeningProject");
                 IsOpenProjectDialogOpen = true;
                 return;
             }
 
             EffectProject project = await _projectService.LoadAsync(projectItem.ProjectPath);
             LoadProject(project);
-            StatusText = $"Opened {project.Manifest.Name}.";
+            StatusText = F("Status.OpenedProject", project.Manifest.Name);
         }
 
         [RelayCommand]
@@ -710,7 +769,7 @@ namespace EffectViewer.ViewModels
         {
             IsOpenProjectDialogOpen = false;
             SelectedAvailableProject = null;
-            StatusText = "Canceled opening project.";
+            StatusText = T("Status.CanceledOpeningProject");
         }
 
         private void LoadProject(EffectProject project)
@@ -752,35 +811,35 @@ namespace EffectViewer.ViewModels
                     if (CurrentProject.Assets.Images.TryGetValue(item.AssetId, out Assets.ImageAsset image))
                     {
                         OpenOrSelectEditor(item.Kind, item.AssetId, () => new ImageEditorViewModel(image, CurrentProject));
-                        StatusText = $"Editing image {image.Id}";
+                        StatusText = F("Status.EditingImage", image.Id);
                     }
                     break;
 
                 case EffectAssetKind.Reanim:
                     OpenOrSelectEditor(item.Kind, item.AssetId, () => new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
-                    StatusText = $"Editing reanim {item.AssetId}";
+                    StatusText = F("Status.EditingReanim", item.AssetId);
                     break;
 
                 case EffectAssetKind.Particle:
                     OpenOrSelectEditor(item.Kind, item.AssetId, () => new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
-                    StatusText = $"Editing particle {item.AssetId}";
+                    StatusText = F("Status.EditingParticle", item.AssetId);
                     break;
 
                 case EffectAssetKind.Trail:
                     OpenOrSelectEditor(item.Kind, item.AssetId, () => new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
-                    StatusText = $"Editing trail {item.AssetId}";
+                    StatusText = F("Status.EditingTrail", item.AssetId);
                     break;
 
                 case EffectAssetKind.Showcase:
                     if (CurrentProject.Assets.Showcases.TryGetValue(item.AssetId, out ShowcaseAsset showcase))
                     {
                         OpenOrSelectEditor(item.Kind, item.AssetId, () => new ShowcaseEditorViewModel(showcase, _luaHost, CurrentProject));
-                        StatusText = $"Editing showcase {item.AssetId}";
+                        StatusText = F("Status.EditingShowcase", item.AssetId);
                     }
                     else
                     {
                         OpenOrSelectEditor(item.Kind, item.AssetId, () => new ShowcaseEditorViewModel(_luaHost, CurrentProject));
-                        StatusText = "Editing showcases";
+                        StatusText = T("Status.EditingShowcases");
                     }
                     break;
             }
@@ -835,7 +894,7 @@ namespace EffectViewer.ViewModels
 
             if (!await ConfirmUnsavedChangesAsync(editor))
             {
-                StatusText = $"Canceled closing {editor.Title}.";
+                StatusText = F("Status.CanceledClosingDocument", editor.Title);
                 return;
             }
 
@@ -926,7 +985,7 @@ namespace EffectViewer.ViewModels
 
                 case UnsavedChangesChoice.Discard:
                     editor.DiscardChanges();
-                    StatusText = $"Discarded changes to {editor.Title}.";
+                    StatusText = F("Status.DiscardedChanges", editor.Title);
                     return true;
 
                 default:
@@ -943,25 +1002,25 @@ namespace EffectViewer.ViewModels
 
             if (!editor.SupportsSave)
             {
-                StatusText = $"{editor.Title} does not support file saving yet.";
+                StatusText = F("Status.DocumentSaveUnsupported", editor.Title);
                 return false;
             }
 
             if (CurrentProject is null || string.IsNullOrWhiteSpace(CurrentProject.RootPath))
             {
-                StatusText = "No writable project is loaded.";
+                StatusText = T("Status.NoWritableProjectLoaded");
                 return false;
             }
 
             try
             {
                 await editor.SaveAsync(_projectService, CurrentProject);
-                StatusText = $"Saved {editor.Title}.";
+                StatusText = F("Status.Saved", editor.Title);
                 return true;
             }
             catch (System.Exception ex) when (ex is IOException or System.FormatException or System.InvalidOperationException)
             {
-                StatusText = $"Could not save {editor.Title}: {ex.Message}";
+                StatusText = F("Status.CouldNotSave", editor.Title, ex.Message);
                 return false;
             }
         }
@@ -969,8 +1028,8 @@ namespace EffectViewer.ViewModels
         private Task<UnsavedChangesChoice> PromptUnsavedChangesAsync(EditorViewModelBase editor)
         {
             _unsavedChangesCompletion = new TaskCompletionSource<UnsavedChangesChoice>();
-            UnsavedChangesTitle = "Unsaved Changes";
-            UnsavedChangesMessage = $"{editor.Title} has unsaved changes.";
+            UnsavedChangesTitle = T("Dialog.UnsavedChangesTitle");
+            UnsavedChangesMessage = F("Dialog.UnsavedChangesMessage", editor.Title);
             IsUnsavedChangesPromptOpen = true;
             return _unsavedChangesCompletion.Task;
         }
@@ -1013,8 +1072,8 @@ namespace EffectViewer.ViewModels
             if (value is not null)
             {
                 StatusText = value.IsDirty
-                    ? $"Editing {value.Title} (unsaved)."
-                    : $"Editing {value.Title}.";
+                    ? F("Status.EditingUnsaved", value.Title)
+                    : F("Status.Editing", value.Title);
             }
         }
 
@@ -1028,8 +1087,8 @@ namespace EffectViewer.ViewModels
             if (e.PropertyName == nameof(EditorViewModelBase.IsDirty))
             {
                 StatusText = editor.IsDirty
-                    ? $"Editing {editor.Title} (unsaved)."
-                    : $"Editing {editor.Title}.";
+                    ? F("Status.EditingUnsaved", editor.Title)
+                    : F("Status.Editing", editor.Title);
             }
 
             if (editor is ImageEditorViewModel imageEditor &&
@@ -1107,19 +1166,19 @@ namespace EffectViewer.ViewModels
                 IsExpanded = true
             };
 
-            root.Children.Add(CreateFolder("Images", CurrentProject.Manifest.Images.Select(asset =>
+            root.Children.Add(CreateFolder(T("ProjectTree.Images"), CurrentProject.Manifest.Images.Select(asset =>
                 new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Image, asset.Id, asset.Path))));
 
-            root.Children.Add(CreateFolder("Reanim", CurrentProject.Manifest.Reanims.Select(asset =>
+            root.Children.Add(CreateFolder(T("ProjectTree.Reanim"), CurrentProject.Manifest.Reanims.Select(asset =>
                 new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Reanim, asset.Id, asset.Path))));
 
-            root.Children.Add(CreateFolder("Particles", CurrentProject.Manifest.Particles.Select(asset =>
+            root.Children.Add(CreateFolder(T("ProjectTree.Particles"), CurrentProject.Manifest.Particles.Select(asset =>
                 new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Particle, asset.Id, asset.Path))));
 
-            root.Children.Add(CreateFolder("Trails", CurrentProject.Manifest.Trails.Select(asset =>
+            root.Children.Add(CreateFolder(T("ProjectTree.Trails"), CurrentProject.Manifest.Trails.Select(asset =>
                 new ProjectExplorerItemViewModel(asset.Id, EffectAssetKind.Trail, asset.Id, asset.Path))));
 
-            ProjectExplorerItemViewModel showcases = new("Showcases", EffectAssetKind.Showcase, "Showcases")
+            ProjectExplorerItemViewModel showcases = new(T("ProjectTree.Showcases"), EffectAssetKind.Showcase, "Showcases")
             {
                 IsExpanded = true
             };

@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+using EffectViewer.Localization;
 using EffectViewer.Projects;
 using EffectViewer.ViewModels;
 using EffectViewer.Views;
@@ -17,6 +18,7 @@ namespace EffectViewer
         public override void Initialize()
         {
             AvaloniaXamlLoader.Load(this);
+            LocalizationManager.Instance.Initialize();
         }
 
         public override void OnFrameworkInitializationCompleted()

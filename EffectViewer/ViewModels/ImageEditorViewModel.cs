@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using EffectViewer.Assets;
+using EffectViewer.Localization;
 using EffectViewer.Projects;
 using EffectViewer.Rendering;
 using EffectViewer.Rendering.TextureUpload;
@@ -126,7 +127,7 @@ namespace EffectViewer.ViewModels
         {
             if (!ApplyPendingAssetId())
             {
-                throw new InvalidOperationException("Image ID cannot be empty.");
+                throw new InvalidOperationException(LocalizationManager.Instance.Text("ImageEditor.ImageIdEmpty"));
             }
 
             await projectService.SaveAsync(project);
@@ -213,7 +214,7 @@ namespace EffectViewer.ViewModels
         {
             if (ImageIdExists(assetId))
             {
-                throw new InvalidOperationException($"Image ID '{assetId}' already exists.");
+                throw new InvalidOperationException(LocalizationManager.Instance.Format("ImageEditor.ImageIdExists", assetId));
             }
         }
 

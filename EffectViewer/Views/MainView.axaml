@@ -25,60 +25,73 @@
         <DockPanel Margin="12,0">
           <Menu DockPanel.Dock="Left"
                 Background="Transparent">
-            <MenuItem Header="_Project">
-              <MenuItem Header="_New Project..."
+            <MenuItem Header="{DynamicResource Loc.Menu.Project}">
+              <MenuItem Header="{DynamicResource Loc.Menu.NewProject}"
                         Command="{Binding ShowNewProjectDialogCommand}"/>
-              <MenuItem Header="_Open Project..."
+              <MenuItem Header="{DynamicResource Loc.Menu.OpenProject}"
                         Command="{Binding ShowOpenProjectDialogCommand}"/>
-              <MenuItem Header="_Demo Project"
+              <MenuItem Header="{DynamicResource Loc.Menu.DemoProject}"
                         Command="{Binding LoadDemoProjectCommand}"/>
               <Separator/>
-              <MenuItem Header="Save _Project"
+              <MenuItem Header="{DynamicResource Loc.Menu.SaveProject}"
                         Command="{Binding SaveProjectCommand}"
                         IsEnabled="{Binding CanSaveCurrentProject}"/>
               <Separator/>
-              <MenuItem Header="_Import Project Zip..."
+              <MenuItem Header="{DynamicResource Loc.Menu.ImportProjectZip}"
                         Click="ImportProjectMenuItem_Click"/>
-              <MenuItem Header="Export Project _Zip..."
+              <MenuItem Header="{DynamicResource Loc.Menu.ExportProjectZip}"
                         Click="ExportProjectMenuItem_Click"
                         IsEnabled="{Binding CanSaveCurrentProject}"/>
             </MenuItem>
-            <MenuItem Header="_Resource">
-              <MenuItem Header="_New Resource..."
+            <MenuItem Header="{DynamicResource Loc.Menu.Resource}">
+              <MenuItem Header="{DynamicResource Loc.Menu.NewResource}"
                         Command="{Binding ShowNewResourceDialogCommand}"
                         IsEnabled="{Binding CanModifyCurrentProject}"/>
               <Separator/>
-              <MenuItem Header="Import Resource _File..."
+              <MenuItem Header="{DynamicResource Loc.Menu.ImportResourceFile}"
                         Click="ImportResourceFileMenuItem_Click"
                         IsEnabled="{Binding CanModifyCurrentProject}"/>
-              <MenuItem Header="Import Resource _Folder..."
+              <MenuItem Header="{DynamicResource Loc.Menu.ImportResourceFolder}"
                         Click="ImportFolderMenuItem_Click"/>
             </MenuItem>
-            <MenuItem Header="_Document">
-              <MenuItem Header="_Save Current File"
+            <MenuItem Header="{DynamicResource Loc.Menu.Document}">
+              <MenuItem Header="{DynamicResource Loc.Menu.SaveCurrentFile}"
                         Command="{Binding SaveFileCommand}"
                         IsEnabled="{Binding CanSaveSelectedFile}"/>
-              <MenuItem Header="_Export Current File..."
+              <MenuItem Header="{DynamicResource Loc.Menu.ExportCurrentFile}"
                         Click="ExportFileMenuItem_Click"
                         IsEnabled="{Binding CanExportSelectedFile}"/>
             </MenuItem>
-            <MenuItem Header="_View">
-              <MenuItem Header="_Project Explorer"
+            <MenuItem Header="{DynamicResource Loc.Menu.View}">
+              <MenuItem Header="{DynamicResource Loc.Menu.ProjectExplorer}"
                         Command="{Binding ToggleProjectExplorerCommand}"
                         IsChecked="{Binding IsProjectExplorerVisible, Mode=OneWay}"
                         ToggleType="CheckBox"/>
               <Separator/>
-              <MenuItem Header="Dock Explorer _Left"
+              <MenuItem Header="{DynamicResource Loc.Menu.DockExplorerLeft}"
                         Command="{Binding DockProjectExplorerLeftCommand}"
                         IsChecked="{Binding IsProjectExplorerDockedLeft, Mode=OneWay}"
                         ToggleType="Radio"/>
-              <MenuItem Header="Dock Explorer _Right"
+              <MenuItem Header="{DynamicResource Loc.Menu.DockExplorerRight}"
                         Command="{Binding DockProjectExplorerRightCommand}"
                         IsChecked="{Binding IsProjectExplorerDockedRight, Mode=OneWay}"
                         ToggleType="Radio"/>
               <Separator/>
-              <MenuItem Header="_Reset Layout"
+              <MenuItem Header="{DynamicResource Loc.Menu.ResetLayout}"
                         Command="{Binding ResetLayoutCommand}"/>
+            </MenuItem>
+            <MenuItem Header="{DynamicResource Loc.Menu.Language}">
+              <MenuItem Header="{DynamicResource Loc.Language.English}"
+                        Command="{Binding SetEnglishLanguageCommand}"
+                        IsChecked="{Binding IsEnglishLanguage, Mode=OneWay}"
+                        ToggleType="Radio"/>
+              <MenuItem Header="{DynamicResource Loc.Language.ChineseSimplified}"
+                        Command="{Binding SetChineseLanguageCommand}"
+                        IsChecked="{Binding IsChineseLanguage, Mode=OneWay}"
+                        ToggleType="Radio"/>
+              <Separator/>
+              <MenuItem Header="{DynamicResource Loc.Menu.LoadLanguageFile}"
+                        Click="LoadLanguageFileMenuItem_Click"/>
             </MenuItem>
           </Menu>
           <TextBlock Text="{Binding CurrentProject.Manifest.Name}"
@@ -108,7 +121,7 @@
                 Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
                 IsVisible="{Binding IsProjectExplorerVisibleLeft}">
           <Grid RowDefinitions="Auto,*" Margin="12" RowSpacing="10">
-            <TextBlock Text="Project Explorer"
+            <TextBlock Text="{DynamicResource Loc.Label.ProjectExplorer}"
                        FontSize="15"
                        FontWeight="SemiBold"/>
             <TreeView Grid.Row="1"
@@ -203,7 +216,7 @@
                 Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
                 IsVisible="{Binding IsProjectExplorerVisibleRight}">
           <Grid RowDefinitions="Auto,*" Margin="12" RowSpacing="10">
-            <TextBlock Text="Project Explorer"
+            <TextBlock Text="{DynamicResource Loc.Label.ProjectExplorer}"
                        FontSize="15"
                        FontWeight="SemiBold"/>
             <TreeView Grid.Row="1"
@@ -246,19 +259,19 @@
                      FontWeight="SemiBold"/>
           <TextBlock Text="{Binding UnsavedChangesMessage}"
                      TextWrapping="Wrap"/>
-          <TextBlock Text="Save changes before continuing?"
+          <TextBlock Text="{DynamicResource Loc.Dialog.SaveChangesBeforeContinuing}"
                      TextWrapping="Wrap"
                      Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
           <StackPanel Orientation="Horizontal"
                       HorizontalAlignment="Right"
                       Spacing="8">
-            <Button Content="Save"
+            <Button Content="{DynamicResource Loc.Common.Save}"
                     MinWidth="80"
                     Command="{Binding SaveUnsavedChangesCommand}"/>
-            <Button Content="Discard"
+            <Button Content="{DynamicResource Loc.Common.Discard}"
                     MinWidth="80"
                     Command="{Binding DiscardUnsavedChangesCommand}"/>
-            <Button Content="Cancel"
+            <Button Content="{DynamicResource Loc.Common.Cancel}"
                     MinWidth="80"
                     Command="{Binding CancelUnsavedChangesCommand}"/>
           </StackPanel>
@@ -278,7 +291,7 @@
               CornerRadius="6"
               Padding="18">
         <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
-          <TextBlock Text="Open Project"
+          <TextBlock Text="{DynamicResource Loc.Dialog.OpenProject}"
                      FontSize="18"
                      FontWeight="SemiBold"/>
           <TextBlock Grid.Row="1"
@@ -313,10 +326,10 @@
                       Orientation="Horizontal"
                       HorizontalAlignment="Right"
                       Spacing="8">
-            <Button Content="Open"
+            <Button Content="{DynamicResource Loc.Common.Open}"
                     MinWidth="80"
                     Command="{Binding OpenSelectedProjectCommand}"/>
-            <Button Content="Cancel"
+            <Button Content="{DynamicResource Loc.Common.Cancel}"
                     MinWidth="80"
                     Command="{Binding CancelOpenProjectCommand}"/>
           </StackPanel>
@@ -335,20 +348,20 @@
               CornerRadius="6"
               Padding="18">
         <StackPanel Spacing="12">
-          <TextBlock Text="New Project"
+          <TextBlock Text="{DynamicResource Loc.Dialog.NewProject}"
                      FontSize="18"
                      FontWeight="SemiBold"/>
           <StackPanel Spacing="4">
-            <TextBlock Text="Name"/>
+            <TextBlock Text="{DynamicResource Loc.Label.Name}"/>
             <TextBox Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}"/>
           </StackPanel>
           <StackPanel Orientation="Horizontal"
                       HorizontalAlignment="Right"
                       Spacing="8">
-            <Button Content="Create"
+            <Button Content="{DynamicResource Loc.Common.Create}"
                     MinWidth="80"
                     Command="{Binding CreateProjectCommand}"/>
-            <Button Content="Cancel"
+            <Button Content="{DynamicResource Loc.Common.Cancel}"
                     MinWidth="80"
                     Command="{Binding CancelNewProjectCommand}"/>
           </StackPanel>
@@ -367,26 +380,26 @@
               CornerRadius="6"
               Padding="18">
         <StackPanel Spacing="12">
-          <TextBlock Text="New Resource"
+          <TextBlock Text="{DynamicResource Loc.Dialog.NewResource}"
                      FontSize="18"
                      FontWeight="SemiBold"/>
           <StackPanel Spacing="4">
-            <TextBlock Text="Type"/>
+            <TextBlock Text="{DynamicResource Loc.Label.Type}"/>
             <ComboBox ItemsSource="{Binding NewResourceKinds}"
                       SelectedItem="{Binding NewResourceKind}"
                       HorizontalAlignment="Stretch"/>
           </StackPanel>
           <StackPanel Spacing="4">
-            <TextBlock Text="ID"/>
+            <TextBlock Text="{DynamicResource Loc.Label.ID}"/>
             <TextBox Text="{Binding NewResourceId, UpdateSourceTrigger=PropertyChanged}"/>
           </StackPanel>
           <StackPanel Orientation="Horizontal"
                       HorizontalAlignment="Right"
                       Spacing="8">
-            <Button Content="Create"
+            <Button Content="{DynamicResource Loc.Common.Create}"
                     MinWidth="80"
                     Command="{Binding CreateResourceCommand}"/>
-            <Button Content="Cancel"
+            <Button Content="{DynamicResource Loc.Common.Cancel}"
                     MinWidth="80"
                     Command="{Binding CancelNewResourceCommand}"/>
           </StackPanel>

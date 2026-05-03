@@ -18,10 +18,10 @@
             CornerRadius="6"
             Padding="20">
       <StackPanel Spacing="8">
-        <TextBlock Text="Project layout"
+        <TextBlock Text="{DynamicResource Loc.Label.ProjectLayout}"
                    FontSize="16"
                    FontWeight="SemiBold"/>
-        <TextBlock Text="images / reanim / particles / trails / scripts"
+        <TextBlock Text="{DynamicResource Loc.Label.ProjectLayoutFolders}"
                    FontFamily="{StaticResource CodeFontFamily}"
                    Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
       </StackPanel>

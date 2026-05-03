@@ -1,3 +1,5 @@
+using EffectViewer.Localization;
+
 namespace EffectViewer.ViewModels
 {
     public sealed class ReanimTrackViewModel : ViewModelBase
@@ -23,7 +25,7 @@ namespace EffectViewer.ViewModels
         }
 
         public string DisplayName => string.IsNullOrWhiteSpace(Name)
-            ? $"Track {Index + 1}"
+            ? LocalizationManager.Instance.Format("Reanim.TrackFallbackName", Index + 1)
             : $"{Index + 1}. {Name}";
 
         public bool IsVisible
@@ -51,6 +53,11 @@ namespace EffectViewer.ViewModels
         {
             Index = index;
             _name = name ?? string.Empty;
+        }
+
+        public void RefreshLocalizedText()
+        {
+            OnPropertyChanged(nameof(DisplayName));
         }
     }
 }

@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using EffectViewer.Localization;
 using EffectViewer.ViewModels;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -113,7 +114,7 @@ namespace EffectViewer.Views
         {
             try
             {
-                IStorageFolder folder = await PickFolderAsync("Import PopCap resource folder");
+                IStorageFolder folder = await PickFolderAsync(Loc.Text("FilePicker.ImportPopCapResourceFolder"));
                 if (folder is not null && DataContext is MainViewModel viewModel)
                 {
                     string path = folder.TryGetLocalPath();
@@ -129,7 +130,7 @@ namespace EffectViewer.Views
             }
             catch (System.Exception ex) when (DataContext is MainViewModel viewModel)
             {
-                viewModel.StatusText = $"Could not import folder: {ex.Message}";
+                viewModel.StatusText = Loc.Format("Status.CouldNotImportFolder", ex.Message);
             }
         }
 
@@ -143,7 +144,7 @@ namespace EffectViewer.Views
 
             var files = await topLevel.StorageProvider.OpenFilePickerAsync(new()
             {
-                Title = "Import EffectViewer project zip",
+                Title = Loc.Text("FilePicker.ImportProjectZip"),
                 AllowMultiple = false,
                 FileTypeFilter = [ZipFileType]
             });
@@ -167,7 +168,7 @@ namespace EffectViewer.Views
 
             var files = await topLevel.StorageProvider.OpenFilePickerAsync(new()
             {
-                Title = "Import resource file",
+                Title = Loc.Text("FilePicker.ImportResourceFile"),
                 AllowMultiple = false,
                 FileTypeFilter = [ResourceFileType]
             });
@@ -192,7 +193,7 @@ namespace EffectViewer.Views
             string suggestedName = CreateExportFileName(viewModel.CurrentProject?.Manifest?.Name);
             IStorageFile file = await topLevel.StorageProvider.SaveFilePickerAsync(new()
             {
-                Title = "Export EffectViewer project zip",
+                Title = Loc.Text("FilePicker.ExportProjectZip"),
                 SuggestedFileName = suggestedName,
                 DefaultExtension = "zip",
                 FileTypeChoices = [ZipFileType]
@@ -226,16 +227,16 @@ namespace EffectViewer.Views
             List<FilePickerFileType> fileTypeChoices = exportPatterns.Count == 2
                 ?
                 [
-                    new FilePickerFileType("Source") { Patterns = [exportPatterns[0]] },
-                    new FilePickerFileType("Compiled") { Patterns = [exportPatterns[1]] }
+                    new FilePickerFileType(Loc.Text("FilePicker.Source")) { Patterns = [exportPatterns[0]] },
+                    new FilePickerFileType(Loc.Text("FilePicker.Compiled")) { Patterns = [exportPatterns[1]] }
                 ]
                 :
                 [
-                    new FilePickerFileType("Supported formats") { Patterns = [.. exportPatterns] }
+                    new FilePickerFileType(Loc.Text("FilePicker.SupportedFormats")) { Patterns = [.. exportPatterns] }
                 ];
             IStorageFile file = await topLevel.StorageProvider.SaveFilePickerAsync(new()
             {
-                Title = "Export current file",
+                Title = Loc.Text("FilePicker.ExportCurrentFile"),
                 SuggestedFileName = suggestedName,
                 DefaultExtension = defaultExtension,
                 FileTypeChoices = fileTypeChoices
@@ -248,6 +249,30 @@ namespace EffectViewer.Views
 
             await using Stream stream = await file.OpenWriteAsync();
             await viewModel.ExportSelectedFileAsync(stream, file.Name);
+        }
+
+        private async void LoadLanguageFileMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            TopLevel topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.StorageProvider is null || DataContext is not MainViewModel viewModel)
+            {
+                return;
+            }
+
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new()
+            {
+                Title = Loc.Text("Menu.LoadLanguageFile"),
+                AllowMultiple = false,
+                FileTypeFilter = [LanguageFileType]
+            });
+
+            if (files.Count == 0)
+            {
+                return;
+            }
+
+            await using Stream stream = await files[0].OpenReadAsync();
+            await viewModel.LoadLanguageFileAsync(stream, files[0].Name);
         }
 
         private async Task<IStorageFolder> PickFolderAsync(string title)
@@ -267,13 +292,15 @@ namespace EffectViewer.Views
             return folders.Count > 0 ? folders[0] : null;
         }
 
-        private static FilePickerFileType ZipFileType { get; } = new("Zip archive")
+        private static LocalizationManager Loc => LocalizationManager.Instance;
+
+        private static FilePickerFileType ZipFileType => new(Loc.Text("FilePicker.ZipArchive"))
         {
             Patterns = ["*.zip"],
             MimeTypes = ["application/zip", "application/x-zip-compressed"]
         };
 
-        private static FilePickerFileType ResourceFileType { get; } = new("Effect resources")
+        private static FilePickerFileType ResourceFileType => new(Loc.Text("FilePicker.EffectResources"))
         {
             Patterns =
             [
@@ -292,6 +319,12 @@ namespace EffectViewer.Views
                 "*.trail.compiled",
                 "*.lua"
             ]
+        };
+
+        private static FilePickerFileType LanguageFileType => new(Loc.Text("FilePicker.JsonLanguageFiles"))
+        {
+            Patterns = ["*.json"],
+            MimeTypes = ["application/json", "text/json"]
         };
 
         private static string CreateExportFileName(string projectName)
