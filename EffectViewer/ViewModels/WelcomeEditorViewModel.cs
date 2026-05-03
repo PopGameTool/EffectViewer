@@ -1,16 +1,45 @@
 using EffectViewer.Localization;
 using EffectViewer.Projects;
 using System;
+using System.Collections.Generic;
+using System.Windows.Input;
 
 namespace EffectViewer.ViewModels
 {
     public sealed class WelcomeEditorViewModel : EditorViewModelBase
     {
         public string Description => LocalizationManager.Instance.Text("Welcome.Description");
+        public string CreatePrompt => LocalizationManager.Instance.Text("Welcome.CreatePrompt");
+        public string AuthorTitle => LocalizationManager.Instance.Text("Welcome.AuthorTitle");
+        public IReadOnlyList<string> AuthorNames =>
+        [
+            LocalizationManager.Instance.Text("Welcome.AuthorYingFengTingYu"),
+            LocalizationManager.Instance.Text("Welcome.AuthorGpt")
+        ];
+        public string FeaturesTitle => LocalizationManager.Instance.Text("Welcome.FeaturesTitle");
+        public IReadOnlyList<string> FeatureDescriptions =>
+        [
+            LocalizationManager.Instance.Text("Welcome.FeatureProjectIO"),
+            LocalizationManager.Instance.Text("Welcome.FeatureImages"),
+            LocalizationManager.Instance.Text("Welcome.FeatureReanim"),
+            LocalizationManager.Instance.Text("Welcome.FeatureParticles"),
+            LocalizationManager.Instance.Text("Welcome.FeatureTrails"),
+            LocalizationManager.Instance.Text("Welcome.FeatureShowcases")
+        ];
 
-        public WelcomeEditorViewModel()
+        public ICommand CreateProjectCommand { get; }
+        public ICommand OpenProjectCommand { get; }
+        public ICommand ImportResourceFolderCommand { get; }
+
+        public WelcomeEditorViewModel(
+            ICommand createProjectCommand,
+            ICommand openProjectCommand,
+            ICommand importResourceFolderCommand)
             : base(LocalizationManager.Instance.Text("Welcome.Title"), EffectAssetKind.Project)
         {
+            CreateProjectCommand = createProjectCommand;
+            OpenProjectCommand = openProjectCommand;
+            ImportResourceFolderCommand = importResourceFolderCommand;
             LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
         }
 
@@ -24,6 +53,11 @@ namespace EffectViewer.ViewModels
         {
             Title = LocalizationManager.Instance.Text("Welcome.Title");
             OnPropertyChanged(nameof(Description));
+            OnPropertyChanged(nameof(CreatePrompt));
+            OnPropertyChanged(nameof(AuthorTitle));
+            OnPropertyChanged(nameof(AuthorNames));
+            OnPropertyChanged(nameof(FeaturesTitle));
+            OnPropertyChanged(nameof(FeatureDescriptions));
         }
     }
 }

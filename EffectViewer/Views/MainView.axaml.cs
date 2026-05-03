@@ -29,12 +29,14 @@ namespace EffectViewer.Views
             if (_observedViewModel is not null)
             {
                 _observedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+                _observedViewModel.ImportResourceFolderRequested -= OnImportResourceFolderRequested;
             }
 
             _observedViewModel = DataContext as MainViewModel;
             if (_observedViewModel is not null)
             {
                 _observedViewModel.PropertyChanged += OnViewModelPropertyChanged;
+                _observedViewModel.ImportResourceFolderRequested += OnImportResourceFolderRequested;
             }
 
             UpdateProjectExplorerLayout();
@@ -112,9 +114,19 @@ namespace EffectViewer.Views
 
         private async void ImportFolderMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
+            await ImportResourceFolderFromPickerAsync();
+        }
+
+        private async void OnImportResourceFolderRequested(object sender, System.EventArgs e)
+        {
+            await ImportResourceFolderFromPickerAsync();
+        }
+
+        private async Task ImportResourceFolderFromPickerAsync()
+        {
             try
             {
-                IStorageFolder folder = await PickFolderAsync(Loc.Text("FilePicker.ImportPopCapResourceFolder"));
+                IStorageFolder folder = await PickFolderAsync(Loc.Text("FilePicker.ImportResourceFolder"));
                 if (folder is not null && DataContext is MainViewModel viewModel)
                 {
                     string path = folder.TryGetLocalPath();

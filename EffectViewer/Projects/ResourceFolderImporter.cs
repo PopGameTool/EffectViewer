@@ -12,7 +12,7 @@ using EffectViewer.TodLib.Trail;
 
 namespace EffectViewer.Projects
 {
-    public sealed class PopCapResourceFolderImporter
+    public sealed class ResourceFolderImporter
     {
         private const string ImportOperation = "Importing Resource Folder";
         private const string ImagesDirectory = "assets/images";

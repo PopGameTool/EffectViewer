@@ -137,9 +137,11 @@ namespace EffectViewer.ViewModels
         {
             _projectService = new EffectProjectService(storageProvider);
             Loc.LanguageChanged += OnLanguageChanged;
-            LoadProject(_projectService.CreateDemoProject());
-            StatusText = T("Status.DemoProjectLoaded");
+            ShowWelcomePage();
+            StatusText = T("Status.NoProjectLoaded");
         }
+
+        public event EventHandler ImportResourceFolderRequested;
 
         private static LocalizationManager Loc => LocalizationManager.Instance;
         private static string T(string key) => Loc.Text(key);
@@ -270,19 +272,6 @@ namespace EffectViewer.ViewModels
                     _ => "new_reanim"
                 };
             }
-        }
-
-        [RelayCommand]
-        private async Task LoadDemoProjectAsync()
-        {
-            if (!await ConfirmAllUnsavedChangesAsync())
-            {
-                StatusText = T("Status.CanceledOpeningDemoProject");
-                return;
-            }
-
-            LoadProject(_projectService.CreateDemoProject());
-            StatusText = T("Status.DemoProjectLoaded");
         }
 
         [RelayCommand]
@@ -437,6 +426,12 @@ namespace EffectViewer.ViewModels
             {
                 EndProjectTransfer();
             }
+        }
+
+        [RelayCommand]
+        private void RequestImportResourceFolder()
+        {
+            ImportResourceFolderRequested?.Invoke(this, EventArgs.Empty);
         }
 
         public async Task ImportResourceFileAsync(string sourceFileName, Stream sourceStream)
@@ -780,7 +775,22 @@ namespace EffectViewer.ViewModels
             SelectedProjectItem = null;
             RebuildProjectTree();
             CloseAllEditors();
-            OpenEditorTab(new WelcomeEditorViewModel());
+        }
+
+        private void ShowWelcomePage()
+        {
+            ProjectItems.Clear();
+            SelectedProjectItem = null;
+            CloseAllEditors();
+            OpenEditorTab(CreateWelcomeEditor());
+        }
+
+        private WelcomeEditorViewModel CreateWelcomeEditor()
+        {
+            return new WelcomeEditorViewModel(
+                ShowNewProjectDialogCommand,
+                ShowOpenProjectDialogCommand,
+                RequestImportResourceFolderCommand);
         }
 
         private void RefreshCurrentProject()

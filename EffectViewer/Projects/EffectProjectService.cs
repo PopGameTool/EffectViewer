@@ -114,37 +114,6 @@ namespace EffectViewer.Projects
             return await LoadAsync(projectDirectory);
         }
 
-        public EffectProject CreateDemoProject()
-        {
-            ProjectManifest manifest = new()
-            {
-                Name = "Demo Effect Project",
-                Images =
-                [
-                    new ImageAsset { Id = "fire_sheet", Path = "images/fire.png", Rows = 4, Cols = 8 },
-                    new ImageAsset { Id = "slash_trail", Path = "images/slash.png", Rows = 1, Cols = 1 }
-                ],
-                Reanims =
-                [
-                    new ReanimAsset { Id = "sample_reanim", Path = "reanim/sample.reanim" }
-                ],
-                Particles =
-                [
-                    new EffectAsset { Id = "fire_burst", Path = "particles/fire_burst.particle" }
-                ],
-                Trails =
-                [
-                    new EffectAsset { Id = "sword_slash", Path = "trails/sword_slash.trail" }
-                ],
-                Showcases =
-                [
-                    new ShowcaseAsset { Id = "demo_scene", Path = "scripts/demo.lua" }
-                ]
-            };
-
-            return new EffectProject(string.Empty, manifest);
-        }
-
         public async Task<FolderImportResult> ImportFolderAsync(
             string sourceDirectory,
             IProgress<ProjectTransferProgress> progress = null)
@@ -162,7 +131,7 @@ namespace EffectViewer.Projects
             }
 
             string projectDirectory = CreateUniqueProjectDirectory(source.Name);
-            PopCapResourceFolderImporter importer = new();
+            ResourceFolderImporter importer = new();
             FolderImportResult result = await importer.ImportAsync(source, projectDirectory, progress);
             await SaveAsync(result.Project);
 

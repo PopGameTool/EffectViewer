@@ -30,8 +30,6 @@
                         Command="{Binding ShowNewProjectDialogCommand}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.OpenProject}"
                         Command="{Binding ShowOpenProjectDialogCommand}"/>
-              <MenuItem Header="{DynamicResource Loc.Menu.DemoProject}"
-                        Command="{Binding LoadDemoProjectCommand}"/>
               <Separator/>
               <MenuItem Header="{DynamicResource Loc.Menu.SaveProject}"
                         Command="{Binding SaveProjectCommand}"
