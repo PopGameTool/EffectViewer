@@ -4,6 +4,7 @@
   "strings": {
     "Common": {
       "Add": "添加",
+      "Apply": "应用",
       "Bake": "烘焙",
       "BakeAll": "全部烘焙",
       "Cancel": "取消",
@@ -15,6 +16,7 @@
       "Export": "导出",
       "Keyframe": "关键帧",
       "Open": "打开",
+      "Insert": "插入",
       "Rename": "重命名",
       "Remove": "移除",
       "Reset": "重置",
@@ -158,6 +160,9 @@
       "StartFrame": "起始帧",
       "StartSecond": "起始秒",
       "Structure": "结构",
+      "Template": "模板",
+      "Snippet": "片段",
+      "Resource": "资源",
       "SystemColor": "系统颜色",
       "SystemFields": "系统场",
       "SystemLoops": "系统循环",
@@ -179,6 +184,7 @@
       "EmitterName": "发射器名称",
       "FontID": "字体 ID",
       "ImageResourceID": "图像资源 ID",
+      "ShowcaseScript": "在这里编写 Lua 展示脚本",
       "Text": "文本",
       "TrackName": "轨道名称"
     },

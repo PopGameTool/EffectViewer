@@ -17,6 +17,7 @@
 
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml"/>
         <Style Selector="TextBlock">
             <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         </Style>

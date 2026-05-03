@@ -4,6 +4,7 @@
   "strings": {
     "Common": {
       "Add": "Add",
+      "Apply": "Apply",
       "Bake": "Bake",
       "BakeAll": "Bake All",
       "Cancel": "Cancel",
@@ -15,6 +16,7 @@
       "Export": "Export",
       "Keyframe": "Keyframe",
       "Open": "Open",
+      "Insert": "Insert",
       "Rename": "Rename",
       "Remove": "Remove",
       "Reset": "Reset",
@@ -158,6 +160,9 @@
       "StartFrame": "Start Frame",
       "StartSecond": "Start Second",
       "Structure": "Structure",
+      "Template": "Template",
+      "Snippet": "Snippet",
+      "Resource": "Resource",
       "SystemColor": "System Color",
       "SystemFields": "System Fields",
       "SystemLoops": "SystemLoops",
@@ -179,6 +184,7 @@
       "EmitterName": "Emitter name",
       "FontID": "Font ID",
       "ImageResourceID": "Image resource ID",
+      "ShowcaseScript": "Write Lua showcase script here",
       "Text": "Text",
       "TrackName": "Track name"
     },
