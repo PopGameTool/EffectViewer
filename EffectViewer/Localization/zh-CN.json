@@ -39,6 +39,7 @@
       "DockScriptPanelLeft": "脚本面板停靠左侧(_L)",
       "DockScriptPanelRight": "脚本面板停靠右侧(_R)",
       "Document": "文档(_D)",
+      "Edit": "编辑(_E)",
       "CloseAllTabs": "关闭全部标签页(_A)",
       "CloseCurrentTab": "关闭当前标签页(_C)",
       "CloseOtherTabs": "关闭其他标签页(_O)",
@@ -59,6 +60,7 @@
       "NewProject": "新建项目(_N)...",
       "NewResource": "新建资源(_N)...",
       "RecentlyOpened": "最近打开(_R)",
+      "Redo": "重做(_R)",
       "DeleteResource": "删除资源(_D)...",
       "NextTab": "下一个标签页(_N)",
       "OpenProject": "打开项目(_O)...",
@@ -76,6 +78,7 @@
       "SaveProject": "保存项目(_P)",
       "ScriptPanel": "脚本面板(_S)",
       "TogglePinTab": "固定/取消固定标签页(_P)",
+      "Undo": "撤销(_U)",
       "View": "视图(_V)"
     },
     "Label": {

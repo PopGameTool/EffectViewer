@@ -39,6 +39,7 @@
       "DockScriptPanelLeft": "Dock Script Panel _Left",
       "DockScriptPanelRight": "Dock Script Panel _Right",
       "Document": "_Document",
+      "Edit": "_Edit",
       "CloseAllTabs": "Close _All Tabs",
       "CloseCurrentTab": "_Close Current Tab",
       "CloseOtherTabs": "Close _Other Tabs",
@@ -59,6 +60,7 @@
       "NewProject": "_New Project...",
       "NewResource": "_New Resource...",
       "RecentlyOpened": "_Recent",
+      "Redo": "_Redo",
       "DeleteResource": "_Delete Resource...",
       "NextTab": "_Next Tab",
       "OpenProject": "_Open Project...",
@@ -76,6 +78,7 @@
       "SaveProject": "Save _Project",
       "ScriptPanel": "_Script Panel",
       "TogglePinTab": "_Pin / Unpin Tab",
+      "Undo": "_Undo",
       "View": "_View"
     },
     "Label": {

@@ -235,6 +235,8 @@ namespace EffectViewer.ViewModels
         public bool CanMoveSelectedEditorRight => CanMoveEditorRight(SelectedEditor);
         public bool CanSaveAnyEditor => CanSaveCurrentProject && OpenEditors.Any(editor => editor.IsDirty && editor.SupportsSave);
         public bool CanCloseSavedEditors => OpenEditors.Any(editor => editor.CanClose && !editor.IsDirty);
+        public bool CanUndoSelectedEditor => SelectedEditor?.CanUndo == true;
+        public bool CanRedoSelectedEditor => SelectedEditor?.CanRedo == true;
         public bool HasProjectTreeSearchText => !string.IsNullOrWhiteSpace(ProjectTreeSearchText);
         public bool HasVisibleProjectTreeItems => ProjectItems.Count > 0;
         public bool HasNoVisibleProjectTreeItems => !HasVisibleProjectTreeItems;
@@ -566,6 +568,26 @@ namespace EffectViewer.ViewModels
             }
 
             await SaveEditorAsync(SelectedEditor);
+        }
+
+        [RelayCommand(CanExecute = nameof(CanUndoSelectedEditor))]
+        private void UndoSelectedEditor()
+        {
+            if (SelectedEditor is { CanUndo: true } editor)
+            {
+                editor.Undo();
+                NotifySelectedEditorUndoRedoProperties();
+            }
+        }
+
+        [RelayCommand(CanExecute = nameof(CanRedoSelectedEditor))]
+        private void RedoSelectedEditor()
+        {
+            if (SelectedEditor is { CanRedo: true } editor)
+            {
+                editor.Redo();
+                NotifySelectedEditorUndoRedoProperties();
+            }
         }
 
         public async Task ImportResourceFolderAsync(string sourceDirectory)
@@ -2351,6 +2373,12 @@ namespace EffectViewer.ViewModels
                 NotifyOpenEditorProperties();
             }
             else if (ReferenceEquals(editor, SelectedEditor) &&
+                e.PropertyName is nameof(EditorViewModelBase.CanUndo)
+                    or nameof(EditorViewModelBase.CanRedo))
+            {
+                NotifySelectedEditorUndoRedoProperties();
+            }
+            else if (ReferenceEquals(editor, SelectedEditor) &&
                 editor is EffectEditorViewModel &&
                 e.PropertyName is nameof(EffectEditorViewModel.ReanimTimelineRevision)
                     or nameof(EffectEditorViewModel.SelectedReanimLayer)
@@ -2398,6 +2426,15 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(CanSaveAnyEditor));
             OnPropertyChanged(nameof(CanCloseSavedEditors));
             OnPropertyChanged(nameof(CanExportSelectedPreview));
+            NotifySelectedEditorUndoRedoProperties();
+        }
+
+        private void NotifySelectedEditorUndoRedoProperties()
+        {
+            OnPropertyChanged(nameof(CanUndoSelectedEditor));
+            OnPropertyChanged(nameof(CanRedoSelectedEditor));
+            UndoSelectedEditorCommand.NotifyCanExecuteChanged();
+            RedoSelectedEditorCommand.NotifyCanExecuteChanged();
         }
 
         private void UpdateProjectExplorerItemIdentity(

@@ -96,6 +96,8 @@ namespace EffectViewer.ViewModels
         public virtual bool SupportsFileExport => false;
         public virtual string ExportPath => string.Empty;
         public virtual int PreviewExportDefaultFps => 30;
+        public virtual bool CanUndo => false;
+        public virtual bool CanRedo => false;
 
         public bool IsSidePanelOnLeft
         {
@@ -211,6 +213,14 @@ namespace EffectViewer.ViewModels
         public virtual void DiscardChanges()
         {
             MarkClean();
+        }
+
+        public virtual void Undo()
+        {
+        }
+
+        public virtual void Redo()
+        {
         }
 
         public virtual void Dispose()

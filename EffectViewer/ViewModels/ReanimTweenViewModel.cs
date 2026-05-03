@@ -9,6 +9,7 @@ namespace EffectViewer.ViewModels
     public sealed class ReanimTweenViewModel : ViewModelBase
     {
         private readonly Func<int, string> _trackNameResolver;
+        private readonly Action<ReanimTweenViewModel> _changing;
         private readonly Action<ReanimTweenViewModel> _changed;
         private string _trackNumberText;
         private string _startFrameNumberText;
@@ -93,6 +94,7 @@ namespace EffectViewer.ViewModels
             int trackCount,
             int frameCount,
             Func<int, string> trackNameResolver,
+            Action<ReanimTweenViewModel> changing,
             Action<ReanimTweenViewModel> changed)
         {
             Index = index;
@@ -100,6 +102,7 @@ namespace EffectViewer.ViewModels
             TrackCount = Math.Max(1, trackCount);
             FrameCount = Math.Max(3, frameCount);
             _trackNameResolver = trackNameResolver;
+            _changing = changing;
             _changed = changed;
             NormalizeModel();
             RestoreAllNumberText();
@@ -124,6 +127,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RaiseChanging();
             Model.TrackIndex = trackIndex;
             Model.TrackName = TrackName;
             OnPropertyChanged(nameof(TrackNumber));
@@ -141,6 +145,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RaiseChanging();
             Model.StartFrame = startFrame;
             if (Model.EndFrame <= Model.StartFrame + 1)
             {
@@ -161,6 +166,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RaiseChanging();
             Model.EndFrame = endFrame;
             RaiseFramePropertiesChanged();
             RestoreNumberText(nameof(EndFrameNumber));
@@ -175,6 +181,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RaiseChanging();
             Model.AnchorX = normalized;
             RaiseAnchorPropertiesChanged();
             RestoreNumberText(nameof(AnchorX));
@@ -189,6 +196,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RaiseChanging();
             Model.AnchorY = normalized;
             RaiseAnchorPropertiesChanged();
             RestoreNumberText(nameof(AnchorY));
@@ -272,6 +280,11 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(DisplayName));
             OnPropertyChanged(nameof(Detail));
             OnPropertyChanged(nameof(TrackName));
+        }
+
+        private void RaiseChanging()
+        {
+            _changing?.Invoke(this);
         }
 
         private void RaiseChanged()

@@ -105,6 +105,12 @@
                   Command="{Binding SelectPreviousEditorCommand}"/>
       <KeyBinding Gesture="Ctrl+Shift+S"
                   Command="{Binding SaveAllEditorsCommand}"/>
+      <KeyBinding Gesture="Ctrl+Z"
+                  Command="{Binding UndoSelectedEditorCommand}"/>
+      <KeyBinding Gesture="Ctrl+Y"
+                  Command="{Binding RedoSelectedEditorCommand}"/>
+      <KeyBinding Gesture="Ctrl+Shift+Z"
+                  Command="{Binding RedoSelectedEditorCommand}"/>
     </UserControl.KeyBindings>
 
     <Grid>
@@ -144,6 +150,14 @@
                         IsEnabled="{Binding CanModifyCurrentProject}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.ImportResourceFolder}"
                         Click="ImportFolderMenuItem_Click"/>
+            </MenuItem>
+            <MenuItem Header="{DynamicResource Loc.Menu.Edit}">
+              <MenuItem Header="{DynamicResource Loc.Menu.Undo}"
+                        Command="{Binding UndoSelectedEditorCommand}"
+                        IsEnabled="{Binding CanUndoSelectedEditor}"/>
+              <MenuItem Header="{DynamicResource Loc.Menu.Redo}"
+                        Command="{Binding RedoSelectedEditorCommand}"
+                        IsEnabled="{Binding CanRedoSelectedEditor}"/>
             </MenuItem>
             <MenuItem x:Name="RecentlyOpenedMenuItem"
                       Header="{DynamicResource Loc.Menu.RecentlyOpened}"

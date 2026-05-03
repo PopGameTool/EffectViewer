@@ -27,6 +27,7 @@ namespace EffectViewer.ViewModels
         private readonly ReanimPreviewSimulation _reanimPreview;
         private readonly ReanimAsset _reanimAsset;
         private readonly Dictionary<string, Image> _imageSizeCache = new(StringComparer.OrdinalIgnoreCase);
+        private const int MaxUndoHistoryCount = 100;
         private ReanimatorDefinition _reanimDefinition;
         private ReanimatorDefinition _savedReanimDefinition;
         private List<ReanimTween> _savedReanimTweens = [];
@@ -75,6 +76,12 @@ namespace EffectViewer.ViewModels
         private Vector2 _viewportDragStartWorld;
         private ReanimatorTransform _viewportDragStartTransform;
         private Vector2 _viewportDragStartSize;
+        private readonly List<EffectEditorHistorySnapshot> _undoStack = [];
+        private readonly List<EffectEditorHistorySnapshot> _redoStack = [];
+        private EffectEditorHistorySnapshot _undoBatchSnapshot;
+        private bool _undoBatchRecorded;
+        private bool _isRestoringHistory;
+        private bool _suppressUndoRecording;
 
         [ObservableProperty]
         private string _assetId;
@@ -94,6 +101,8 @@ namespace EffectViewer.ViewModels
         public ObservableCollection<ReanimTweenViewModel> ReanimTweens { get; } = [];
         public int ReanimTimelineRevision => _reanimTimelineRevision;
         public ObservableCollection<ParticleEmitterViewModel> ParticleEmitters { get; } = [];
+        public override bool CanUndo => _undoStack.Count > 0;
+        public override bool CanRedo => _redoStack.Count > 0;
         public bool IsReanimEditor => Kind == EffectAssetKind.Reanim;
         public bool IsParticleEditor => Kind == EffectAssetKind.Particle;
         public bool IsTrailEditor => Kind == EffectAssetKind.Trail;
@@ -603,6 +612,11 @@ namespace EffectViewer.ViewModels
 
         partial void OnAssetIdChanged(string value)
         {
+            if (_isRestoringHistory)
+            {
+                return;
+            }
+
             string normalizedId = NormalizeEditedAssetId(value);
             if (string.IsNullOrWhiteSpace(normalizedId))
             {
@@ -628,6 +642,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RecordUndoSnapshot();
             asset.Id = uniqueId;
             Title = uniqueId;
             DocumentId = CreateDocumentId(Kind, uniqueId);
@@ -701,6 +716,266 @@ namespace EffectViewer.ViewModels
             }
         }
 
+        public override void Undo()
+        {
+            if (!CanUndo)
+            {
+                return;
+            }
+
+            EndUndoBatch();
+            EffectEditorHistorySnapshot current = CreateHistorySnapshot();
+            EffectEditorHistorySnapshot previous = PopHistorySnapshot(_undoStack);
+            if (current is not null)
+            {
+                PushHistorySnapshot(_redoStack, current);
+            }
+
+            RestoreHistorySnapshot(previous);
+            MarkDirty();
+            RaiseUndoRedoStateChanged();
+        }
+
+        public override void Redo()
+        {
+            if (!CanRedo)
+            {
+                return;
+            }
+
+            EndUndoBatch();
+            EffectEditorHistorySnapshot current = CreateHistorySnapshot();
+            EffectEditorHistorySnapshot next = PopHistorySnapshot(_redoStack);
+            if (current is not null)
+            {
+                PushHistorySnapshot(_undoStack, current);
+            }
+
+            RestoreHistorySnapshot(next);
+            MarkDirty();
+            RaiseUndoRedoStateChanged();
+        }
+
+        private void RecordUndoSnapshot(EffectEditorHistorySnapshot snapshot = null)
+        {
+            if (_isRestoringHistory || _suppressUndoRecording)
+            {
+                return;
+            }
+
+            if (_undoBatchSnapshot is not null)
+            {
+                if (_undoBatchRecorded)
+                {
+                    return;
+                }
+
+                snapshot = _undoBatchSnapshot;
+                _undoBatchRecorded = true;
+            }
+            else
+            {
+                snapshot ??= CreateHistorySnapshot();
+            }
+
+            if (snapshot is null)
+            {
+                return;
+            }
+
+            PushHistorySnapshot(_undoStack, snapshot);
+            _redoStack.Clear();
+            RaiseUndoRedoStateChanged();
+        }
+
+        private void BeginUndoBatch()
+        {
+            if (_isRestoringHistory || _undoBatchSnapshot is not null)
+            {
+                return;
+            }
+
+            _undoBatchSnapshot = CreateHistorySnapshot();
+            _undoBatchRecorded = false;
+        }
+
+        private void EndUndoBatch()
+        {
+            _undoBatchSnapshot = null;
+            _undoBatchRecorded = false;
+        }
+
+        private void ClearUndoRedoHistory()
+        {
+            EndUndoBatch();
+            _undoStack.Clear();
+            _redoStack.Clear();
+            RaiseUndoRedoStateChanged();
+        }
+
+        private void RaiseUndoRedoStateChanged()
+        {
+            OnPropertyChanged(nameof(CanUndo));
+            OnPropertyChanged(nameof(CanRedo));
+        }
+
+        private EffectEditorHistorySnapshot CreateHistorySnapshot()
+        {
+            return Kind switch
+            {
+                EffectAssetKind.Reanim when _reanimDefinition is not null => new EffectEditorHistorySnapshot
+                {
+                    Kind = EffectAssetKind.Reanim,
+                    AssetId = GetCurrentAssetId(),
+                    ReanimDefinition = CloneReanimDefinition(_reanimDefinition),
+                    ReanimTweens = CloneReanimTweens(_reanimAsset?.Tweens),
+                    SelectedReanimTrackIndex = SelectedReanimTrack?.Index ?? 0,
+                    SelectedReanimFrameIndex = SelectedReanimFrameIndex
+                },
+                EffectAssetKind.Particle when _particleDefinition is not null => new EffectEditorHistorySnapshot
+                {
+                    Kind = EffectAssetKind.Particle,
+                    AssetId = GetCurrentAssetId(),
+                    ParticleDefinition = ParticleDefinitionUtility.Clone(_particleDefinition),
+                    SelectedParticleEmitterIndex = SelectedParticleEmitter?.Index ?? 0
+                },
+                EffectAssetKind.Trail when _trailDefinition is not null => new EffectEditorHistorySnapshot
+                {
+                    Kind = EffectAssetKind.Trail,
+                    AssetId = GetCurrentAssetId(),
+                    TrailDefinition = CloneTrailDefinition(_trailDefinition)
+                },
+                _ => null
+            };
+        }
+
+        private void RestoreHistorySnapshot(EffectEditorHistorySnapshot snapshot)
+        {
+            if (snapshot is null)
+            {
+                return;
+            }
+
+            try
+            {
+                _isRestoringHistory = true;
+                RestoreHistoryAssetId(snapshot.AssetId);
+                switch (snapshot.Kind)
+                {
+                    case EffectAssetKind.Reanim:
+                        RestoreReanimHistorySnapshot(snapshot);
+                        break;
+                    case EffectAssetKind.Particle:
+                        RestoreParticleHistorySnapshot(snapshot);
+                        break;
+                    case EffectAssetKind.Trail:
+                        RestoreTrailHistorySnapshot(snapshot);
+                        break;
+                }
+            }
+            finally
+            {
+                _isRestoringHistory = false;
+            }
+        }
+
+        private string GetCurrentAssetId()
+        {
+            return GetManifestAsset()?.Id ?? AssetId;
+        }
+
+        private void RestoreHistoryAssetId(string assetId)
+        {
+            string normalizedId = string.IsNullOrWhiteSpace(assetId)
+                ? _savedAssetId
+                : assetId;
+            EffectAsset asset = GetManifestAsset();
+            if (asset is not null)
+            {
+                asset.Id = normalizedId;
+            }
+
+            AssetId = normalizedId;
+            Title = normalizedId;
+            DocumentId = CreateDocumentId(Kind, normalizedId);
+            _project?.RebuildAssetIndex();
+            RefreshPreviewForAssetId();
+            OnPropertyChanged(nameof(AssetId));
+        }
+
+        private void RestoreReanimHistorySnapshot(EffectEditorHistorySnapshot snapshot)
+        {
+            _reanimDefinition = CloneReanimDefinition(snapshot.ReanimDefinition) ?? CreateEmptyReanimDefinition();
+            NormalizeReanimDefinition(_reanimDefinition);
+            if (_reanimAsset is not null)
+            {
+                _reanimAsset.Tweens = CloneReanimTweens(snapshot.ReanimTweens);
+                NormalizeReanimTweenMetadata();
+            }
+
+            RebuildReanimTweenViewModels();
+            _suppressReanimPropertyChanges = true;
+            ReanimFps = _reanimDefinition.mFPS <= 0f ? 12d : _reanimDefinition.mFPS;
+            _suppressReanimPropertyChanges = false;
+            RebuildReanimViewModels(snapshot.SelectedReanimTrackIndex, snapshot.SelectedReanimFrameIndex);
+            ApplyReanimPreviewState();
+            RaiseReanimTweenPropertiesChanged();
+        }
+
+        private void RestoreParticleHistorySnapshot(EffectEditorHistorySnapshot snapshot)
+        {
+            LoadParticleDefinition(ParticleDefinitionUtility.Clone(snapshot.ParticleDefinition), markDirty: false);
+            if (ParticleEmitters.Count > 0)
+            {
+                SelectedParticleEmitter = ParticleEmitters[
+                    System.Math.Clamp(snapshot.SelectedParticleEmitterIndex, 0, ParticleEmitters.Count - 1)];
+            }
+        }
+
+        private void RestoreTrailHistorySnapshot(EffectEditorHistorySnapshot snapshot)
+        {
+            _trailDefinition = CloneTrailDefinition(snapshot.TrailDefinition) ?? new TrailDefinition();
+            SetTrailProperties(
+                _trailDefinition.mImage ?? string.Empty,
+                _trailDefinition.mMaxPoints,
+                _trailDefinition.mMinPointDistance,
+                IsTrailFlagSet(_trailDefinition, TrailFlags.Loops),
+                _trailDefinition.mWidthOverLength,
+                _trailDefinition.mAlphaOverLength,
+                _trailDefinition.mWidthOverTime,
+                _trailDefinition.mAlphaOverTime,
+                _trailDefinition.mTrailDuration,
+                markDirty: false);
+            RefreshTrailPreview();
+        }
+
+        private static void PushHistorySnapshot(List<EffectEditorHistorySnapshot> stack, EffectEditorHistorySnapshot snapshot)
+        {
+            if (snapshot is null)
+            {
+                return;
+            }
+
+            stack.Add(snapshot);
+            if (stack.Count > MaxUndoHistoryCount)
+            {
+                stack.RemoveAt(0);
+            }
+        }
+
+        private static EffectEditorHistorySnapshot PopHistorySnapshot(List<EffectEditorHistorySnapshot> stack)
+        {
+            if (stack.Count == 0)
+            {
+                return null;
+            }
+
+            int index = stack.Count - 1;
+            EffectEditorHistorySnapshot snapshot = stack[index];
+            stack.RemoveAt(index);
+            return snapshot;
+        }
+
         [RelayCommand]
         private void AddReanimTrack()
         {
@@ -709,6 +984,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RecordUndoSnapshot();
             ReanimatorTrack[] tracks = _reanimDefinition.mTracks ?? [];
             int frameCount = System.Math.Max(1, ReanimFrameCount);
             System.Array.Resize(ref tracks, tracks.Length + 1);
@@ -724,7 +1000,7 @@ namespace EffectViewer.ViewModels
             NormalizeReanimTweenMetadata();
             RebuildReanimTweenViewModels();
             RebuildReanimViewModels(tracks.Length - 1, SelectedReanimFrameIndex);
-            ApplyReanimPropertyChanges();
+            ApplyReanimPropertyChanges(recordUndo: false);
         }
 
         [RelayCommand]
@@ -745,6 +1021,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RecordUndoSnapshot();
             ReanimatorTrack[] tracks = new ReanimatorTrack[count - 1];
             int target = 0;
             for (int i = 0; i < count; i++)
@@ -762,7 +1039,7 @@ namespace EffectViewer.ViewModels
             NormalizeReanimTweenMetadata();
             RebuildReanimTweenViewModels();
             RebuildReanimViewModels(System.Math.Min(removeIndex, tracks.Length - 1), SelectedReanimFrameIndex);
-            ApplyReanimPropertyChanges();
+            ApplyReanimPropertyChanges(recordUndo: false);
         }
 
         [RelayCommand]
@@ -775,6 +1052,7 @@ namespace EffectViewer.ViewModels
 
             int insertIndex = System.Math.Clamp(SelectedReanimFrameIndex + 1, 0, ReanimFrameCount);
             int count = System.Math.Min(_reanimDefinition.mTrackCount, _reanimDefinition.mTracks.Length);
+            RecordUndoSnapshot();
             for (int i = 0; i < count; i++)
             {
                 InsertTransform(_reanimDefinition.mTracks[i], insertIndex, CreateDefaultReanimTransform(false));
@@ -786,7 +1064,7 @@ namespace EffectViewer.ViewModels
             ApplyAllReanimTweens();
             RebuildReanimTweenViewModels();
             RebuildReanimViewModels(SelectedReanimTrack?.Index ?? 0, insertIndex);
-            ApplyReanimPropertyChanges();
+            ApplyReanimPropertyChanges(recordUndo: false);
         }
 
         [RelayCommand]
@@ -801,6 +1079,7 @@ namespace EffectViewer.ViewModels
 
             int removeIndex = System.Math.Clamp(SelectedReanimFrameIndex, 0, ReanimFrameCount - 1);
             int count = System.Math.Min(_reanimDefinition.mTrackCount, _reanimDefinition.mTracks.Length);
+            RecordUndoSnapshot();
             for (int i = 0; i < count; i++)
             {
                 RemoveTransform(_reanimDefinition.mTracks[i], removeIndex);
@@ -812,7 +1091,7 @@ namespace EffectViewer.ViewModels
             ApplyAllReanimTweens();
             RebuildReanimTweenViewModels();
             RebuildReanimViewModels(SelectedReanimTrack?.Index ?? 0, System.Math.Min(removeIndex, ReanimFrameCount - 1));
-            ApplyReanimPropertyChanges();
+            ApplyReanimPropertyChanges(recordUndo: false);
         }
 
         [RelayCommand]
@@ -823,6 +1102,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RecordUndoSnapshot();
             _reanimAsset.Tweens = InferReanimTweens(_reanimDefinition, ResolveTransformPointScale);
             NormalizeReanimTweenMetadata();
             RebuildReanimTweenViewModels();
@@ -852,6 +1132,7 @@ namespace EffectViewer.ViewModels
                 Properties = ReanimTween.CreateTweenedProperties()
             };
 
+            RecordUndoSnapshot();
             _reanimAsset.Tweens.Add(tween);
             NormalizeReanimTweenMetadata();
             if (_reanimAsset.Tweens.Contains(tween))
@@ -862,7 +1143,7 @@ namespace EffectViewer.ViewModels
             RebuildReanimTweenViewModels();
             RefreshReanimTimelineCells();
             RaiseReanimTweenPropertiesChanged();
-            ApplyReanimPropertyChanges();
+            ApplyReanimPropertyChanges(recordUndo: false);
         }
 
         [RelayCommand]
@@ -873,6 +1154,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RecordUndoSnapshot();
             if (!_reanimAsset.Tweens.Remove(SelectedReanimTween.Model))
             {
                 return;
@@ -881,7 +1163,7 @@ namespace EffectViewer.ViewModels
             RebuildReanimTweenViewModels();
             RefreshReanimTimelineCells();
             RaiseReanimTweenPropertiesChanged();
-            ApplyReanimPropertyChanges();
+            ApplyReanimPropertyChanges(recordUndo: false);
         }
 
         [RelayCommand]
@@ -903,6 +1185,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RecordUndoSnapshot();
             List<ReanimTween> tweens = CloneReanimTweens(_reanimAsset.Tweens);
             foreach (ReanimTween tween in tweens)
             {
@@ -913,7 +1196,7 @@ namespace EffectViewer.ViewModels
             RebuildReanimTweenViewModels();
             RefreshReanimTimelineCells();
             RaiseReanimTweenPropertiesChanged();
-            ApplyReanimPropertyChanges();
+            ApplyReanimPropertyChanges(recordUndo: false);
         }
 
         [RelayCommand]
@@ -936,9 +1219,10 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RecordUndoSnapshot();
             foreach (ReanimTween tween in containingTweens)
             {
-                BakeReanimTween(tween, removeTween: true, refresh: false, markDirty: false);
+                BakeReanimTween(tween, removeTween: true, refresh: false, markDirty: false, recordUndo: false);
                 AddSplitReanimTween(tween, tween.StartFrame, frameIndex);
                 AddSplitReanimTween(tween, frameIndex, tween.EndFrame);
             }
@@ -948,7 +1232,7 @@ namespace EffectViewer.ViewModels
             RebuildReanimTweenViewModels();
             RefreshReanimTimelineCells();
             RaiseReanimTweenPropertiesChanged();
-            ApplyReanimPropertyChanges();
+            ApplyReanimPropertyChanges(recordUndo: false);
         }
 
         [RelayCommand]
@@ -976,6 +1260,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RecordUndoSnapshot();
             TodEmitterDefinition[] emitters = _particleDefinition.mEmitterDefs ?? [];
             int index = _particleDefinition.mEmitterDefCount;
             System.Array.Resize(ref emitters, index + 1);
@@ -983,7 +1268,7 @@ namespace EffectViewer.ViewModels
             _particleDefinition.mEmitterDefs = emitters;
             _particleDefinition.mEmitterDefCount = emitters.Length;
             RebuildParticleEmitterViewModels(index);
-            ApplyParticlePropertyChanges();
+            ApplyParticlePropertyChanges(recordUndo: false);
         }
 
         [RelayCommand]
@@ -1008,6 +1293,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RecordUndoSnapshot();
             TodEmitterDefinition[] emitters = new TodEmitterDefinition[count - 1];
             int targetIndex = 0;
             for (int i = 0; i < count; i++)
@@ -1023,7 +1309,7 @@ namespace EffectViewer.ViewModels
             _particleDefinition.mEmitterDefs = emitters;
             _particleDefinition.mEmitterDefCount = emitters.Length;
             RebuildParticleEmitterViewModels(System.Math.Min(removeIndex, emitters.Length - 1));
-            ApplyParticlePropertyChanges();
+            ApplyParticlePropertyChanges(recordUndo: false);
         }
 
         private void InitializeReanimControls()
@@ -1061,11 +1347,12 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            RecordUndoSnapshot();
             _reanimDefinition.mTracks[track.Index].mName = track.Name ?? string.Empty;
             UpdateReanimTweenTrackName(track.Index, track.Name);
             RefreshReanimTweenTrackNames();
             RefreshReanimLayers();
-            ApplyReanimPropertyChanges();
+            ApplyReanimPropertyChanges(recordUndo: false);
         }
 
         private void OnTrailTrackChanged(FloatParameterTrackViewModel track)
@@ -1247,6 +1534,7 @@ namespace EffectViewer.ViewModels
                 LoadParticleDefinition(ParticleDefinitionUtility.Clone(_savedParticleDefinition), markDirty: false);
             }
 
+            ClearUndoRedoHistory();
             base.DiscardChanges();
         }
 
@@ -1579,6 +1867,7 @@ namespace EffectViewer.ViewModels
                 NormalizeVisibleTransform(ref transform);
             }
 
+            RecordUndoSnapshot();
             transform.mImage = string.IsNullOrWhiteSpace(SelectedReanimImageId) ? null : SelectedReanimImageId.Trim();
             transform.mFont = string.IsNullOrWhiteSpace(SelectedReanimFontId) ? null : SelectedReanimFontId.Trim();
             transform.mText = SelectedReanimText ?? string.Empty;
@@ -1588,7 +1877,7 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(CanTransformSelectedReanimFrame));
             OnPropertyChanged(nameof(CanDrag));
             OnPropertyChanged(nameof(TransformBox));
-            ApplyReanimPropertyChanges();
+            ApplyReanimPropertyChanges(recordUndo: false);
         }
 
         private void SetSelectedReanimFrameResourceProperties(
@@ -1605,11 +1894,16 @@ namespace EffectViewer.ViewModels
             _suppressReanimPropertyChanges = false;
         }
 
-        private void ApplyReanimPropertyChanges(bool markDirty = true)
+        private void ApplyReanimPropertyChanges(bool markDirty = true, bool recordUndo = true)
         {
             if (_reanimDefinition is null || _suppressReanimPropertyChanges)
             {
                 return;
+            }
+
+            if (markDirty && recordUndo)
+            {
+                RecordUndoSnapshot();
             }
 
             _reanimDefinition.mFPS = (float)ReanimFps;
@@ -1659,6 +1953,7 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
+            BeginUndoBatch();
             _viewportDragStartSize = ResolveTransformPointScale(_viewportDragStartTransform);
             if (_viewportDragStartSize.X <= 0f || !float.IsFinite(_viewportDragStartSize.X))
             {
@@ -1683,6 +1978,7 @@ namespace EffectViewer.ViewModels
 
             ReanimatorTransform transform = _viewportDragStartTransform;
             Vector2 worldDelta = worldPosition - _viewportDragStartWorld;
+            RecordUndoSnapshot();
             switch (_activeViewportDragHandle)
             {
                 case ViewportDragHandle.Move:
@@ -1712,12 +2008,13 @@ namespace EffectViewer.ViewModels
             RefreshReanimTimelineCells();
             LoadTransformDialog();
             OnPropertyChanged(nameof(TransformBox));
-            ApplyReanimPropertyChanges();
+            ApplyReanimPropertyChanges(recordUndo: false);
         }
 
         public void EndDrag()
         {
             _activeViewportDragHandle = ViewportDragHandle.None;
+            EndUndoBatch();
         }
 
         private void ApplyScaleDrag(ref ReanimatorTransform transform, Vector2 worldPosition)
@@ -1812,7 +2109,20 @@ namespace EffectViewer.ViewModels
 
             if (SelectedReanimTrack is not null && SelectedReanimTrack.Name != ReanimTransformDialog.TrackName)
             {
-                SelectedReanimTrack.Name = ReanimTransformDialog.TrackName;
+                RecordUndoSnapshot();
+                try
+                {
+                    _suppressUndoRecording = true;
+                    SelectedReanimTrack.Name = ReanimTransformDialog.TrackName;
+                }
+                finally
+                {
+                    _suppressUndoRecording = false;
+                }
+            }
+            else
+            {
+                RecordUndoSnapshot();
             }
 
             if (ReanimTransformDialog.Frame >= 0d)
@@ -1846,7 +2156,7 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(CanTransformSelectedReanimFrame));
             OnPropertyChanged(nameof(CanDrag));
             OnPropertyChanged(nameof(TransformBox));
-            ApplyReanimPropertyChanges();
+            ApplyReanimPropertyChanges(recordUndo: false);
         }
 
         private void CloseReanimTransformDialog()
@@ -1963,6 +2273,7 @@ namespace EffectViewer.ViewModels
                             trackCount,
                             frameCount,
                             GetReanimTrackName,
+                            OnReanimTweenChanging,
                             OnReanimTweenChanged));
                     }
                 }
@@ -1976,6 +2287,11 @@ namespace EffectViewer.ViewModels
 
             OnPropertyChanged(nameof(ReanimTweens));
             RaiseReanimTweenPropertiesChanged();
+        }
+
+        private void OnReanimTweenChanging(ReanimTweenViewModel tween)
+        {
+            RecordUndoSnapshot();
         }
 
         private void RefreshReanimTweenTrackNames()
@@ -2028,7 +2344,7 @@ namespace EffectViewer.ViewModels
 
             RefreshReanimTimelineCells();
             RaiseReanimTweenPropertiesChanged();
-            ApplyReanimPropertyChanges();
+            ApplyReanimPropertyChanges(recordUndo: false);
         }
 
         private void RaiseReanimTweenPropertiesChanged()
@@ -2338,11 +2654,17 @@ namespace EffectViewer.ViewModels
             ReanimTween tween,
             bool removeTween,
             bool refresh = true,
-            bool markDirty = true)
+            bool markDirty = true,
+            bool recordUndo = true)
         {
             if (tween is null)
             {
                 return;
+            }
+
+            if (markDirty && recordUndo)
+            {
+                RecordUndoSnapshot();
             }
 
             ApplyReanimTween(tween);
@@ -2360,7 +2682,7 @@ namespace EffectViewer.ViewModels
             RebuildReanimTweenViewModels();
             RefreshReanimTimelineCells();
             RaiseReanimTweenPropertiesChanged();
-            ApplyReanimPropertyChanges(markDirty);
+            ApplyReanimPropertyChanges(markDirty, recordUndo: false);
         }
 
         private void AddSplitReanimTween(ReanimTween source, int startFrame, int endFrame)
@@ -3194,11 +3516,16 @@ namespace EffectViewer.ViewModels
             ApplyTrailPropertyChanges(markDirty);
         }
 
-        private void ApplyTrailPropertyChanges(bool markDirty = true)
+        private void ApplyTrailPropertyChanges(bool markDirty = true, bool recordUndo = true)
         {
             if (_trailDefinition is null || _suppressTrailPropertyChanges)
             {
                 return;
+            }
+
+            if (markDirty && recordUndo)
+            {
+                RecordUndoSnapshot();
             }
 
             _trailDefinition.mImage = string.IsNullOrWhiteSpace(TrailImageId) ? null : TrailImageId.Trim();
@@ -3240,11 +3567,16 @@ namespace EffectViewer.ViewModels
             PreviewFrame = TrailPreviewFrameBuilder.Build(_trailDefinition, AssetId);
         }
 
-        private void ApplyParticlePropertyChanges(bool markDirty = true)
+        private void ApplyParticlePropertyChanges(bool markDirty = true, bool recordUndo = true)
         {
             if (_particleDefinition is null || _suppressParticlePropertyChanges)
             {
                 return;
+            }
+
+            if (markDirty && recordUndo)
+            {
+                RecordUndoSnapshot();
             }
 
             if (!TryApplyParticleEmitters())
@@ -3346,23 +3678,62 @@ namespace EffectViewer.ViewModels
             }
         }
 
+        private static bool IsTrailFlagSet(TrailDefinition definition, TrailFlags flag)
+        {
+            return definition is not null &&
+                (definition.mTrailFlags & (1 << (int)flag)) != 0;
+        }
+
+        private static TrailDefinition CloneTrailDefinition(TrailDefinition source)
+        {
+            if (source is null)
+            {
+                return null;
+            }
+
+            TrailDefinition clone = new()
+            {
+                mImage = source.mImage,
+                mMaxPoints = source.mMaxPoints,
+                mMinPointDistance = source.mMinPointDistance,
+                mTrailFlags = source.mTrailFlags
+            };
+            CopyTrack(source.mWidthOverLength, clone.mWidthOverLength);
+            CopyTrack(source.mAlphaOverLength, clone.mAlphaOverLength);
+            CopyTrack(source.mWidthOverTime, clone.mWidthOverTime);
+            CopyTrack(source.mAlphaOverTime, clone.mAlphaOverTime);
+            CopyTrack(source.mTrailDuration, clone.mTrailDuration);
+            return clone;
+        }
+
         private static FloatParameterTrack CloneTrack(FloatParameterTrack source)
         {
             FloatParameterTrack clone = new();
+            CopyTrack(source, clone);
+            return clone;
+        }
+
+        private static void CopyTrack(FloatParameterTrack source, FloatParameterTrack target)
+        {
+            if (target is null)
+            {
+                return;
+            }
+
             if (source?.mNodes is null || source.mCountNodes <= 0)
             {
-                clone.mNodes = [];
-                clone.mCountNodes = 0;
-                return clone;
+                target.mNodes = [];
+                target.mCountNodes = 0;
+                return;
             }
 
             int count = System.Math.Min(source.mCountNodes, source.mNodes.Length);
-            clone.mNodes = new FloatParameterTrackNode[count];
-            clone.mCountNodes = count;
+            target.mNodes = new FloatParameterTrackNode[count];
+            target.mCountNodes = count;
             for (int i = 0; i < count; i++)
             {
                 FloatParameterTrackNode node = source.mNodes[i];
-                clone.mNodes[i] = new FloatParameterTrackNode
+                target.mNodes[i] = new FloatParameterTrackNode
                 {
                     mTime = node.mTime,
                     mLowValue = node.mLowValue,
@@ -3371,8 +3742,6 @@ namespace EffectViewer.ViewModels
                     mDistribution = node.mDistribution
                 };
             }
-
-            return clone;
         }
 
         private static string ResolveEffectPath(EffectProject project, string path, EffectAsset asset)
@@ -3380,6 +3749,19 @@ namespace EffectViewer.ViewModels
             string assetPath = asset?.Path;
             string effectivePath = string.IsNullOrWhiteSpace(assetPath) ? path : assetPath;
             return TrailPreviewFrameBuilder.ResolvePath(project, effectivePath);
+        }
+
+        private sealed class EffectEditorHistorySnapshot
+        {
+            public EffectAssetKind Kind { get; init; }
+            public string AssetId { get; init; }
+            public ReanimatorDefinition ReanimDefinition { get; init; }
+            public List<ReanimTween> ReanimTweens { get; init; } = [];
+            public int SelectedReanimTrackIndex { get; init; }
+            public int SelectedReanimFrameIndex { get; init; }
+            public TodParticleDefinition ParticleDefinition { get; init; }
+            public int SelectedParticleEmitterIndex { get; init; }
+            public TrailDefinition TrailDefinition { get; init; }
         }
 
         public override void Dispose()

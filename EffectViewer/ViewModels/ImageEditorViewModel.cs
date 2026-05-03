@@ -5,6 +5,7 @@ using EffectViewer.Projects;
 using EffectViewer.Rendering;
 using EffectViewer.Rendering.TextureUpload;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -15,6 +16,10 @@ namespace EffectViewer.ViewModels
     public sealed partial class ImageEditorViewModel : EditorViewModelBase
     {
         private readonly EffectProject _project;
+        private const int MaxUndoHistoryCount = 100;
+        private readonly List<ImageEditorHistorySnapshot> _undoStack = [];
+        private readonly List<ImageEditorHistorySnapshot> _redoStack = [];
+        private bool _isRestoringHistory;
 
         public ImageAsset Asset { get; }
 
@@ -45,6 +50,8 @@ namespace EffectViewer.ViewModels
         public override bool SavesWithProjectManifest => true;
         public override bool SupportsFileExport => true;
         public override string ExportPath => Path;
+        public override bool CanUndo => _undoStack.Count > 0;
+        public override bool CanRedo => _redoStack.Count > 0;
 
         public ImageEditorViewModel(ImageAsset asset, EffectProject project)
             : base(asset.Id, EffectAssetKind.Image)
@@ -65,6 +72,11 @@ namespace EffectViewer.ViewModels
 
         partial void OnAssetIdChanged(string value)
         {
+            if (_isRestoringHistory)
+            {
+                return;
+            }
+
             string normalizedId = NormalizeEditedAssetId(value);
             if (string.IsNullOrWhiteSpace(normalizedId))
             {
@@ -86,6 +98,7 @@ namespace EffectViewer.ViewModels
                     return;
                 }
 
+                RecordUndoSnapshot();
                 Asset.Id = uniqueId;
                 Title = uniqueId;
                 DocumentId = CreateDocumentId(Kind, uniqueId);
@@ -105,7 +118,23 @@ namespace EffectViewer.ViewModels
 
         partial void OnRowsChanged(int value)
         {
-            Rows = value < 1 ? 1 : value;
+            if (_isRestoringHistory)
+            {
+                return;
+            }
+
+            if (value < 1)
+            {
+                Rows = 1;
+                return;
+            }
+
+            if (Asset.Rows == value)
+            {
+                return;
+            }
+
+            RecordUndoSnapshot();
             Asset.Rows = Rows;
             MarkDirty();
             ClampFrameIndex();
@@ -115,7 +144,23 @@ namespace EffectViewer.ViewModels
 
         partial void OnColsChanged(int value)
         {
-            Cols = value < 1 ? 1 : value;
+            if (_isRestoringHistory)
+            {
+                return;
+            }
+
+            if (value < 1)
+            {
+                Cols = 1;
+                return;
+            }
+
+            if (Asset.Cols == value)
+            {
+                return;
+            }
+
+            RecordUndoSnapshot();
             Asset.Cols = Cols;
             MarkDirty();
             ClampFrameIndex();
@@ -171,19 +216,39 @@ namespace EffectViewer.ViewModels
 
         public override void DiscardChanges()
         {
-            AssetId = _savedAssetId;
-            Asset.Id = _savedAssetId;
-            Title = _savedAssetId;
-            DocumentId = CreateDocumentId(Kind, _savedAssetId);
-            Rows = _savedRows;
-            Cols = _savedCols;
-            _project?.RebuildAssetIndex();
-            Asset.Rows = _savedRows;
-            Asset.Cols = _savedCols;
-            ClampFrameIndex();
-            RefreshPreviewFrame();
-            NotifyCellProperties();
+            RestoreHistorySnapshot(new ImageEditorHistorySnapshot(_savedAssetId, _savedRows, _savedCols, FrameIndex));
+            ClearUndoRedoHistory();
             base.DiscardChanges();
+        }
+
+        public override void Undo()
+        {
+            if (!CanUndo)
+            {
+                return;
+            }
+
+            ImageEditorHistorySnapshot current = CreateCurrentHistorySnapshot();
+            ImageEditorHistorySnapshot previous = PopHistorySnapshot(_undoStack);
+            PushHistorySnapshot(_redoStack, current);
+            RestoreHistorySnapshot(previous);
+            MarkDirty();
+            RaiseUndoRedoStateChanged();
+        }
+
+        public override void Redo()
+        {
+            if (!CanRedo)
+            {
+                return;
+            }
+
+            ImageEditorHistorySnapshot current = CreateCurrentHistorySnapshot();
+            ImageEditorHistorySnapshot next = PopHistorySnapshot(_redoStack);
+            PushHistorySnapshot(_undoStack, current);
+            RestoreHistorySnapshot(next);
+            MarkDirty();
+            RaiseUndoRedoStateChanged();
         }
 
         partial void OnFrameIndexChanged(int value)
@@ -197,6 +262,88 @@ namespace EffectViewer.ViewModels
             RefreshPreviewFrame();
             OnPropertyChanged(nameof(CurrentRow));
             OnPropertyChanged(nameof(CurrentCol));
+        }
+
+        private void RecordUndoSnapshot()
+        {
+            if (_isRestoringHistory)
+            {
+                return;
+            }
+
+            ImageEditorHistorySnapshot snapshot = CreateAssetHistorySnapshot();
+            if (_undoStack.Count > 0 && _undoStack[^1].Equals(snapshot))
+            {
+                return;
+            }
+
+            PushHistorySnapshot(_undoStack, snapshot);
+            _redoStack.Clear();
+            RaiseUndoRedoStateChanged();
+        }
+
+        private void RestoreHistorySnapshot(ImageEditorHistorySnapshot snapshot)
+        {
+            try
+            {
+                _isRestoringHistory = true;
+                Asset.Id = snapshot.AssetId;
+                Asset.Rows = snapshot.Rows;
+                Asset.Cols = snapshot.Cols;
+                AssetId = snapshot.AssetId;
+                Title = snapshot.AssetId;
+                DocumentId = CreateDocumentId(Kind, snapshot.AssetId);
+                Rows = snapshot.Rows;
+                Cols = snapshot.Cols;
+                _project?.RebuildAssetIndex();
+                FrameIndex = Math.Clamp(snapshot.FrameIndex, 0, MaxFrameIndex);
+                RefreshPreviewFrame();
+                NotifyCellProperties();
+            }
+            finally
+            {
+                _isRestoringHistory = false;
+            }
+        }
+
+        private ImageEditorHistorySnapshot CreateAssetHistorySnapshot()
+        {
+            return new ImageEditorHistorySnapshot(Asset.Id, Asset.Rows, Asset.Cols, FrameIndex);
+        }
+
+        private ImageEditorHistorySnapshot CreateCurrentHistorySnapshot()
+        {
+            return new ImageEditorHistorySnapshot(Asset.Id, Rows, Cols, FrameIndex);
+        }
+
+        private void ClearUndoRedoHistory()
+        {
+            _undoStack.Clear();
+            _redoStack.Clear();
+            RaiseUndoRedoStateChanged();
+        }
+
+        private void RaiseUndoRedoStateChanged()
+        {
+            OnPropertyChanged(nameof(CanUndo));
+            OnPropertyChanged(nameof(CanRedo));
+        }
+
+        private static void PushHistorySnapshot(List<ImageEditorHistorySnapshot> stack, ImageEditorHistorySnapshot snapshot)
+        {
+            stack.Add(snapshot);
+            if (stack.Count > MaxUndoHistoryCount)
+            {
+                stack.RemoveAt(0);
+            }
+        }
+
+        private static ImageEditorHistorySnapshot PopHistorySnapshot(List<ImageEditorHistorySnapshot> stack)
+        {
+            int index = stack.Count - 1;
+            ImageEditorHistorySnapshot snapshot = stack[index];
+            stack.RemoveAt(index);
+            return snapshot;
         }
 
         private string CreateUniqueImageAssetId(string assetId)
@@ -261,5 +408,11 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(CurrentRow));
             OnPropertyChanged(nameof(CurrentCol));
         }
+
+        private readonly record struct ImageEditorHistorySnapshot(
+            string AssetId,
+            int Rows,
+            int Cols,
+            int FrameIndex);
     }
 }
