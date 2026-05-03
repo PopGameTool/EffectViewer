@@ -30,6 +30,7 @@ namespace EffectViewer.ViewModels
         public ICommand CreateProjectCommand { get; }
         public ICommand OpenProjectCommand { get; }
         public ICommand ImportResourceFolderCommand { get; }
+        public override bool CanClose => false;
 
         public WelcomeEditorViewModel(
             ICommand createProjectCommand,

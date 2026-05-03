@@ -1,10 +1,14 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using EffectViewer.Localization;
 using EffectViewer.ViewModels;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace EffectViewer.Views
@@ -14,8 +18,16 @@ namespace EffectViewer.Views
         private const double DefaultProjectExplorerWidth = 280d;
         private const double MinimumProjectExplorerWidth = 180d;
         private const double SplitterWidth = 5d;
+        private const double DocumentTabDragThreshold = 6d;
         private double _lastLeftProjectExplorerWidth = DefaultProjectExplorerWidth;
         private double _lastRightProjectExplorerWidth = DefaultProjectExplorerWidth;
+        private Control _draggedDocumentTab;
+        private EditorViewModelBase _draggedDocumentEditor;
+        private EditorViewModelBase _documentTabDropTarget;
+        private Point _documentTabDragStartPoint;
+        private Point _documentTabDragPreviewOffset;
+        private bool _documentTabDropAfter;
+        private bool _isDocumentTabDragging;
         private MainViewModel _observedViewModel;
 
         public MainView()
@@ -110,6 +122,338 @@ namespace EffectViewer.Views
         {
             column.MinWidth = minWidth;
             column.Width = new GridLength(width, GridUnitType.Pixel);
+        }
+
+        private void DocumentTab_PointerPressed(object sender, PointerPressedEventArgs e)
+        {
+            if (sender is not Control tab ||
+                tab.DataContext is not EditorViewModelBase editor ||
+                !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed ||
+                IsCloseButtonPointer(e))
+            {
+                return;
+            }
+
+            if (DataContext is MainViewModel viewModel)
+            {
+                viewModel.SelectedEditor = editor;
+            }
+
+            _draggedDocumentTab = tab;
+            _draggedDocumentEditor = editor;
+            _documentTabDragStartPoint = e.GetPosition(this);
+            _documentTabDragPreviewOffset = e.GetPosition(tab);
+            _isDocumentTabDragging = false;
+            e.Pointer.Capture(tab);
+            e.Handled = true;
+        }
+
+        private void DocumentTab_PointerMoved(object sender, PointerEventArgs e)
+        {
+            if (_draggedDocumentTab is null)
+            {
+                return;
+            }
+
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                EndDocumentTabDrag(e);
+                return;
+            }
+
+            Point currentPoint = e.GetPosition(this);
+            if (!_isDocumentTabDragging &&
+                GetDragDistance(_documentTabDragStartPoint, currentPoint) >= DocumentTabDragThreshold)
+            {
+                _isDocumentTabDragging = true;
+                _draggedDocumentEditor.IsTabDragging = true;
+                ShowDocumentTabDragPreview();
+            }
+
+            if (_isDocumentTabDragging)
+            {
+                UpdateDocumentTabDragPreviewPosition(currentPoint);
+                UpdateDocumentTabDropTarget(e);
+            }
+
+            e.Handled = _isDocumentTabDragging;
+        }
+
+        private void DocumentTab_PointerReleased(object sender, PointerReleasedEventArgs e)
+        {
+            if (_draggedDocumentTab is not null &&
+                _isDocumentTabDragging &&
+                DataContext is MainViewModel viewModel)
+            {
+                UpdateDocumentTabDropTarget(e);
+                if (_documentTabDropTarget is not null)
+                {
+                    viewModel.ReorderEditorTab(_draggedDocumentEditor, _documentTabDropTarget, _documentTabDropAfter);
+                }
+            }
+
+            EndDocumentTabDrag(e);
+            e.Handled = true;
+        }
+
+        private void DocumentTab_PointerCaptureLost(object sender, PointerCaptureLostEventArgs e)
+        {
+            if (_draggedDocumentTab is null)
+            {
+                return;
+            }
+
+            ClearDocumentTabDragVisuals();
+            _draggedDocumentTab = null;
+            _draggedDocumentEditor = null;
+            _documentTabDropTarget = null;
+            _documentTabDropAfter = false;
+            _isDocumentTabDragging = false;
+        }
+
+        private void EndDocumentTabDrag(PointerEventArgs e)
+        {
+            e.Pointer.Capture(null);
+            ClearDocumentTabDragVisuals();
+            _draggedDocumentTab = null;
+            _draggedDocumentEditor = null;
+            _documentTabDropTarget = null;
+            _documentTabDropAfter = false;
+            _isDocumentTabDragging = false;
+        }
+
+        private void ShowDocumentTabDragPreview()
+        {
+            if (_draggedDocumentTab is null || _draggedDocumentEditor is null)
+            {
+                return;
+            }
+
+            DocumentTabDragPreview.Width = System.Math.Clamp(_draggedDocumentTab.Bounds.Width, 150d, 320d);
+            DocumentTabDragPreview.Height = _draggedDocumentTab.Bounds.Height;
+            DocumentTabDragPreviewKind.Text = _draggedDocumentEditor.KindCode;
+            DocumentTabDragPreviewTitle.Text = _draggedDocumentEditor.TabTitle;
+            DocumentTabDragPreviewPin.IsVisible = _draggedDocumentEditor.IsPinned;
+            DocumentTabDragPreview.IsVisible = true;
+            UpdateDocumentTabDragPreviewPosition(_documentTabDragStartPoint);
+        }
+
+        private void UpdateDocumentTabDragPreviewPosition(Point point)
+        {
+            if (!DocumentTabDragPreview.IsVisible)
+            {
+                return;
+            }
+
+            Canvas.SetLeft(DocumentTabDragPreview, point.X - _documentTabDragPreviewOffset.X);
+            Canvas.SetTop(DocumentTabDragPreview, point.Y - _documentTabDragPreviewOffset.Y);
+        }
+
+        private void UpdateDocumentTabDropTarget(PointerEventArgs e)
+        {
+            Point point = e.GetPosition(this);
+            if (TryFindDocumentTabAt(point, out Control targetTab) &&
+                targetTab.DataContext is EditorViewModelBase targetEditor)
+            {
+                bool insertAfter = e.GetPosition(targetTab).X > targetTab.Bounds.Width / 2d;
+                SetDocumentTabDropTarget(targetEditor, insertAfter);
+                return;
+            }
+
+            if (TryFindDocumentTabStripEdgeTarget(point, out targetEditor, out bool insertAfterAtEdge))
+            {
+                SetDocumentTabDropTarget(targetEditor, insertAfterAtEdge);
+                return;
+            }
+
+            ClearDocumentTabDropTarget();
+        }
+
+        private void SetDocumentTabDropTarget(EditorViewModelBase targetEditor, bool insertAfter)
+        {
+            if (ReferenceEquals(targetEditor, _draggedDocumentEditor))
+            {
+                ClearDocumentTabDropTarget();
+                return;
+            }
+
+            if (!ReferenceEquals(_documentTabDropTarget, targetEditor))
+            {
+                ClearDocumentTabDropTarget();
+                _documentTabDropTarget = targetEditor;
+            }
+
+            _documentTabDropAfter = insertAfter;
+            targetEditor.IsTabDropBefore = !insertAfter;
+            targetEditor.IsTabDropAfter = insertAfter;
+        }
+
+        private bool TryFindDocumentTabStripEdgeTarget(
+            Point point,
+            out EditorViewModelBase targetEditor,
+            out bool insertAfter)
+        {
+            targetEditor = null;
+            insertAfter = false;
+
+            if (!IsPointInsideDocumentTabStrip(point))
+            {
+                return false;
+            }
+
+            List<DocumentTabBounds> tabs = GetDocumentTabBounds();
+            if (tabs.Count == 0)
+            {
+                return false;
+            }
+
+            DocumentTabBounds first = tabs[0];
+            DocumentTabBounds last = tabs[^1];
+            if (point.X <= first.Left)
+            {
+                targetEditor = first.Editor;
+                insertAfter = false;
+                return true;
+            }
+
+            if (point.X >= last.Right)
+            {
+                targetEditor = last.Editor;
+                insertAfter = true;
+                return true;
+            }
+
+            for (int i = 0; i < tabs.Count - 1; i++)
+            {
+                DocumentTabBounds current = tabs[i];
+                DocumentTabBounds next = tabs[i + 1];
+                if (point.X >= current.Right && point.X <= next.Left)
+                {
+                    double midpoint = current.Right + ((next.Left - current.Right) / 2d);
+                    if (point.X <= midpoint)
+                    {
+                        targetEditor = current.Editor;
+                        insertAfter = true;
+                    }
+                    else
+                    {
+                        targetEditor = next.Editor;
+                        insertAfter = false;
+                    }
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void ClearDocumentTabDragVisuals()
+        {
+            if (_draggedDocumentEditor is not null)
+            {
+                _draggedDocumentEditor.IsTabDragging = false;
+            }
+
+            DocumentTabDragPreview.IsVisible = false;
+            ClearDocumentTabDropTarget();
+        }
+
+        private void ClearDocumentTabDropTarget()
+        {
+            if (_documentTabDropTarget is not null)
+            {
+                _documentTabDropTarget.IsTabDropBefore = false;
+                _documentTabDropTarget.IsTabDropAfter = false;
+                _documentTabDropTarget = null;
+            }
+
+            _documentTabDropAfter = false;
+        }
+
+        private bool TryFindDocumentTabAt(Point point, out Control tab)
+        {
+            foreach (Avalonia.Visual visual in this.GetVisualsAt(point))
+            {
+                tab = visual.GetSelfAndVisualAncestors()
+                    .OfType<Control>()
+                    .FirstOrDefault(control =>
+                        control.Classes.Contains("document-tab") &&
+                        control.DataContext is EditorViewModelBase);
+
+                if (tab is not null)
+                {
+                    return true;
+                }
+            }
+
+            tab = null;
+            return false;
+        }
+
+        private bool IsPointInsideDocumentTabStrip(Point point)
+        {
+            Point? tabStripOrigin = DocumentTabHeaderGrid.TranslatePoint(new Point(0, 0), this);
+            if (tabStripOrigin is null)
+            {
+                return false;
+            }
+
+            Rect tabStripBounds = new Rect(tabStripOrigin.Value, DocumentTabHeaderGrid.Bounds.Size);
+            return tabStripBounds.Contains(point);
+        }
+
+        private List<DocumentTabBounds> GetDocumentTabBounds()
+        {
+            return DocumentTabStripScrollViewer
+                .GetVisualDescendants()
+                .OfType<Control>()
+                .Where(control =>
+                    control.Classes.Contains("document-tab") &&
+                    control.DataContext is EditorViewModelBase &&
+                    control.Bounds.Width > 0d)
+                .Select(control =>
+                {
+                    Point? origin = control.TranslatePoint(new Point(0, 0), this);
+                    EditorViewModelBase editor = (EditorViewModelBase)control.DataContext;
+                    return origin is null
+                        ? null
+                        : new DocumentTabBounds(editor, origin.Value.X, origin.Value.X + control.Bounds.Width);
+                })
+                .Where(tab => tab is not null)
+                .OrderBy(tab => tab.Left)
+                .ToList();
+        }
+
+        private sealed class DocumentTabBounds
+        {
+            public DocumentTabBounds(EditorViewModelBase editor, double left, double right)
+            {
+                Editor = editor;
+                Left = left;
+                Right = right;
+            }
+
+            public EditorViewModelBase Editor { get; }
+
+            public double Left { get; }
+
+            public double Right { get; }
+        }
+
+        private static double GetDragDistance(Point start, Point current)
+        {
+            double deltaX = current.X - start.X;
+            double deltaY = current.Y - start.Y;
+            return System.Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
+        }
+
+        private static bool IsCloseButtonPointer(PointerPressedEventArgs e)
+        {
+            return e.Source is Avalonia.Visual visual &&
+                visual.GetSelfAndVisualAncestors()
+                    .OfType<Button>()
+                    .Any(button => button.Classes.Contains("tab-close-button"));
         }
 
         private async void ImportFolderMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)

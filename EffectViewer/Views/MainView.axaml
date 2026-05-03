@@ -8,17 +8,96 @@
              d:DesignHeight="760"
              x:Class="EffectViewer.Views.MainView"
              x:DataType="vm:MainViewModel">
-  <UserControl.Styles>
-    <Style Selector="Border.document-tab.selected">
-      <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumBrush}"/>
-    </Style>
-    <Style Selector="TextBlock.document-tab-title.selected">
-      <Setter Property="FontWeight" Value="SemiBold"/>
-    </Style>
-  </UserControl.Styles>
+    <UserControl.Styles>
+      <Style Selector="Border.document-tab.selected">
+        <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumBrush}"/>
+      </Style>
+      <Style Selector="Border.document-tab:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumBrush}"/>
+      </Style>
+      <Style Selector="Border.document-tab.pinned">
+        <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}"/>
+      </Style>
+      <Style Selector="Border.document-tab.dragging">
+        <Setter Property="Opacity" Value="0.55"/>
+      </Style>
+      <Style Selector="Border.document-tab.drop-before">
+        <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}"/>
+        <Setter Property="BorderThickness" Value="3,1,1,0"/>
+      </Style>
+      <Style Selector="Border.document-tab.drop-after">
+        <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}"/>
+        <Setter Property="BorderThickness" Value="1,1,3,0"/>
+      </Style>
+      <Style Selector="Border.document-tab-preview">
+        <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="4,4,0,0"/>
+        <Setter Property="Padding" Value="8,0"/>
+        <Setter Property="Opacity" Value="0.92"/>
+      </Style>
+      <Style Selector="TextBlock.document-tab-title.selected">
+        <Setter Property="FontWeight" Value="SemiBold"/>
+      </Style>
+      <Style Selector="Button.tab-strip-button">
+        <Setter Property="Width" Value="30"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+      </Style>
+      <Style Selector="Button.tab-close-button">
+        <Setter Property="Width" Value="22"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+      </Style>
+      <Style Selector="Border.tab-kind-badge">
+        <Setter Property="Height" Value="18"/>
+        <Setter Property="MinWidth" Value="30"/>
+        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="Padding" Value="4,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumBrush}"/>
+      </Style>
+      <Style Selector="TextBlock.tab-kind-badge-text">
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+      </Style>
+      <Style Selector="Border.tab-pin-badge">
+        <Setter Property="Height" Value="18"/>
+        <Setter Property="MinWidth" Value="28"/>
+        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="Padding" Value="4,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Background" Value="{DynamicResource SystemAccentColor}"/>
+      </Style>
+      <Style Selector="TextBlock.tab-pin-badge-text">
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource SystemControlBackgroundAltHighBrush}"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+      </Style>
+    </UserControl.Styles>
 
-  <Grid>
-    <Grid RowDefinitions="34,*,28">
+    <UserControl.KeyBindings>
+      <KeyBinding Gesture="Ctrl+W"
+                  Command="{Binding CloseCurrentEditorCommand}"/>
+      <KeyBinding Gesture="Ctrl+Shift+W"
+                  Command="{Binding CloseAllEditorTabsCommand}"/>
+      <KeyBinding Gesture="Ctrl+Tab"
+                  Command="{Binding SelectNextEditorCommand}"/>
+      <KeyBinding Gesture="Ctrl+Shift+Tab"
+                  Command="{Binding SelectPreviousEditorCommand}"/>
+      <KeyBinding Gesture="Ctrl+Shift+S"
+                  Command="{Binding SaveAllEditorsCommand}"/>
+    </UserControl.KeyBindings>
+
+    <Grid>
+      <Grid RowDefinitions="34,*,28">
       <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
               BorderThickness="0,0,0,1">
@@ -52,14 +131,50 @@
               <MenuItem Header="{DynamicResource Loc.Menu.ImportResourceFolder}"
                         Click="ImportFolderMenuItem_Click"/>
             </MenuItem>
-            <MenuItem Header="{DynamicResource Loc.Menu.Document}">
-              <MenuItem Header="{DynamicResource Loc.Menu.SaveCurrentFile}"
-                        Command="{Binding SaveFileCommand}"
-                        IsEnabled="{Binding CanSaveSelectedFile}"/>
-              <MenuItem Header="{DynamicResource Loc.Menu.ExportCurrentFile}"
-                        Click="ExportFileMenuItem_Click"
-                        IsEnabled="{Binding CanExportSelectedFile}"/>
-            </MenuItem>
+              <MenuItem Header="{DynamicResource Loc.Menu.Document}">
+                <MenuItem Header="{DynamicResource Loc.Menu.SaveCurrentFile}"
+                          Command="{Binding SaveFileCommand}"
+                          IsEnabled="{Binding CanSaveSelectedFile}"/>
+                <MenuItem Header="{DynamicResource Loc.Menu.SaveAllFiles}"
+                          Command="{Binding SaveAllEditorsCommand}"
+                          IsEnabled="{Binding CanSaveAnyEditor}"/>
+                <MenuItem Header="{DynamicResource Loc.Menu.ExportCurrentFile}"
+                          Click="ExportFileMenuItem_Click"
+                          IsEnabled="{Binding CanExportSelectedFile}"/>
+                <Separator/>
+                <MenuItem Header="{DynamicResource Loc.Menu.PreviousTab}"
+                          Command="{Binding SelectPreviousEditorCommand}"
+                          IsEnabled="{Binding CanSelectPreviousEditor}"/>
+                <MenuItem Header="{DynamicResource Loc.Menu.NextTab}"
+                          Command="{Binding SelectNextEditorCommand}"
+                          IsEnabled="{Binding CanSelectNextEditor}"/>
+                <MenuItem Header="{DynamicResource Loc.Menu.MoveTabLeft}"
+                          Command="{Binding MoveEditorLeftCommand}"
+                          CommandParameter="{Binding SelectedEditor}"
+                          IsEnabled="{Binding CanMoveSelectedEditorLeft}"/>
+                <MenuItem Header="{DynamicResource Loc.Menu.MoveTabRight}"
+                          Command="{Binding MoveEditorRightCommand}"
+                          CommandParameter="{Binding SelectedEditor}"
+                          IsEnabled="{Binding CanMoveSelectedEditorRight}"/>
+                <MenuItem Header="{DynamicResource Loc.Menu.TogglePinTab}"
+                          Command="{Binding ToggleEditorPinnedCommand}"
+                          CommandParameter="{Binding SelectedEditor}"
+                          IsEnabled="{Binding HasOpenEditors}"/>
+                <Separator/>
+                <MenuItem Header="{DynamicResource Loc.Menu.CloseCurrentTab}"
+                          Command="{Binding CloseCurrentEditorCommand}"
+                          IsEnabled="{Binding CanCloseSelectedEditor}"/>
+                <MenuItem Header="{DynamicResource Loc.Menu.CloseOtherTabs}"
+                          Command="{Binding CloseOtherEditorsCommand}"
+                          CommandParameter="{Binding SelectedEditor}"
+                          IsEnabled="{Binding CanCloseOtherEditors}"/>
+                <MenuItem Header="{DynamicResource Loc.Menu.CloseSavedTabs}"
+                          Command="{Binding CloseSavedEditorsCommand}"
+                          IsEnabled="{Binding CanCloseSavedEditors}"/>
+                <MenuItem Header="{DynamicResource Loc.Menu.CloseAllTabs}"
+                          Command="{Binding CloseAllEditorTabsCommand}"
+                          IsEnabled="{Binding HasClosableEditors}"/>
+              </MenuItem>
             <MenuItem Header="{DynamicResource Loc.Menu.View}">
               <MenuItem Header="{DynamicResource Loc.Menu.ProjectExplorer}"
                         Command="{Binding ToggleProjectExplorerCommand}"
@@ -142,14 +257,18 @@
                       IsVisible="{Binding IsProjectExplorerVisibleLeft}"
                       Classes="layout-splitter vertical-splitter"/>
 
-        <Grid Grid.Column="2" RowDefinitions="40,*">
+        <Grid Grid.Column="2" RowDefinitions="42,*">
           <Border Background="{DynamicResource SystemControlBackgroundChromeLowBrush}"
                   BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                   BorderThickness="0,0,0,1">
-            <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Disabled">
-              <ItemsControl ItemsSource="{Binding OpenEditors}"
-                            Margin="8,0">
+            <Grid x:Name="DocumentTabHeaderGrid"
+                  ColumnDefinitions="*,Auto"
+                  Margin="8,0">
+              <ScrollViewer x:Name="DocumentTabStripScrollViewer"
+                            HorizontalScrollBarVisibility="Auto"
+                            VerticalScrollBarVisibility="Disabled"
+                            Margin="0,0,8,0">
+                <ItemsControl ItemsSource="{Binding OpenEditors}">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
                     <StackPanel Orientation="Horizontal"/>
@@ -161,40 +280,131 @@
                             BorderThickness="1,1,1,0"
                             CornerRadius="4,4,0,0"
                             Margin="0,6,6,0"
-                            Padding="10,0"
-                            MinWidth="120"
+                            Padding="8,0"
+                            MinWidth="150"
+                            MaxWidth="320"
                             Height="34"
                             Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                             Classes.document-tab="True"
-                            Classes.selected="{Binding IsSelected}">
+                            Classes.selected="{Binding IsSelected}"
+                            Classes.pinned="{Binding IsPinned}"
+                            Classes.dragging="{Binding IsTabDragging}"
+                            Classes.drop-before="{Binding IsTabDropBefore}"
+                            Classes.drop-after="{Binding IsTabDropAfter}"
+                            ToolTip.Tip="{Binding TabToolTip}"
+                            PointerPressed="DocumentTab_PointerPressed"
+                            PointerMoved="DocumentTab_PointerMoved"
+                            PointerReleased="DocumentTab_PointerReleased"
+                            PointerCaptureLost="DocumentTab_PointerCaptureLost">
+                      <Border.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="{DynamicResource Loc.Menu.TogglePinTab}"
+                                    Command="{Binding $parent[UserControl].DataContext.ToggleEditorPinnedCommand}"
+                                    CommandParameter="{Binding}"/>
+                          <MenuItem Header="{DynamicResource Loc.Menu.MoveTabLeft}"
+                                    Command="{Binding $parent[UserControl].DataContext.MoveEditorLeftCommand}"
+                                    CommandParameter="{Binding}"/>
+                          <MenuItem Header="{DynamicResource Loc.Menu.MoveTabRight}"
+                                    Command="{Binding $parent[UserControl].DataContext.MoveEditorRightCommand}"
+                                    CommandParameter="{Binding}"/>
+                          <Separator/>
+                          <MenuItem Header="{DynamicResource Loc.Menu.CloseCurrentTab}"
+                                    Command="{Binding $parent[UserControl].DataContext.CloseEditorCommand}"
+                                    CommandParameter="{Binding}"/>
+                          <MenuItem Header="{DynamicResource Loc.Menu.CloseOtherTabs}"
+                                    Command="{Binding $parent[UserControl].DataContext.CloseOtherEditorsCommand}"
+                                    CommandParameter="{Binding}"/>
+                          <MenuItem Header="{DynamicResource Loc.Menu.CloseTabsToLeft}"
+                                    Command="{Binding $parent[UserControl].DataContext.CloseEditorsToLeftCommand}"
+                                    CommandParameter="{Binding}"/>
+                          <MenuItem Header="{DynamicResource Loc.Menu.CloseTabsToRight}"
+                                    Command="{Binding $parent[UserControl].DataContext.CloseEditorsToRightCommand}"
+                                    CommandParameter="{Binding}"/>
+                          <MenuItem Header="{DynamicResource Loc.Menu.CloseSavedTabs}"
+                                    Command="{Binding $parent[UserControl].DataContext.CloseSavedEditorsCommand}"/>
+                        </ContextMenu>
+                      </Border.ContextMenu>
                       <DockPanel LastChildFill="True">
                         <Button DockPanel.Dock="Right"
                                 Content="x"
-                                Width="22"
-                                Height="22"
-                                Padding="0"
+                                Classes.tab-close-button="True"
                                 Margin="8,0,0,0"
+                                IsVisible="{Binding CanClose}"
+                                ToolTip.Tip="{DynamicResource Loc.Document.CloseTab}"
                                 Command="{Binding $parent[UserControl].DataContext.CloseEditorCommand}"
                                 CommandParameter="{Binding}"/>
-                        <Button Background="Transparent"
-                                BorderThickness="0"
-                                Padding="0"
-                                HorizontalContentAlignment="Stretch"
-                                VerticalContentAlignment="Center"
-                                Command="{Binding $parent[UserControl].DataContext.SelectEditorCommand}"
-                                CommandParameter="{Binding}">
-                          <TextBlock Text="{Binding TabTitle}"
+                        <Grid ColumnDefinitions="Auto,Auto,*"
+                              VerticalAlignment="Center">
+                          <Border Classes="tab-kind-badge"
+                                  Margin="0,0,6,0">
+                            <TextBlock Text="{Binding KindCode}"
+                                       Classes="tab-kind-badge-text"/>
+                          </Border>
+                          <Border Grid.Column="1"
+                                  Classes="tab-pin-badge"
+                                  Margin="0,0,6,0"
+                                  IsVisible="{Binding IsPinned}">
+                            <TextBlock Text="PIN"
+                                       Classes="tab-pin-badge-text"/>
+                          </Border>
+                          <TextBlock Grid.Column="2"
+                                     Text="{Binding TabTitle}"
                                      Classes.document-tab-title="True"
                                      Classes.selected="{Binding IsSelected}"
                                      TextTrimming="CharacterEllipsis"
                                      VerticalAlignment="Center"/>
-                        </Button>
+                        </Grid>
                       </DockPanel>
                     </Border>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-            </ScrollViewer>
+              </ScrollViewer>
+
+              <Menu Grid.Column="1"
+                    Background="Transparent"
+                    VerticalAlignment="Center">
+                <MenuItem Header="..."
+                          ToolTip.Tip="{DynamicResource Loc.Document.MoreTabs}">
+                  <MenuItem Header="{DynamicResource Loc.Menu.SaveAllFiles}"
+                            Command="{Binding SaveAllEditorsCommand}"
+                            IsEnabled="{Binding CanSaveAnyEditor}"/>
+                  <Separator/>
+                  <MenuItem Header="{DynamicResource Loc.Menu.PreviousTab}"
+                            Command="{Binding SelectPreviousEditorCommand}"
+                            IsEnabled="{Binding CanSelectPreviousEditor}"/>
+                  <MenuItem Header="{DynamicResource Loc.Menu.NextTab}"
+                            Command="{Binding SelectNextEditorCommand}"
+                            IsEnabled="{Binding CanSelectNextEditor}"/>
+                  <MenuItem Header="{DynamicResource Loc.Menu.MoveTabLeft}"
+                            Command="{Binding MoveEditorLeftCommand}"
+                            CommandParameter="{Binding SelectedEditor}"
+                            IsEnabled="{Binding CanMoveSelectedEditorLeft}"/>
+                  <MenuItem Header="{DynamicResource Loc.Menu.MoveTabRight}"
+                            Command="{Binding MoveEditorRightCommand}"
+                            CommandParameter="{Binding SelectedEditor}"
+                            IsEnabled="{Binding CanMoveSelectedEditorRight}"/>
+                  <MenuItem Header="{DynamicResource Loc.Menu.TogglePinTab}"
+                            Command="{Binding ToggleEditorPinnedCommand}"
+                            CommandParameter="{Binding SelectedEditor}"
+                            IsEnabled="{Binding HasOpenEditors}"/>
+                  <Separator/>
+                  <MenuItem Header="{DynamicResource Loc.Menu.CloseCurrentTab}"
+                            Command="{Binding CloseCurrentEditorCommand}"
+                            IsEnabled="{Binding CanCloseSelectedEditor}"/>
+                  <MenuItem Header="{DynamicResource Loc.Menu.CloseOtherTabs}"
+                            Command="{Binding CloseOtherEditorsCommand}"
+                            CommandParameter="{Binding SelectedEditor}"
+                            IsEnabled="{Binding CanCloseOtherEditors}"/>
+                  <MenuItem Header="{DynamicResource Loc.Menu.CloseSavedTabs}"
+                            Command="{Binding CloseSavedEditorsCommand}"
+                            IsEnabled="{Binding CanCloseSavedEditors}"/>
+                  <MenuItem Header="{DynamicResource Loc.Menu.CloseAllTabs}"
+                            Command="{Binding CloseAllEditorTabsCommand}"
+                            IsEnabled="{Binding HasClosableEditors}"/>
+                </MenuItem>
+              </Menu>
+            </Grid>
           </Border>
 
           <ContentControl Grid.Row="1"
@@ -239,9 +449,41 @@
                    Margin="12,0"
                    VerticalAlignment="Center"/>
       </Border>
-    </Grid>
+      </Grid>
 
-    <Border Background="#80000000"
+    <Canvas IsHitTestVisible="False"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+      <Border x:Name="DocumentTabDragPreview"
+              Classes="document-tab-preview"
+              IsVisible="False"
+              Height="34"
+              MinWidth="150"
+              MaxWidth="320">
+        <Grid ColumnDefinitions="Auto,Auto,*"
+              VerticalAlignment="Center">
+          <Border Classes="tab-kind-badge"
+                  Margin="0,0,6,0">
+            <TextBlock x:Name="DocumentTabDragPreviewKind"
+                       Classes="tab-kind-badge-text"/>
+          </Border>
+          <Border x:Name="DocumentTabDragPreviewPin"
+                  Grid.Column="1"
+                  Classes="tab-pin-badge"
+                  Margin="0,0,6,0">
+            <TextBlock Text="PIN"
+                       Classes="tab-pin-badge-text"/>
+          </Border>
+          <TextBlock x:Name="DocumentTabDragPreviewTitle"
+                     Grid.Column="2"
+                     TextTrimming="CharacterEllipsis"
+                     VerticalAlignment="Center"
+                     FontWeight="SemiBold"/>
+        </Grid>
+      </Border>
+    </Canvas>
+
+      <Border Background="#80000000"
             IsVisible="{Binding IsUnsavedChangesPromptOpen}">
       <Border Width="420"
               HorizontalAlignment="Center"

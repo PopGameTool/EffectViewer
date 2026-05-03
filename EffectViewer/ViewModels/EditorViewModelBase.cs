@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using EffectViewer.Localization;
 using EffectViewer.Projects;
 using EffectViewer.Rendering;
 using EffectViewer.Rendering.TextureUpload;
@@ -15,6 +16,7 @@ namespace EffectViewer.ViewModels
         private IRenderFrameProvider _previewFrameProvider;
         private ITextureSource _textureSource;
         private bool _isDirty;
+        private bool _isPinned;
         private bool _isSidePanelOnLeft;
         private bool _isSidePanelVisible = true;
 
@@ -30,10 +32,25 @@ namespace EffectViewer.ViewModels
                 if (SetProperty(ref _title, newTitle))
                 {
                     OnPropertyChanged(nameof(TabTitle));
+                    OnPropertyChanged(nameof(TabToolTip));
                 }
             }
         }
         public string TabTitle => IsDirty ? $"{Title}*" : Title;
+        public string KindCode => Kind switch
+        {
+            EffectAssetKind.Image => "IMG",
+            EffectAssetKind.Reanim => "REA",
+            EffectAssetKind.Particle => "PAR",
+            EffectAssetKind.Trail => "TRL",
+            EffectAssetKind.Showcase => "LUA",
+            EffectAssetKind.Project => "APP",
+            _ => Kind.ToString().ToUpperInvariant()
+        };
+        public string KindDisplayName => LocalizationManager.Instance.Text($"DocumentKind.{Kind}");
+        public string TabToolTip => IsPinned
+            ? LocalizationManager.Instance.Format("Document.TabToolTipPinned", Title, KindDisplayName)
+            : LocalizationManager.Instance.Format("Document.TabToolTip", Title, KindDisplayName);
         public string DocumentId
         {
             get => _documentId;
@@ -55,10 +72,24 @@ namespace EffectViewer.ViewModels
                 if (SetProperty(ref _isDirty, value))
                 {
                     OnPropertyChanged(nameof(TabTitle));
+                    OnPropertyChanged(nameof(TabToolTip));
                 }
             }
         }
 
+        public bool IsPinned
+        {
+            get => _isPinned;
+            set
+            {
+                if (SetProperty(ref _isPinned, value))
+                {
+                    OnPropertyChanged(nameof(TabToolTip));
+                }
+            }
+        }
+
+        public virtual bool CanClose => true;
         public virtual bool SupportsSave => false;
         public virtual bool SavesWithProjectManifest => false;
         public virtual bool SupportsFileExport => false;
@@ -87,6 +118,15 @@ namespace EffectViewer.ViewModels
         [ObservableProperty]
         private int _layoutResetRevision;
 
+        [ObservableProperty]
+        private bool _isTabDragging;
+
+        [ObservableProperty]
+        private bool _isTabDropBefore;
+
+        [ObservableProperty]
+        private bool _isTabDropAfter;
+
         public RenderFrame PreviewFrame
         {
             get => _previewFrame;
@@ -112,6 +152,7 @@ namespace EffectViewer.ViewModels
             DocumentId = CreateDocumentId(kind, title);
             PreviewFrame = EffectPreviewFrameBuilder.BuildPlaceholder(kind, title);
             TextureSource = new GeneratedTextureSource();
+            LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
         }
 
         public static string CreateDocumentId(EffectAssetKind kind, string title)
@@ -152,10 +193,17 @@ namespace EffectViewer.ViewModels
 
         public virtual void Dispose()
         {
+            LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
             if (PreviewFrameProvider is IDisposable disposableProvider)
             {
                 disposableProvider.Dispose();
             }
+        }
+
+        private void OnLanguageChanged(object sender, EventArgs e)
+        {
+            OnPropertyChanged(nameof(KindDisplayName));
+            OnPropertyChanged(nameof(TabToolTip));
         }
 
         [RelayCommand]

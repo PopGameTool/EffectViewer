@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
@@ -139,6 +140,18 @@ namespace EffectViewer.ViewModels
         public bool CanModifyCurrentProject => CanSaveCurrentProject;
         public bool IsEnglishLanguage => Loc.IsEnglish;
         public bool IsChineseLanguage => Loc.IsChinese;
+        public bool HasOpenEditors => OpenEditors.Count > 0;
+        public bool HasMultipleOpenEditors => OpenEditors.Count > 1;
+        public bool HasClosableEditors => OpenEditors.Any(editor => editor.CanClose);
+        public bool CanCloseSelectedEditor => SelectedEditor?.CanClose == true;
+        public bool CanCloseOtherEditors => SelectedEditor is not null &&
+            OpenEditors.Any(editor => editor.CanClose && !ReferenceEquals(editor, SelectedEditor));
+        public bool CanSelectPreviousEditor => OpenEditors.Count > 1;
+        public bool CanSelectNextEditor => OpenEditors.Count > 1;
+        public bool CanMoveSelectedEditorLeft => CanMoveEditorLeft(SelectedEditor);
+        public bool CanMoveSelectedEditorRight => CanMoveEditorRight(SelectedEditor);
+        public bool CanSaveAnyEditor => CanSaveCurrentProject && OpenEditors.Any(editor => editor.IsDirty && editor.SupportsSave);
+        public bool CanCloseSavedEditors => OpenEditors.Any(editor => editor.CanClose && !editor.IsDirty);
 
         private enum UnsavedChangesChoice
         {
@@ -151,6 +164,7 @@ namespace EffectViewer.ViewModels
         {
             _projectService = new EffectProjectService(storageProvider);
             Loc.LanguageChanged += OnLanguageChanged;
+            OpenEditors.CollectionChanged += OnOpenEditorsCollectionChanged;
             ShowWelcomePage();
             StatusText = T("Status.NoProjectLoaded");
         }
@@ -285,6 +299,7 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(CanSaveSelectedFile));
             OnPropertyChanged(nameof(CanExportSelectedFile));
             OnPropertyChanged(nameof(CanModifyCurrentProject));
+            OnPropertyChanged(nameof(CanSaveAnyEditor));
         }
 
         partial void OnNewResourceKindChanged(EffectAssetKind value)
@@ -1084,10 +1099,154 @@ namespace EffectViewer.ViewModels
         }
 
         [RelayCommand]
+        private void SelectPreviousEditor()
+        {
+            if (OpenEditors.Count <= 1)
+            {
+                return;
+            }
+
+            int index = OpenEditors.IndexOf(SelectedEditor);
+            int previousIndex = index <= 0 ? OpenEditors.Count - 1 : index - 1;
+            SelectedEditor = OpenEditors[previousIndex];
+        }
+
+        [RelayCommand]
+        private void SelectNextEditor()
+        {
+            if (OpenEditors.Count <= 1)
+            {
+                return;
+            }
+
+            int index = OpenEditors.IndexOf(SelectedEditor);
+            int nextIndex = index < 0 || index >= OpenEditors.Count - 1 ? 0 : index + 1;
+            SelectedEditor = OpenEditors[nextIndex];
+        }
+
+        [RelayCommand]
+        private void MoveEditorLeft(EditorViewModelBase editor)
+        {
+            editor ??= SelectedEditor;
+            if (!CanMoveEditorLeft(editor))
+            {
+                return;
+            }
+
+            int index = OpenEditors.IndexOf(editor);
+            OpenEditors.Move(index, index - 1);
+            SelectedEditor = editor;
+            NotifyOpenEditorProperties();
+            StatusText = F("Status.MovedDocumentLeft", editor.Title);
+        }
+
+        [RelayCommand]
+        private void MoveEditorRight(EditorViewModelBase editor)
+        {
+            editor ??= SelectedEditor;
+            if (!CanMoveEditorRight(editor))
+            {
+                return;
+            }
+
+            int index = OpenEditors.IndexOf(editor);
+            OpenEditors.Move(index, index + 1);
+            SelectedEditor = editor;
+            NotifyOpenEditorProperties();
+            StatusText = F("Status.MovedDocumentRight", editor.Title);
+        }
+
+        public bool ReorderEditorTab(EditorViewModelBase source, EditorViewModelBase target, bool insertAfter)
+        {
+            if (source is null || target is null || ReferenceEquals(source, target))
+            {
+                return false;
+            }
+
+            int sourceIndex = OpenEditors.IndexOf(source);
+            int targetIndex = OpenEditors.IndexOf(target);
+            if (sourceIndex < 0 || targetIndex < 0)
+            {
+                return false;
+            }
+
+            source.IsPinned = target.IsPinned;
+            int insertIndex = targetIndex + (insertAfter ? 1 : 0);
+            if (sourceIndex < insertIndex)
+            {
+                insertIndex--;
+            }
+
+            insertIndex = System.Math.Clamp(insertIndex, 0, OpenEditors.Count - 1);
+            if (sourceIndex == insertIndex)
+            {
+                SelectedEditor = source;
+                NotifyOpenEditorProperties();
+                return false;
+            }
+
+            OpenEditors.Move(sourceIndex, insertIndex);
+            SelectedEditor = source;
+            NotifyOpenEditorProperties();
+            StatusText = F("Status.ReorderedDocument", source.Title);
+            return true;
+        }
+
+        [RelayCommand]
+        private void ToggleEditorPinned(EditorViewModelBase editor)
+        {
+            editor ??= SelectedEditor;
+            if (editor is null)
+            {
+                return;
+            }
+
+            editor.IsPinned = !editor.IsPinned;
+            MoveEditorToPinnedGroup(editor);
+            SelectedEditor = editor;
+            NotifyOpenEditorProperties();
+            StatusText = editor.IsPinned
+                ? F("Status.PinnedDocument", editor.Title)
+                : F("Status.UnpinnedDocument", editor.Title);
+        }
+
+        [RelayCommand]
+        private async Task SaveAllEditorsAsync()
+        {
+            int savedCount = 0;
+            foreach (EditorViewModelBase editor in OpenEditors.Where(editor => editor.IsDirty).ToList())
+            {
+                if (!await SaveEditorAsync(editor))
+                {
+                    StatusText = F("Status.CanceledSavingDocuments", savedCount);
+                    return;
+                }
+
+                savedCount++;
+            }
+
+            StatusText = savedCount == 0
+                ? T("Status.NoUnsavedDocuments")
+                : F("Status.SavedDocuments", savedCount);
+        }
+
+        [RelayCommand]
+        private async Task CloseCurrentEditorAsync()
+        {
+            await CloseEditorAsync(SelectedEditor);
+        }
+
+        [RelayCommand]
         private async Task CloseEditorAsync(EditorViewModelBase editor)
         {
             if (editor is null)
             {
+                return;
+            }
+
+            if (!editor.CanClose)
+            {
+                StatusText = F("Status.DocumentCannotClose", editor.Title);
                 return;
             }
 
@@ -1098,6 +1257,136 @@ namespace EffectViewer.ViewModels
             }
 
             CloseEditorCore(editor);
+        }
+
+        [RelayCommand]
+        private async Task CloseOtherEditorsAsync(EditorViewModelBase editor)
+        {
+            editor ??= SelectedEditor;
+            if (editor is null)
+            {
+                return;
+            }
+
+            SelectedEditor = editor;
+            IReadOnlyList<EditorViewModelBase> targets = OpenEditors
+                .Where(candidate => !ReferenceEquals(candidate, editor) && candidate.CanClose)
+                .ToList();
+
+            await CloseEditorSetAsync(targets, "Status.ClosedOtherDocuments");
+        }
+
+        [RelayCommand]
+        private async Task CloseEditorsToLeftAsync(EditorViewModelBase editor)
+        {
+            editor ??= SelectedEditor;
+            if (editor is null)
+            {
+                return;
+            }
+
+            int index = OpenEditors.IndexOf(editor);
+            if (index <= 0)
+            {
+                return;
+            }
+
+            SelectedEditor = editor;
+            IReadOnlyList<EditorViewModelBase> targets = OpenEditors
+                .Take(index)
+                .Where(candidate => candidate.CanClose)
+                .ToList();
+
+            await CloseEditorSetAsync(targets, "Status.ClosedDocuments");
+        }
+
+        [RelayCommand]
+        private async Task CloseEditorsToRightAsync(EditorViewModelBase editor)
+        {
+            editor ??= SelectedEditor;
+            if (editor is null)
+            {
+                return;
+            }
+
+            int index = OpenEditors.IndexOf(editor);
+            if (index < 0 || index >= OpenEditors.Count - 1)
+            {
+                return;
+            }
+
+            SelectedEditor = editor;
+            IReadOnlyList<EditorViewModelBase> targets = OpenEditors
+                .Skip(index + 1)
+                .Where(candidate => candidate.CanClose)
+                .ToList();
+
+            await CloseEditorSetAsync(targets, "Status.ClosedDocuments");
+        }
+
+        [RelayCommand]
+        private void CloseSavedEditors()
+        {
+            IReadOnlyList<EditorViewModelBase> targets = OpenEditors
+                .Where(editor => editor.CanClose && !editor.IsDirty)
+                .ToList();
+
+            int closedCount = CloseEditorSetWithoutPrompt(targets);
+            StatusText = closedCount == 0
+                ? T("Status.NoSavedDocumentsToClose")
+                : F("Status.ClosedDocuments", closedCount);
+        }
+
+        [RelayCommand]
+        private async Task CloseAllEditorTabsAsync()
+        {
+            IReadOnlyList<EditorViewModelBase> targets = OpenEditors
+                .Where(editor => editor.CanClose)
+                .ToList();
+
+            await CloseEditorSetAsync(targets, "Status.ClosedDocuments");
+        }
+
+        private async Task CloseEditorSetAsync(IReadOnlyList<EditorViewModelBase> editors, string completedStatusKey)
+        {
+            int closedCount = 0;
+            foreach (EditorViewModelBase editor in editors)
+            {
+                if (!OpenEditors.Contains(editor) || !editor.CanClose)
+                {
+                    continue;
+                }
+
+                if (!await ConfirmUnsavedChangesAsync(editor))
+                {
+                    StatusText = F("Status.CanceledClosingDocument", editor.Title);
+                    return;
+                }
+
+                CloseEditorCore(editor);
+                closedCount++;
+            }
+
+            StatusText = closedCount == 0
+                ? T("Status.NoDocumentsClosed")
+                : F(completedStatusKey, closedCount);
+        }
+
+        private int CloseEditorSetWithoutPrompt(IReadOnlyList<EditorViewModelBase> editors)
+        {
+            int closedCount = 0;
+            foreach (EditorViewModelBase editor in editors)
+            {
+                if (!OpenEditors.Contains(editor) || !editor.CanClose)
+                {
+                    continue;
+                }
+
+                CloseEditorCore(editor);
+                closedCount++;
+            }
+
+            return closedCount;
         }
 
         private void CloseEditorCore(EditorViewModelBase editor)
@@ -1114,6 +1403,39 @@ namespace EffectViewer.ViewModels
                 SelectedEditor = OpenEditors.Count == 0
                     ? null
                     : OpenEditors[System.Math.Clamp(index, 0, OpenEditors.Count - 1)];
+            }
+        }
+
+        private bool CanMoveEditorLeft(EditorViewModelBase editor)
+        {
+            int index = OpenEditors.IndexOf(editor);
+            return index > 0 && OpenEditors[index - 1].IsPinned == editor.IsPinned;
+        }
+
+        private bool CanMoveEditorRight(EditorViewModelBase editor)
+        {
+            int index = OpenEditors.IndexOf(editor);
+            return index >= 0 &&
+                index < OpenEditors.Count - 1 &&
+                OpenEditors[index + 1].IsPinned == editor.IsPinned;
+        }
+
+        private void MoveEditorToPinnedGroup(EditorViewModelBase editor)
+        {
+            int index = OpenEditors.IndexOf(editor);
+            if (index < 0)
+            {
+                return;
+            }
+
+            int targetIndex = editor.IsPinned
+                ? OpenEditors.TakeWhile(candidate => candidate.IsPinned && !ReferenceEquals(candidate, editor)).Count()
+                : OpenEditors.Count(candidate => candidate.IsPinned);
+            targetIndex = System.Math.Clamp(targetIndex, 0, OpenEditors.Count - 1);
+
+            if (index != targetIndex)
+            {
+                OpenEditors.Move(index, targetIndex);
             }
         }
 
@@ -1267,6 +1589,7 @@ namespace EffectViewer.ViewModels
 
             OnPropertyChanged(nameof(CanSaveSelectedFile));
             OnPropertyChanged(nameof(CanExportSelectedFile));
+            NotifyOpenEditorProperties();
 
             if (value is not null)
             {
@@ -1278,16 +1601,25 @@ namespace EffectViewer.ViewModels
 
         private void OnOpenEditorPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            if (sender is not EditorViewModelBase editor || !ReferenceEquals(editor, SelectedEditor))
+            if (sender is not EditorViewModelBase editor)
             {
                 return;
             }
 
             if (e.PropertyName == nameof(EditorViewModelBase.IsDirty))
             {
-                StatusText = editor.IsDirty
-                    ? F("Status.EditingUnsaved", editor.Title)
-                    : F("Status.Editing", editor.Title);
+                NotifyOpenEditorProperties();
+
+                if (ReferenceEquals(editor, SelectedEditor))
+                {
+                    StatusText = editor.IsDirty
+                        ? F("Status.EditingUnsaved", editor.Title)
+                        : F("Status.Editing", editor.Title);
+                }
+            }
+            else if (e.PropertyName is nameof(EditorViewModelBase.IsPinned) or nameof(EditorViewModelBase.Title))
+            {
+                NotifyOpenEditorProperties();
             }
 
             if (editor is ImageEditorViewModel imageEditor &&
@@ -1308,6 +1640,26 @@ namespace EffectViewer.ViewModels
                     effectEditor.AssetId,
                     effectEditor.Path);
             }
+        }
+
+        private void OnOpenEditorsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            NotifyOpenEditorProperties();
+        }
+
+        private void NotifyOpenEditorProperties()
+        {
+            OnPropertyChanged(nameof(HasOpenEditors));
+            OnPropertyChanged(nameof(HasMultipleOpenEditors));
+            OnPropertyChanged(nameof(HasClosableEditors));
+            OnPropertyChanged(nameof(CanCloseSelectedEditor));
+            OnPropertyChanged(nameof(CanCloseOtherEditors));
+            OnPropertyChanged(nameof(CanSelectPreviousEditor));
+            OnPropertyChanged(nameof(CanSelectNextEditor));
+            OnPropertyChanged(nameof(CanMoveSelectedEditorLeft));
+            OnPropertyChanged(nameof(CanMoveSelectedEditorRight));
+            OnPropertyChanged(nameof(CanSaveAnyEditor));
+            OnPropertyChanged(nameof(CanCloseSavedEditors));
         }
 
         private void UpdateProjectExplorerItemIdentity(
