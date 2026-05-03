@@ -13,6 +13,9 @@ using CommunityToolkit.Mvvm.Input;
 using EffectViewer.Assets;
 using EffectViewer.Localization;
 using EffectViewer.Projects;
+using EffectViewer.Rendering;
+using EffectViewer.Rendering.Export;
+using EffectViewer.Rendering.TextureUpload;
 using EffectViewer.Runtime;
 using EffectViewer.Runtime.Lua;
 
@@ -121,6 +124,41 @@ namespace EffectViewer.ViewModels
         [ObservableProperty]
         private string _newResourceId = "new_reanim";
 
+        [ObservableProperty]
+        private bool _isPreviewExportDialogOpen;
+
+        [ObservableProperty]
+        private PreviewExportFormat _previewExportFormat = PreviewExportFormat.Png;
+
+        [ObservableProperty]
+        private double _previewExportCanvasScale = 1d;
+
+        [ObservableProperty]
+        private int _previewExportFps = 30;
+
+        [ObservableProperty]
+        private double _previewExportDurationSeconds = 2d;
+
+        [ObservableProperty]
+        private double _previewExportStartSeconds;
+
+        [ObservableProperty]
+        private double _previewExportEndSeconds = 2d;
+
+        [ObservableProperty]
+        private bool _previewExportUntilEnd;
+
+        [ObservableProperty]
+        private int _previewExportStartFrame = 1;
+
+        [ObservableProperty]
+        private int _previewExportEndFrame = 1;
+
+        [ObservableProperty]
+        private PreviewExportTimelineOption _selectedPreviewExportTimeline;
+
+        private bool _suppressPreviewExportTimelineRangeUpdate;
+
         public IReadOnlyList<EffectAssetKind> NewResourceKinds { get; } =
         [
             EffectAssetKind.Reanim,
@@ -128,6 +166,16 @@ namespace EffectViewer.ViewModels
             EffectAssetKind.Trail,
             EffectAssetKind.Showcase
         ];
+
+        public IReadOnlyList<PreviewExportFormat> PreviewExportFormats { get; } =
+        [
+            PreviewExportFormat.Png,
+            PreviewExportFormat.PngSequenceZip,
+            PreviewExportFormat.Gif,
+            PreviewExportFormat.Webp
+        ];
+
+        public ObservableCollection<PreviewExportTimelineOption> PreviewExportTimelines { get; } = [];
 
         public bool IsProjectExplorerDockedLeft => ProjectExplorerDockSide == ProjectExplorerDockSide.Left;
         public bool IsProjectExplorerDockedRight => ProjectExplorerDockSide == ProjectExplorerDockSide.Right;
@@ -137,6 +185,7 @@ namespace EffectViewer.ViewModels
         public bool CanSaveCurrentProject => CurrentProject is not null && !string.IsNullOrWhiteSpace(CurrentProject.RootPath);
         public bool CanSaveSelectedFile => CanSaveCurrentProject && SelectedEditor?.SupportsSave == true;
         public bool CanExportSelectedFile => CanSaveCurrentProject && SelectedEditor?.SupportsFileExport == true;
+        public bool CanExportSelectedPreview => SelectedEditor is not null && SelectedEditor.Kind != EffectAssetKind.Project;
         public bool CanModifyCurrentProject => CanSaveCurrentProject;
         public bool IsEnglishLanguage => Loc.IsEnglish;
         public bool IsChineseLanguage => Loc.IsChinese;
@@ -152,6 +201,22 @@ namespace EffectViewer.ViewModels
         public bool CanMoveSelectedEditorRight => CanMoveEditorRight(SelectedEditor);
         public bool CanSaveAnyEditor => CanSaveCurrentProject && OpenEditors.Any(editor => editor.IsDirty && editor.SupportsSave);
         public bool CanCloseSavedEditors => OpenEditors.Any(editor => editor.CanClose && !editor.IsDirty);
+        public bool IsPreviewAnimationExport => PreviewExportFormat is PreviewExportFormat.PngSequenceZip or PreviewExportFormat.Gif or PreviewExportFormat.Webp;
+        public bool IsPreviewExportParticle => SelectedEditor?.Kind == EffectAssetKind.Particle;
+        public bool HasPreviewExportTimelineOptions => PreviewExportTimelines.Count > 0;
+        public bool HasPreviewExportFrameRangeOptions => PreviewExportTimelines.Count > 0;
+        public bool HasPreviewExportTimeRangeOptions => SelectedEditor?.Kind is EffectAssetKind.Particle or EffectAssetKind.Trail;
+        public bool IsPreviewExportEndFrameEditable => HasPreviewExportFrameRangeOptions && IsPreviewAnimationExport;
+        public bool IsPreviewExportEndSecondsEditable => HasPreviewExportTimeRangeOptions && IsPreviewAnimationExport && !PreviewExportUntilEnd;
+        public bool IsPreviewExportUntilEndEditable => HasPreviewExportTimeRangeOptions && IsPreviewAnimationExport;
+        public bool IsPreviewExportDurationVisible => IsPreviewAnimationExport && !HasPreviewExportFrameRangeOptions && !HasPreviewExportTimeRangeOptions;
+        public int PreviewExportFrameRangeMaximum => PreviewExportTimelines.Count == 0
+            ? 1
+            : PreviewExportTimelines.Max(option => Math.Max(option.EndFrameNumber, 1));
+        public int PreviewExportFrameCount => CreatePreviewExportOptions().FrameCount;
+        public string PreviewExportFrameCountSummary => CreatePreviewExportOptions().StopOnProviderCompletion
+            ? F("PreviewExport.FrameCountUpTo", PreviewExportFrameCount)
+            : F("PreviewExport.FrameCount", PreviewExportFrameCount);
 
         private enum UnsavedChangesChoice
         {
@@ -170,6 +235,7 @@ namespace EffectViewer.ViewModels
         }
 
         public event EventHandler ImportResourceFolderRequested;
+        public event EventHandler PreviewExportRequested;
 
         private static LocalizationManager Loc => LocalizationManager.Instance;
         private static string T(string key) => Loc.Text(key);
@@ -205,6 +271,9 @@ namespace EffectViewer.ViewModels
                 UnsavedChangesTitle = T("Dialog.UnsavedChangesTitle");
                 UnsavedChangesMessage = F("Dialog.UnsavedChangesMessage", SelectedEditor.Title);
             }
+
+            RefreshPreviewExportTimelineOptions();
+            NotifyPreviewExportProperties();
         }
 
         [RelayCommand]
@@ -722,6 +791,414 @@ namespace EffectViewer.ViewModels
             }
         }
 
+        [RelayCommand]
+        private void ShowPreviewExportDialog()
+        {
+            if (!CanExportSelectedPreview)
+            {
+                StatusText = T("Status.NoDocumentSelected");
+                return;
+            }
+
+            PreviewExportFps = SelectedEditor?.PreviewExportDefaultFps ?? 30;
+            RefreshPreviewExportTimelineOptions(preferDefault: true);
+            ApplySelectedPreviewExportTimelineFrameRange();
+            IsPreviewExportDialogOpen = true;
+            StatusText = F("Status.ExportingPreview", SelectedEditor.Title);
+        }
+
+        [RelayCommand]
+        private void RequestPreviewExport()
+        {
+            if (!CanExportSelectedPreview)
+            {
+                StatusText = T("Status.NoDocumentSelected");
+                return;
+            }
+
+            IsPreviewExportDialogOpen = false;
+            PreviewExportRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        [RelayCommand]
+        private void CancelPreviewExport()
+        {
+            IsPreviewExportDialogOpen = false;
+            if (SelectedEditor is not null)
+            {
+                StatusText = F("Status.CanceledExporting", SelectedEditor.Title);
+            }
+        }
+
+        partial void OnPreviewExportFormatChanged(PreviewExportFormat value)
+        {
+            NotifyPreviewExportProperties();
+        }
+
+        partial void OnPreviewExportFpsChanged(int value)
+        {
+            PreviewExportFps = Math.Clamp(value, 1, 240);
+            NotifyPreviewExportProperties();
+        }
+
+        partial void OnPreviewExportDurationSecondsChanged(double value)
+        {
+            PreviewExportDurationSeconds = Math.Clamp(value, 0.01d, 600d);
+            NotifyPreviewExportProperties();
+        }
+
+        partial void OnPreviewExportStartSecondsChanged(double value)
+        {
+            double clamped = ClampPreviewExportSeconds(value);
+            if (!ApproximatelyEqual(value, clamped))
+            {
+                PreviewExportStartSeconds = clamped;
+                return;
+            }
+
+            if (!PreviewExportUntilEnd && PreviewExportEndSeconds < clamped)
+            {
+                PreviewExportEndSeconds = clamped;
+                return;
+            }
+
+            NotifyPreviewExportProperties();
+        }
+
+        partial void OnPreviewExportEndSecondsChanged(double value)
+        {
+            double clamped = ClampPreviewExportSeconds(value);
+            if (!ApproximatelyEqual(value, clamped))
+            {
+                PreviewExportEndSeconds = clamped;
+                return;
+            }
+
+            NotifyPreviewExportProperties();
+        }
+
+        partial void OnPreviewExportUntilEndChanged(bool value)
+        {
+            if (!value && PreviewExportEndSeconds < PreviewExportStartSeconds)
+            {
+                PreviewExportEndSeconds = PreviewExportStartSeconds;
+                return;
+            }
+
+            NotifyPreviewExportProperties();
+        }
+
+        partial void OnPreviewExportCanvasScaleChanged(double value)
+        {
+            PreviewExportCanvasScale = Math.Clamp(value, 0.1d, 16d);
+        }
+
+        partial void OnPreviewExportStartFrameChanged(int value)
+        {
+            int clamped = ClampPreviewExportFrame(value);
+            if (value != clamped)
+            {
+                PreviewExportStartFrame = clamped;
+                return;
+            }
+
+            if (PreviewExportEndFrame < clamped)
+            {
+                PreviewExportEndFrame = clamped;
+                return;
+            }
+
+            NotifyPreviewExportProperties();
+        }
+
+        partial void OnPreviewExportEndFrameChanged(int value)
+        {
+            int clamped = ClampPreviewExportFrame(value);
+            if (value != clamped)
+            {
+                PreviewExportEndFrame = clamped;
+                return;
+            }
+
+            NotifyPreviewExportProperties();
+        }
+
+        partial void OnSelectedPreviewExportTimelineChanged(PreviewExportTimelineOption value)
+        {
+            if (!_suppressPreviewExportTimelineRangeUpdate)
+            {
+                ApplyPreviewExportTimelineFrameRange(value);
+            }
+
+            NotifyPreviewExportProperties();
+        }
+
+        private void NotifyPreviewExportProperties()
+        {
+            OnPropertyChanged(nameof(IsPreviewAnimationExport));
+            OnPropertyChanged(nameof(IsPreviewExportParticle));
+            OnPropertyChanged(nameof(HasPreviewExportTimelineOptions));
+            OnPropertyChanged(nameof(HasPreviewExportFrameRangeOptions));
+            OnPropertyChanged(nameof(HasPreviewExportTimeRangeOptions));
+            OnPropertyChanged(nameof(IsPreviewExportEndFrameEditable));
+            OnPropertyChanged(nameof(IsPreviewExportEndSecondsEditable));
+            OnPropertyChanged(nameof(IsPreviewExportUntilEndEditable));
+            OnPropertyChanged(nameof(IsPreviewExportDurationVisible));
+            OnPropertyChanged(nameof(PreviewExportFrameRangeMaximum));
+            OnPropertyChanged(nameof(PreviewExportFrameCount));
+            OnPropertyChanged(nameof(PreviewExportFrameCountSummary));
+        }
+
+        public string GetPreviewExportFileName()
+        {
+            string baseName = CreateSafeFileName(SelectedEditor?.Title, "effectviewer-preview");
+            if (HasPreviewExportFrameRangeOptions)
+            {
+                baseName = IsPreviewAnimationExport
+                    ? $"{baseName}-f{PreviewExportStartFrame:0000}-{PreviewExportEndFrame:0000}"
+                    : $"{baseName}-f{PreviewExportStartFrame:0000}";
+            }
+            else if (HasPreviewExportTimeRangeOptions)
+            {
+                string start = FormatPreviewExportSecondsForFileName(PreviewExportStartSeconds);
+                baseName = IsPreviewAnimationExport
+                    ? PreviewExportUntilEnd
+                        ? $"{baseName}-t{start}s-end"
+                        : $"{baseName}-t{start}s-{FormatPreviewExportSecondsForFileName(PreviewExportEndSeconds)}s"
+                    : $"{baseName}-t{start}s";
+            }
+
+            return PreviewExportFormat switch
+            {
+                PreviewExportFormat.PngSequenceZip => $"{baseName}-frames.zip",
+                PreviewExportFormat.Gif => $"{baseName}.gif",
+                PreviewExportFormat.Webp => $"{baseName}.webp",
+                _ => $"{baseName}.png"
+            };
+        }
+
+        public string GetPreviewExportDefaultExtension()
+        {
+            return PreviewExportFormat switch
+            {
+                PreviewExportFormat.PngSequenceZip => "zip",
+                PreviewExportFormat.Gif => "gif",
+                PreviewExportFormat.Webp => "webp",
+                _ => "png"
+            };
+        }
+
+        public IReadOnlyList<string> GetPreviewExportPatterns()
+        {
+            return PreviewExportFormat switch
+            {
+                PreviewExportFormat.PngSequenceZip => ["*.zip"],
+                PreviewExportFormat.Gif => ["*.gif"],
+                PreviewExportFormat.Webp => ["*.webp"],
+                _ => ["*.png"]
+            };
+        }
+
+        public async Task ExportSelectedPreviewAsync(Stream outputStream)
+        {
+            if (outputStream is null || !CanExportSelectedPreview)
+            {
+                return;
+            }
+
+            EditorViewModelBase editor = SelectedEditor;
+            PreviewExportOptions options = CreatePreviewExportOptions().Normalized();
+            ITextureSource textureSource = editor.TextureSource ?? new GeneratedTextureSource();
+            IRenderFrameProvider exportProvider = null;
+            bool ownsExportProvider = false;
+
+            try
+            {
+                BeginProjectTransfer(T("Transfer.ExportingPreview"), F("Transfer.RenderingPreviewFrames", options.FrameCount));
+                await Task.Yield();
+                exportProvider = editor.CreatePreviewExportFrameProvider(null);
+                ownsExportProvider = exportProvider is not null;
+                exportProvider ??= editor.PreviewFrameProvider;
+                Func<int, RenderFrame> frameFactory = CreatePreviewFrameFactory(editor.PreviewFrame, exportProvider, options);
+                Func<bool> shouldStop = options.StopOnProviderCompletion && exportProvider is ICompletableRenderFrameProvider completableProvider
+                    ? () => completableProvider.IsComplete
+                    : null;
+                Progress<PreviewExportProgress> progress = new(UpdatePreviewExportProgress);
+                await Task.Run(() =>
+                {
+                    switch (options.Format)
+                    {
+                        case PreviewExportFormat.PngSequenceZip:
+                            PreviewExportWriter.WritePngSequenceZip(outputStream, frameFactory, textureSource, options, shouldStop, progress);
+                            break;
+
+                        case PreviewExportFormat.Gif:
+                            PreviewExportWriter.WriteGif(outputStream, frameFactory, textureSource, options, shouldStop, progress);
+                            break;
+
+                        case PreviewExportFormat.Webp:
+                            PreviewExportWriter.WriteWebp(outputStream, frameFactory, textureSource, options, shouldStop, progress);
+                            break;
+
+                        default:
+                            PreviewExportWriter.WritePng(outputStream, frameFactory(0), textureSource, options, progress);
+                            break;
+                    }
+                });
+
+                StatusText = F("Status.ExportedPreview", editor.Title);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+            {
+                StatusText = F("Status.CouldNotExportPreview", editor.Title, ex.Message);
+            }
+            finally
+            {
+                if (ownsExportProvider && exportProvider is IDisposable disposableProvider)
+                {
+                    disposableProvider.Dispose();
+                }
+
+                EndProjectTransfer();
+            }
+        }
+
+        private PreviewExportOptions CreatePreviewExportOptions()
+        {
+            return new PreviewExportOptions
+            {
+                Format = PreviewExportFormat,
+                CanvasScale = PreviewExportCanvasScale,
+                Fps = PreviewExportFps,
+                DurationSeconds = PreviewExportDurationSeconds,
+                UseFrameRange = HasPreviewExportFrameRangeOptions,
+                StartFrameIndex = Math.Max(0, PreviewExportStartFrame - 1),
+                EndFrameIndex = Math.Max(0, PreviewExportEndFrame - 1),
+                SourceFps = SelectedPreviewExportTimeline?.SourceFps ?? SelectedEditor?.PreviewExportDefaultFps ?? PreviewExportFps,
+                UseTimeRange = HasPreviewExportTimeRangeOptions,
+                StartTimeSeconds = PreviewExportStartSeconds,
+                EndTimeSeconds = PreviewExportEndSeconds,
+                ExportUntilComplete = PreviewExportUntilEnd && IsPreviewAnimationExport
+            };
+        }
+
+        private void RefreshPreviewExportTimelineOptions(bool preferDefault = false)
+        {
+            string previousId = SelectedPreviewExportTimeline?.Id;
+            bool previousWasFull = SelectedPreviewExportTimeline?.IsFullTimeline == true;
+            _suppressPreviewExportTimelineRangeUpdate = true;
+            try
+            {
+                PreviewExportTimelines.Clear();
+
+                if (SelectedEditor is not null)
+                {
+                    foreach (PreviewExportTimelineOption option in SelectedEditor.GetPreviewExportTimelineOptions())
+                    {
+                        PreviewExportTimelines.Add(option);
+                    }
+                }
+
+                string defaultId = SelectedEditor?.GetDefaultPreviewExportTimelineId();
+                SelectedPreviewExportTimeline = preferDefault
+                    ? FindPreviewExportTimeline(defaultId, string.Equals(defaultId, PreviewExportTimelineOption.FullTimelineId, StringComparison.OrdinalIgnoreCase)) ??
+                        PreviewExportTimelines.FirstOrDefault()
+                    : FindPreviewExportTimeline(previousId, previousWasFull) ??
+                        FindPreviewExportTimeline(defaultId, string.Equals(defaultId, PreviewExportTimelineOption.FullTimelineId, StringComparison.OrdinalIgnoreCase)) ??
+                        PreviewExportTimelines.FirstOrDefault();
+            }
+            finally
+            {
+                _suppressPreviewExportTimelineRangeUpdate = false;
+            }
+
+            NotifyPreviewExportProperties();
+        }
+
+        private PreviewExportTimelineOption FindPreviewExportTimeline(string id, bool isFullTimeline)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return null;
+            }
+
+            return PreviewExportTimelines.FirstOrDefault(option =>
+                option.IsFullTimeline == isFullTimeline &&
+                string.Equals(option.Id, id, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private int ClampPreviewExportFrame(int value)
+        {
+            int maximum = Math.Max(1, PreviewExportFrameRangeMaximum);
+            return Math.Clamp(value, 1, maximum);
+        }
+
+        private static double ClampPreviewExportSeconds(double value)
+        {
+            return Math.Clamp(value, 0d, PreviewExportOptions.MaximumTimeSeconds);
+        }
+
+        private static bool ApproximatelyEqual(double left, double right)
+        {
+            return Math.Abs(left - right) < 0.0005d;
+        }
+
+        private static string FormatPreviewExportSecondsForFileName(double seconds)
+        {
+            return ClampPreviewExportSeconds(seconds)
+                .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        private void ApplySelectedPreviewExportTimelineFrameRange()
+        {
+            ApplyPreviewExportTimelineFrameRange(SelectedPreviewExportTimeline);
+        }
+
+        private void ApplyPreviewExportTimelineFrameRange(PreviewExportTimelineOption option)
+        {
+            if (option is null || option.FrameCount <= 0)
+            {
+                PreviewExportStartFrame = 1;
+                PreviewExportEndFrame = Math.Max(1, PreviewExportFrameRangeMaximum);
+                return;
+            }
+
+            PreviewExportStartFrame = option.StartFrameNumber;
+            PreviewExportEndFrame = option.EndFrameNumber;
+        }
+
+        private static Func<int, RenderFrame> CreatePreviewFrameFactory(RenderFrame staticFrame, IRenderFrameProvider provider, PreviewExportOptions options)
+        {
+            staticFrame ??= new RenderFrame();
+            double deltaSeconds = 1d / Math.Clamp(options.Fps, 1, 240);
+            int frameIndex = 0;
+            bool firstFrame = true;
+
+            return _ =>
+            {
+                if (provider is null)
+                {
+                    return staticFrame;
+                }
+
+                if (provider is ISeekableRenderFrameProvider seekableProvider)
+                {
+                    double elapsedSeconds = options.StartSeconds + frameIndex++ * deltaSeconds;
+                    if (options.UseFrameRange || options.UseTimeRange)
+                    {
+                        elapsedSeconds = Math.Min(elapsedSeconds, options.EndSeconds);
+                    }
+
+                    return seekableProvider.GetFrameAtTime(elapsedSeconds);
+                }
+
+                double delta = firstFrame ? 0d : deltaSeconds;
+                firstFrame = false;
+                frameIndex++;
+                return provider.GetFrame(delta);
+            };
+        }
+
         private void BeginProjectTransfer(string title, string message)
         {
             ProjectTransferTitle = title;
@@ -748,6 +1225,31 @@ namespace EffectViewer.ViewModels
             ProjectTransferProgressText = progress.TotalItems <= 0
                 ? progress.CompletedItems > 0 ? F("Transfer.CompletedScanned", progress.CompletedItems) : string.Empty
                 : $"{progress.CompletedItems} / {progress.TotalItems}";
+        }
+
+        private void UpdatePreviewExportProgress(PreviewExportProgress progress)
+        {
+            if (progress is null)
+            {
+                return;
+            }
+
+            string message = progress.Stage switch
+            {
+                PreviewExportProgressStage.CapturingFrames => F("Transfer.CapturingPreviewFrames", progress.CompletedItems, progress.TotalItems),
+                PreviewExportProgressStage.RasterizingFrames => F("Transfer.RasterizingPreviewFrames", progress.CompletedItems, progress.TotalItems),
+                PreviewExportProgressStage.WritingFrames => F("Transfer.WritingPreviewFrames", progress.CompletedItems, progress.TotalItems),
+                PreviewExportProgressStage.EncodingImage => T("Transfer.EncodingPreviewImage"),
+                _ => F("Transfer.RenderingPreviewFrames", progress.TotalItems)
+            };
+
+            UpdateProjectTransferProgress(new ProjectTransferProgress
+            {
+                Operation = T("Transfer.ExportingPreview"),
+                Message = message,
+                CompletedItems = progress.CompletedItems,
+                TotalItems = progress.TotalItems
+            });
         }
 
         private void EndProjectTransfer()
@@ -1589,7 +2091,9 @@ namespace EffectViewer.ViewModels
 
             OnPropertyChanged(nameof(CanSaveSelectedFile));
             OnPropertyChanged(nameof(CanExportSelectedFile));
+            OnPropertyChanged(nameof(CanExportSelectedPreview));
             NotifyOpenEditorProperties();
+            RefreshPreviewExportTimelineOptions();
 
             if (value is not null)
             {
@@ -1620,6 +2124,14 @@ namespace EffectViewer.ViewModels
             else if (e.PropertyName is nameof(EditorViewModelBase.IsPinned) or nameof(EditorViewModelBase.Title))
             {
                 NotifyOpenEditorProperties();
+            }
+            else if (ReferenceEquals(editor, SelectedEditor) &&
+                editor is EffectEditorViewModel &&
+                e.PropertyName is nameof(EffectEditorViewModel.ReanimTimelineRevision)
+                    or nameof(EffectEditorViewModel.SelectedReanimLayer)
+                    or nameof(EffectEditorViewModel.ReanimFps))
+            {
+                RefreshPreviewExportTimelineOptions();
             }
 
             if (editor is ImageEditorViewModel imageEditor &&
@@ -1660,6 +2172,7 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(CanMoveSelectedEditorRight));
             OnPropertyChanged(nameof(CanSaveAnyEditor));
             OnPropertyChanged(nameof(CanCloseSavedEditors));
+            OnPropertyChanged(nameof(CanExportSelectedPreview));
         }
 
         private void UpdateProjectExplorerItemIdentity(

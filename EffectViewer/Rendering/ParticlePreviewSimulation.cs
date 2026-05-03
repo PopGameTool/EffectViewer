@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using EffectViewer.Projects;
+using EffectViewer.Rendering.Export;
 using EffectViewer.Runtime;
 using EffectViewer.TodLib.Common;
 using EffectViewer.TodLib.Graphics;
@@ -8,10 +9,11 @@ using EffectViewer.TodLib.Particle;
 
 namespace EffectViewer.Rendering
 {
-    public sealed class ParticlePreviewSimulation : IRenderFrameProvider, IDisposable
+    public sealed class ParticlePreviewSimulation : ISeekableRenderFrameProvider, ICompletableRenderFrameProvider, IDisposable
     {
         private const double UpdateStepSeconds = 1.0 / TodLibConstants.TICKS_PER_SECOND;
         private const int MaxRestartTicks = TodLibConstants.TICKS_PER_SECOND * 12;
+        private const int MaxSeekTicks = TodLibConstants.TICKS_PER_SECOND * (int)PreviewExportOptions.MaximumTimeSeconds;
 
         private readonly EffectProject _project;
         private readonly string _path;
@@ -23,7 +25,13 @@ namespace EffectViewer.Rendering
         private TodParticleSystem _system;
         private double _accumulator;
         private int _ticksSinceRestart;
+        private int _elapsedTicks;
         private bool _disposed;
+
+        public int MaxUpdateStepsPerFrame { get; set; } = 20;
+        public int RestartAfterTicks { get; set; } = MaxRestartTicks;
+        public bool RestartOnComplete { get; set; } = true;
+        public bool IsComplete { get; private set; }
 
         public ParticlePreviewSimulation(EffectProject project, string path, string assetId, float x = 400f, float y = 300f)
         {
@@ -62,12 +70,38 @@ namespace EffectViewer.Rendering
 
             _accumulator += deltaSeconds;
             int guard = 0;
-            while (_accumulator >= UpdateStepSeconds && guard++ < 20)
+            int maxUpdateSteps = Math.Max(1, MaxUpdateStepsPerFrame);
+            while (_accumulator >= UpdateStepSeconds && guard++ < maxUpdateSteps)
             {
                 Update();
                 _accumulator -= UpdateStepSeconds;
             }
 
+            return BuildFrame();
+        }
+
+        public RenderFrame GetFrameAtTime(double elapsedSeconds)
+        {
+            if (_disposed)
+            {
+                return new RenderFrame();
+            }
+
+            int targetTick = Math.Clamp(
+                (int)Math.Round(Math.Max(0d, elapsedSeconds) * TodLibConstants.TICKS_PER_SECOND),
+                0,
+                MaxSeekTicks);
+            if (targetTick < _elapsedTicks)
+            {
+                Reset();
+            }
+
+            while (_elapsedTicks < targetTick && !IsComplete)
+            {
+                Update();
+            }
+
+            _accumulator = 0d;
             return BuildFrame();
         }
 
@@ -95,19 +129,42 @@ namespace EffectViewer.Rendering
             _holder.mParticles.DataArrayFreeAll();
             _accumulator = 0;
             _ticksSinceRestart = 0;
+            _elapsedTicks = 0;
+            IsComplete = false;
             _system = _holder.AllocParticleSystemFromDef(_x, _y, 0, _definition, _assetId);
         }
 
         private void Update()
         {
+            if (IsComplete)
+            {
+                return;
+            }
+
             _ticksSinceRestart++;
-            if (_system == null || _system.mDead || _ticksSinceRestart > MaxRestartTicks)
+            _elapsedTicks++;
+            if (_system == null || _system.mDead || _ticksSinceRestart > RestartAfterTicks)
+            {
+                CompleteOrRestart();
+                return;
+            }
+
+            _system.Update();
+            if (_system == null || _system.mDead)
+            {
+                CompleteOrRestart();
+            }
+        }
+
+        private void CompleteOrRestart()
+        {
+            if (RestartOnComplete)
             {
                 Reset();
                 return;
             }
 
-            _system.Update();
+            IsComplete = true;
         }
 
         private RenderFrame BuildFrame()

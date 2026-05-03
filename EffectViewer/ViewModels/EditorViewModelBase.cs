@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -94,6 +95,7 @@ namespace EffectViewer.ViewModels
         public virtual bool SavesWithProjectManifest => false;
         public virtual bool SupportsFileExport => false;
         public virtual string ExportPath => string.Empty;
+        public virtual int PreviewExportDefaultFps => 30;
 
         public bool IsSidePanelOnLeft
         {
@@ -169,6 +171,26 @@ namespace EffectViewer.ViewModels
         public virtual Task ExportAsync(EffectProjectService projectService, EffectProject project, Stream outputStream, string targetFileName)
         {
             return projectService.ExportProjectFileAsync(project, ExportPath, outputStream);
+        }
+
+        public virtual IRenderFrameProvider CreatePreviewExportFrameProvider()
+        {
+            return null;
+        }
+
+        public virtual IReadOnlyList<PreviewExportTimelineOption> GetPreviewExportTimelineOptions()
+        {
+            return [];
+        }
+
+        public virtual string GetDefaultPreviewExportTimelineId()
+        {
+            return null;
+        }
+
+        public virtual IRenderFrameProvider CreatePreviewExportFrameProvider(PreviewExportTimelineOption timeline)
+        {
+            return CreatePreviewExportFrameProvider();
         }
 
         protected void MarkDirty()

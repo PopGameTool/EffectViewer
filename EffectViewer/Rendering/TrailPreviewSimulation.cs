@@ -3,14 +3,17 @@ using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using EffectViewer.Projects;
+using EffectViewer.Rendering.Export;
 using EffectViewer.TodLib.Common;
 using EffectViewer.TodLib.Trail;
 
 namespace EffectViewer.Rendering
 {
-    public sealed class TrailPreviewSimulation : IRenderFrameProvider
+    public sealed class TrailPreviewSimulation : ISeekableRenderFrameProvider, ICompletableRenderFrameProvider
     {
         private const double UpdateStepSeconds = 1.0 / TodLibConstants.TICKS_PER_SECOND;
+        private const int MaxRestartTicks = TodLibConstants.TICKS_PER_SECOND * 12;
+        private const int MaxSeekTicks = TodLibConstants.TICKS_PER_SECOND * (int)PreviewExportOptions.MaximumTimeSeconds;
 
         private readonly TrailDefinition _definition;
         private readonly string _textureId;
@@ -18,7 +21,14 @@ namespace EffectViewer.Rendering
         private readonly float _y;
         private double _accumulator;
         private int _tick;
+        private int _ticksSinceRestart;
+        private int _elapsedTicks;
         private Trail _trail;
+
+        public int MaxUpdateStepsPerFrame { get; set; } = 20;
+        public int RestartAfterTicks { get; set; } = MaxRestartTicks;
+        public bool RestartOnComplete { get; set; } = true;
+        public bool IsComplete { get; private set; }
 
         public TrailPreviewSimulation(EffectProject project, string path, string fallbackId, float x = 0f, float y = 0f)
             : this(LoadDefinition(project, path), fallbackId, x, y)
@@ -47,7 +57,8 @@ namespace EffectViewer.Rendering
         {
             _accumulator += deltaSeconds;
             int guard = 0;
-            while (_accumulator >= UpdateStepSeconds && guard++ < 20)
+            int maxUpdateSteps = Math.Max(1, MaxUpdateStepsPerFrame);
+            while (_accumulator >= UpdateStepSeconds && guard++ < maxUpdateSteps)
             {
                 Update();
                 _accumulator -= UpdateStepSeconds;
@@ -56,25 +67,70 @@ namespace EffectViewer.Rendering
             return BuildFrame();
         }
 
+        public RenderFrame GetFrameAtTime(double elapsedSeconds)
+        {
+            int targetTick = Math.Clamp(
+                (int)Math.Round(Math.Max(0d, elapsedSeconds) * TodLibConstants.TICKS_PER_SECOND),
+                0,
+                MaxSeekTicks);
+            if (targetTick < _elapsedTicks)
+            {
+                Reset();
+            }
+
+            while (_elapsedTicks < targetTick && !IsComplete)
+            {
+                Update();
+            }
+
+            _accumulator = 0d;
+            return BuildFrame();
+        }
+
         private void Reset()
         {
             _accumulator = 0;
             _tick = 0;
+            _ticksSinceRestart = 0;
+            _elapsedTicks = 0;
+            IsComplete = false;
             _trail = CreateTrail();
         }
 
         private void Update()
         {
+            if (IsComplete)
+            {
+                return;
+            }
+
             _tick++;
+            _ticksSinceRestart++;
+            _elapsedTicks++;
 
             _trail.Update();
-            if (_trail.mDead)
+            if (_trail.mDead || _ticksSinceRestart > RestartAfterTicks)
             {
-                Reset();
+                if (!CompleteOrRestart())
+                {
+                    return;
+                }
             }
 
             Vector2 point = BuildMovingPoint(_tick);
             _trail.AddPoint(point.X + _x, point.Y + _y);
+        }
+
+        private bool CompleteOrRestart()
+        {
+            if (RestartOnComplete)
+            {
+                Reset();
+                return true;
+            }
+
+            IsComplete = true;
+            return false;
         }
 
         private RenderFrame BuildFrame()

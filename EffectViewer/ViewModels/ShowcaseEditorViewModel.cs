@@ -11,6 +11,8 @@ using EffectViewer.Projects;
 using EffectViewer.Rendering;
 using EffectViewer.Runtime;
 using EffectViewer.Runtime.Lua;
+using EffectViewer.Runtime.Showcase;
+using EffectViewer.TodLib.Common;
 
 namespace EffectViewer.ViewModels
 {
@@ -93,6 +95,25 @@ namespace EffectViewer.ViewModels
 
             await File.WriteAllTextAsync(fullPath, ScriptText ?? string.Empty);
             AcceptSavedState();
+        }
+
+        public override IRenderFrameProvider CreatePreviewExportFrameProvider()
+        {
+            EffectWorld exportWorld = new();
+            exportWorld.LoadProject(_project);
+            LuaRunResult result = new LuaHost(exportWorld).Run(ScriptText);
+            if (!result.Success || result.FrameProvider is null)
+            {
+                exportWorld.Dispose();
+                return null;
+            }
+
+            if (result.FrameProvider is ShowcaseScene scene)
+            {
+                scene.MaxUpdateStepsPerFrame = TodLibConstants.TICKS_PER_SECOND * 2;
+            }
+
+            return new ExportShowcaseFrameProvider(exportWorld, result.FrameProvider);
         }
 
         [RelayCommand]
@@ -228,6 +249,35 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(DisplayAssetId));
             OnPropertyChanged(nameof(DisplayPath));
             OnPropertyChanged(nameof(SelectedLogDetail));
+        }
+
+        private sealed class ExportShowcaseFrameProvider : IRenderFrameProvider, IDisposable
+        {
+            private readonly EffectWorld _world;
+            private readonly IRenderFrameProvider _provider;
+            private bool _disposed;
+
+            public ExportShowcaseFrameProvider(EffectWorld world, IRenderFrameProvider provider)
+            {
+                _world = world;
+                _provider = provider;
+            }
+
+            public RenderFrame GetFrame(double deltaSeconds)
+            {
+                return _disposed ? new RenderFrame() : _provider.GetFrame(deltaSeconds);
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                _world.Dispose();
+            }
         }
     }
 }

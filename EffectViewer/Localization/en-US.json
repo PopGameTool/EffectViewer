@@ -12,6 +12,7 @@
       "Detect": "Detect",
       "Delete": "Delete",
       "Discard": "Discard",
+      "Export": "Export",
       "Keyframe": "Keyframe",
       "Open": "Open",
       "Rename": "Rename",
@@ -43,6 +44,7 @@
       "CloseTabsToLeft": "Close Tabs to the _Left",
       "CloseTabsToRight": "Close Tabs to the _Right",
       "ExportCurrentFile": "_Export Current File...",
+      "ExportPreview": "Export _Preview...",
       "ExportProjectZip": "Export Project _Zip...",
       "ImportProjectZip": "_Import Project Zip...",
       "ImportResourceFile": "Import Resource _File...",
@@ -81,6 +83,7 @@
       "AnchorY": "Anchor Y",
       "Animated": "Animated",
       "Cells": "Cells",
+      "CanvasScale": "Canvas Scale",
       "Col": "Col",
       "Cols": "Cols",
       "Collision": "Collision",
@@ -94,11 +97,14 @@
       "EmitterType": "EmitterType",
       "Emitters": "Emitters",
       "EndFrame": "End Frame",
+      "EndSecond": "End Second",
       "Errors": "Errors",
+      "ExportToEnd": "Export to end",
       "Fields": "Fields",
       "FieldType": "FieldType",
       "Flags": "Flags",
       "Font": "Font",
+      "Format": "Format",
       "FPS": "FPS",
       "Frame": "Frame",
       "Frames": "Frames",
@@ -106,6 +112,7 @@
       "Fullscreen": "Fullscreen",
       "General": "General",
       "HardwareOnly": "HardwareOnly",
+      "Height": "Height",
       "High": "High",
       "ID": "ID",
       "ImageCol": "ImageCol",
@@ -149,6 +156,7 @@
       "SoftwareOnly": "SoftwareOnly",
       "Spawn": "Spawn",
       "StartFrame": "Start Frame",
+      "StartSecond": "Start Second",
       "Structure": "Structure",
       "SystemColor": "System Color",
       "SystemFields": "System Fields",
@@ -163,6 +171,7 @@
       "Tweens": "Tweens",
       "Type": "Type",
       "Visible": "Visible",
+      "Width": "Width",
       "X": "X",
       "Y": "Y"
     },
@@ -181,6 +190,8 @@
       "DeleteProject": "Delete Project",
       "DeleteProjectMessage": "Delete {0} ({1})?",
       "DeleteProjectWarning": "This removes the project folder and cannot be undone.",
+      "ExportPreview": "Export Preview",
+      "ExportPreviewMessage": "Render the selected editor preview as PNG, PNG sequence, GIF, or WebP. Reanim timelines fill the frame range; the final export range is controlled by Start Frame and End Frame.",
       "SaveChangesBeforeContinuing": "Save changes before continuing?",
       "UntitledEffectProject": "Untitled Effect Project",
       "UnsavedChangesTitle": "Unsaved Changes",
@@ -190,6 +201,7 @@
       "Compiled": "Compiled",
       "EffectResources": "Effect resources",
       "ExportCurrentFile": "Export current file",
+      "ExportPreview": "Export preview",
       "ExportProjectZip": "Export EffectViewer project zip",
       "ImportResourceFolder": "Import resource folder",
       "ImportProjectZip": "Import EffectViewer project zip",
@@ -197,6 +209,7 @@
       "JsonLanguageFiles": "JSON language files",
       "Source": "Source",
       "SupportedFormats": "Supported formats",
+      "PreviewExport": "Preview export",
       "ZipArchive": "Zip archive"
     },
     "DocumentKind": {
@@ -278,6 +291,10 @@
       "Showcases": "Showcases",
       "UserScript": "User script"
     },
+    "PreviewExport": {
+      "FrameCount": "{0} frame(s)",
+      "FrameCountUpTo": "Up to {0} frame(s)"
+    },
     "Status": {
       "CanceledClosingApplication": "Canceled closing application.",
       "CanceledClosingDocument": "Canceled closing {0}.",
@@ -297,6 +314,7 @@
       "CouldNotCreateResource": "Could not create resource: {0}",
       "CouldNotDeleteProject": "Could not delete project: {0}",
       "CouldNotExport": "Could not export {0}: {1}",
+      "CouldNotExportPreview": "Could not export preview for {0}: {1}",
       "CouldNotExportProject": "Could not export project: {0}",
       "CouldNotImportFolder": "Could not import folder: {0}",
       "CouldNotImportProject": "Could not import project: {0}",
@@ -327,6 +345,8 @@
       "EditingTrail": "Editing trail {0}",
       "EditingUnsaved": "Editing {0} (unsaved).",
       "Exported": "Exported {0}.",
+      "ExportedPreview": "Exported preview for {0}.",
+      "ExportingPreview": "Exporting preview for {0}.",
       "FoundProjects": "Found {0} project(s).",
       "ImportedFolder": "Imported {0} image(s), {1} reanim(s), {2} particle(s), {3} trail(s). Missing images: {4}.",
       "ImportedProject": "Imported project {0}.",
@@ -361,14 +381,20 @@
       "UnpinnedDocument": "Unpinned {0}."
     },
     "Transfer": {
+      "CapturingPreviewFrames": "Capturing frames {0} / {1}",
       "CompletedScanned": "{0} scanned",
+      "EncodingPreviewImage": "Encoding image",
       "ExportingProject": "Exporting Project",
+      "ExportingPreview": "Exporting Preview",
       "ImportingProject": "Importing Project",
       "ImportingResourceFolder": "Importing Resource Folder",
       "PreparingArchive": "Preparing archive",
+      "RasterizingPreviewFrames": "Rasterizing frames {0} / {1}",
       "ReadingArchive": "Reading archive",
       "ReadingFolder": "Reading folder",
-      "ScanningResourceFolder": "Scanning resource folder"
+      "RenderingPreviewFrames": "Rendering {0} frame(s)",
+      "ScanningResourceFolder": "Scanning resource folder",
+      "WritingPreviewFrames": "Writing frames {0} / {1}"
     }
   }
 }

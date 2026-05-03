@@ -10,13 +10,14 @@ using EffectViewer.TodLib.Reanim;
 
 namespace EffectViewer.Rendering
 {
-    public sealed class ReanimPreviewSimulation : IRenderFrameProvider, IDisposable
+    public sealed class ReanimPreviewSimulation : ISeekableRenderFrameProvider, IDisposable
     {
         private const double UpdateStepSeconds = 1.0 / TodLibConstants.TICKS_PER_SECOND;
         private readonly EffectSystem _effectSystem = new();
         private readonly ProjectResourceProvider _resourceProvider;
         private readonly Dictionary<string, ReanimationParams> _reanimationParams;
         private readonly Dictionary<string, ReanimatorDefinition> _reanimationDefinitions;
+        private readonly Dictionary<Reanimation, AttachedReanimationSeekState> _attachedReanimationSeekStates = [];
         private readonly string _reanimationType;
         private Reanimation _reanimation;
         private readonly float _x;
@@ -29,6 +30,7 @@ namespace EffectViewer.Rendering
         public IReadOnlyList<string> TrackNames { get; private set; }
         public IReadOnlyList<string> LayerTrackNames { get; private set; }
         public IReadOnlyList<string> LayerNames { get; private set; }
+        public int MaxUpdateStepsPerFrame { get; set; } = 20;
 
         public ReanimPreviewSimulation(EffectProject project, string path, float x = 0f, float y = 0f)
         {
@@ -62,12 +64,30 @@ namespace EffectViewer.Rendering
             {
                 _accumulator += deltaSeconds;
                 int guard = 0;
-                while (_accumulator >= UpdateStepSeconds && guard++ < 20)
+                int maxUpdateSteps = Math.Max(1, MaxUpdateStepsPerFrame);
+                while (_accumulator >= UpdateStepSeconds && guard++ < maxUpdateSteps)
                 {
                     Update();
                     _accumulator -= UpdateStepSeconds;
                 }
             }
+
+            return BuildFrame();
+        }
+
+        public RenderFrame GetFrameAtTime(double elapsedSeconds)
+        {
+            if (_disposed)
+            {
+                return new RenderFrame();
+            }
+
+            ResourceHandler.SetProvider(_resourceProvider);
+            ApplyProjectReanimations();
+            SetReanimationElapsedTime(_reanimation, elapsedSeconds);
+            RefreshAttachmentsForSeek(_reanimation, elapsedSeconds, 0);
+            _effectSystem.ProcessDeleteQueue();
+            _needsAttachmentRefresh = false;
 
             return BuildFrame();
         }
@@ -99,6 +119,7 @@ namespace EffectViewer.Rendering
             TrackNames = BuildTrackNames(_reanimation.mDefinition);
             LayerTrackNames = BuildLayerTrackNames(_reanimation.mDefinition);
             LayerNames = BuildLayerNames(LayerTrackNames);
+            _attachedReanimationSeekStates.Clear();
             _accumulator = 0d;
             _needsAttachmentRefresh = true;
         }
@@ -242,6 +263,141 @@ namespace EffectViewer.Rendering
             _effectSystem.ProcessDeleteQueue();
             _reanimation.mLastFrameTime = _reanimation.mAnimTime;
             _needsAttachmentRefresh = false;
+        }
+
+        private void SetReanimationElapsedTime(Reanimation reanimation, double elapsedSeconds)
+        {
+            if (reanimation is null || reanimation.mFrameCount <= 0)
+            {
+                return;
+            }
+
+            float animRate = reanimation.mAnimRate;
+            if (!float.IsFinite(animRate) || animRate == 0f)
+            {
+                reanimation.mAnimTime = animRate < 0f ? 0.9999999f : 0f;
+            }
+            else
+            {
+                int timelineFrameCount = reanimation.mLoopType is ReanimLoopType.PlayOnceFullLastFrame
+                    or ReanimLoopType.LoopFullLastFrame
+                    or ReanimLoopType.PlayOnceFullLastFrameAndHold
+                    ? reanimation.mFrameCount
+                    : reanimation.mFrameCount - 1;
+                timelineFrameCount = Math.Max(1, timelineFrameCount);
+                double rawAnimTime = Math.Max(0d, elapsedSeconds) * animRate / timelineFrameCount;
+                double animTime = rawAnimTime;
+                if (reanimation.mLoopType is ReanimLoopType.Loop or ReanimLoopType.LoopFullLastFrame)
+                {
+                    animTime -= Math.Floor(animTime);
+                    if (animTime <= 0d && rawAnimTime > 0d)
+                    {
+                        animTime = 0.9999999d;
+                    }
+                }
+                else if (animRate > 0f)
+                {
+                    animTime = Math.Clamp(animTime, 0d, 1d);
+                }
+                else
+                {
+                    animTime = 1d - Math.Clamp(-animTime, 0d, 1d);
+                }
+
+                reanimation.mAnimTime = (float)Math.Clamp(animTime, 0d, 0.9999999d);
+            }
+
+            reanimation.mLastFrameTime = -1f;
+            reanimation.mDead = false;
+            _accumulator = 0d;
+            _needsAttachmentRefresh = true;
+        }
+
+        private void RefreshAttachmentsForSeek(Reanimation reanimation, double elapsedSeconds, int depth)
+        {
+            if (reanimation?.mTrackInstances is null ||
+                reanimation.mFrameCount == 0 ||
+                reanimation.mDead ||
+                depth > 16)
+            {
+                return;
+            }
+
+            for (int i = 0; i < reanimation.mTrackInstances.Length; i++)
+            {
+                ref ReanimatorTrackInstance track = ref reanimation.mTrackInstances[i];
+                track.mBlendCounter = 0;
+                if (track.mIsAttacher)
+                {
+                    reanimation.UpdateAttacherTrack(i);
+                }
+
+                if (track.mAttachmentID == AttachmentID.Null)
+                {
+                    continue;
+                }
+
+                reanimation.GetAttachmentOverlayMatrix(i, out Matrix4x4 matrix);
+                Attachment attachment = _effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(track.mAttachmentID);
+                if (attachment is null)
+                {
+                    track.mAttachmentID = AttachmentID.Null;
+                    continue;
+                }
+
+                attachment.SetMatrix(matrix);
+                SeekAttachmentEffects(attachment, elapsedSeconds, depth + 1);
+            }
+
+            reanimation.mLastFrameTime = reanimation.mAnimTime;
+        }
+
+        private void SeekAttachmentEffects(Attachment attachment, double parentElapsedSeconds, int depth)
+        {
+            if (attachment is null || depth > 16)
+            {
+                return;
+            }
+
+            for (int i = 0; i < attachment.mNumEffects; i++)
+            {
+                ref readonly AttachEffect attachEffect = ref attachment.mEffectArray[i];
+                switch (attachEffect.mEffectType)
+                {
+                    case EffectType.Reanim:
+                    {
+                        Reanimation child = _effectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet((ReanimationID)attachEffect.mEffectID);
+                        if (child is null || child.mDead)
+                        {
+                            break;
+                        }
+
+                        double childElapsedSeconds = GetAttachedReanimationElapsedSeconds(child, parentElapsedSeconds);
+                        SetReanimationElapsedTime(child, childElapsedSeconds);
+                        RefreshAttachmentsForSeek(child, childElapsedSeconds, depth + 1);
+                        break;
+                    }
+
+                    case EffectType.Attachment:
+                    {
+                        Attachment childAttachment = _effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet((AttachmentID)attachEffect.mEffectID);
+                        SeekAttachmentEffects(childAttachment, parentElapsedSeconds, depth + 1);
+                        break;
+                    }
+                }
+            }
+        }
+
+        private double GetAttachedReanimationElapsedSeconds(Reanimation reanimation, double parentElapsedSeconds)
+        {
+            if (!_attachedReanimationSeekStates.TryGetValue(reanimation, out AttachedReanimationSeekState state) ||
+                state.HasFrameRangeChanged(reanimation))
+            {
+                state = new AttachedReanimationSeekState(reanimation, parentElapsedSeconds);
+                _attachedReanimationSeekStates[reanimation] = state;
+            }
+
+            return Math.Max(0d, parentElapsedSeconds - state.StartElapsedSeconds);
         }
 
         private RenderFrame BuildFrame()
@@ -476,6 +632,31 @@ namespace EffectViewer.Rendering
             string normalizedLeft = (left ?? string.Empty).Replace('\\', '/').Trim();
             string normalizedRight = (right ?? string.Empty).Replace('\\', '/').Trim();
             return string.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private sealed class AttachedReanimationSeekState
+        {
+            private readonly string _reanimationType;
+            private readonly int _frameStart;
+            private readonly int _frameCount;
+
+            public AttachedReanimationSeekState(Reanimation reanimation, double startElapsedSeconds)
+            {
+                _reanimationType = reanimation?.mReanimationType ?? string.Empty;
+                _frameStart = reanimation?.mFrameStart ?? 0;
+                _frameCount = reanimation?.mFrameCount ?? 0;
+                StartElapsedSeconds = startElapsedSeconds;
+            }
+
+            public double StartElapsedSeconds { get; }
+
+            public bool HasFrameRangeChanged(Reanimation reanimation)
+            {
+                return reanimation is null ||
+                    !string.Equals(_reanimationType, reanimation.mReanimationType, StringComparison.Ordinal) ||
+                    _frameStart != reanimation.mFrameStart ||
+                    _frameCount != reanimation.mFrameCount;
+            }
         }
     }
 }

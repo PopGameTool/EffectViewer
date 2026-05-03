@@ -42,6 +42,7 @@ namespace EffectViewer.Views
             {
                 _observedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
                 _observedViewModel.ImportResourceFolderRequested -= OnImportResourceFolderRequested;
+                _observedViewModel.PreviewExportRequested -= OnPreviewExportRequested;
             }
 
             _observedViewModel = DataContext as MainViewModel;
@@ -49,6 +50,7 @@ namespace EffectViewer.Views
             {
                 _observedViewModel.PropertyChanged += OnViewModelPropertyChanged;
                 _observedViewModel.ImportResourceFolderRequested += OnImportResourceFolderRequested;
+                _observedViewModel.PreviewExportRequested += OnPreviewExportRequested;
             }
 
             UpdateProjectExplorerLayout();
@@ -605,6 +607,43 @@ namespace EffectViewer.Views
 
             await using Stream stream = await file.OpenWriteAsync();
             await viewModel.ExportSelectedFileAsync(stream, file.Name);
+        }
+
+        private async void OnPreviewExportRequested(object sender, System.EventArgs e)
+        {
+            await ExportPreviewFromPickerAsync();
+        }
+
+        private async Task ExportPreviewFromPickerAsync()
+        {
+            TopLevel topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.StorageProvider is null || DataContext is not MainViewModel viewModel)
+            {
+                return;
+            }
+
+            IReadOnlyList<string> exportPatterns = viewModel.GetPreviewExportPatterns();
+            IStorageFile file = await topLevel.StorageProvider.SaveFilePickerAsync(new()
+            {
+                Title = Loc.Text("FilePicker.ExportPreview"),
+                SuggestedFileName = viewModel.GetPreviewExportFileName(),
+                DefaultExtension = viewModel.GetPreviewExportDefaultExtension(),
+                FileTypeChoices =
+                [
+                    new FilePickerFileType(Loc.Text("FilePicker.PreviewExport"))
+                    {
+                        Patterns = [.. exportPatterns]
+                    }
+                ]
+            });
+
+            if (file is null)
+            {
+                return;
+            }
+
+            await using Stream stream = await file.OpenWriteAsync();
+            await viewModel.ExportSelectedPreviewAsync(stream);
         }
 
         private async void LoadLanguageFileMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)

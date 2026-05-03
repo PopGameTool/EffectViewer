@@ -11,6 +11,7 @@ using EffectViewer.Assets;
 using EffectViewer.Localization;
 using EffectViewer.Projects;
 using EffectViewer.Rendering;
+using EffectViewer.Rendering.Export;
 using EffectViewer.Runtime;
 using EffectViewer.TodLib.Common;
 using EffectViewer.TodLib.Graphics;
@@ -374,6 +375,9 @@ namespace EffectViewer.ViewModels
         public override bool SupportsSave => Kind == EffectAssetKind.Reanim || Kind == EffectAssetKind.Trail || Kind == EffectAssetKind.Particle;
         public override bool SupportsFileExport => true;
         public override string ExportPath => Path;
+        public override int PreviewExportDefaultFps => Kind == EffectAssetKind.Reanim
+            ? System.Math.Clamp((int)System.Math.Round(ReanimFps), 1, 240)
+            : base.PreviewExportDefaultFps;
 
         public override Task ExportAsync(EffectProjectService projectService, EffectProject project, Stream outputStream, string targetFileName)
         {
@@ -471,6 +475,102 @@ namespace EffectViewer.ViewModels
                 PreviewFrame = EffectPreviewFrameBuilder.BuildPlaceholder(kind, assetId);
             }
             TextureSource = new Rendering.TextureUpload.ProjectTextureSource(project);
+        }
+
+        public override IRenderFrameProvider CreatePreviewExportFrameProvider()
+        {
+            IReadOnlyList<PreviewExportTimelineOption> timelines = GetPreviewExportTimelineOptions();
+            string defaultTimelineId = GetDefaultPreviewExportTimelineId();
+            PreviewExportTimelineOption timeline = timelines.FirstOrDefault(option =>
+                string.Equals(option.Id, defaultTimelineId, System.StringComparison.OrdinalIgnoreCase)) ?? timelines.FirstOrDefault();
+            return CreatePreviewExportFrameProvider(timeline);
+        }
+
+        public override IReadOnlyList<PreviewExportTimelineOption> GetPreviewExportTimelineOptions()
+        {
+            if (Kind != EffectAssetKind.Reanim || _reanimDefinition?.mTracks is null || _reanimDefinition.mTrackCount <= 0)
+            {
+                return [];
+            }
+
+            double sourceFps = ReanimFps <= 0d ? 12d : ReanimFps;
+            List<PreviewExportTimelineOption> options =
+            [
+                new PreviewExportTimelineOption(
+                    PreviewExportTimelineOption.FullTimelineId,
+                    T("EffectEditor.FullTimeline"),
+                    isFullTimeline: true,
+                    frameStart: 0,
+                    frameCount: GetFullReanimTimelineFrameCount(),
+                    sourceFps)
+            ];
+
+            foreach (string layerName in BuildReanimLayerNames())
+            {
+                if (!TryGetReanimLayerFrameRange(layerName, out int frameStart, out int frameCount))
+                {
+                    continue;
+                }
+
+                options.Add(new PreviewExportTimelineOption(
+                    layerName,
+                    layerName,
+                    isFullTimeline: false,
+                    frameStart,
+                    frameCount,
+                    sourceFps));
+            }
+
+            return options;
+        }
+
+        public override string GetDefaultPreviewExportTimelineId()
+        {
+            if (Kind != EffectAssetKind.Reanim)
+            {
+                return null;
+            }
+
+            return PreviewExportTimelineOption.FullTimelineId;
+        }
+
+        public override IRenderFrameProvider CreatePreviewExportFrameProvider(PreviewExportTimelineOption timeline)
+        {
+            return Kind switch
+            {
+                EffectAssetKind.Reanim when _reanimDefinition is not null => CreateReanimExportProvider(),
+                EffectAssetKind.Particle when _particleDefinition is not null => new ParticlePreviewSimulation(_project, _particleDefinition, AssetId)
+                {
+                    MaxUpdateStepsPerFrame = TodLibConstants.TICKS_PER_SECOND * 2,
+                    RestartAfterTicks = TodLibConstants.TICKS_PER_SECOND * (int)PreviewExportOptions.MaximumTimeSeconds,
+                    RestartOnComplete = false
+                },
+                EffectAssetKind.Trail when _trailDefinition is not null => new TrailPreviewSimulation(_trailDefinition, AssetId)
+                {
+                    MaxUpdateStepsPerFrame = TodLibConstants.TICKS_PER_SECOND * 2,
+                    RestartAfterTicks = TodLibConstants.TICKS_PER_SECOND * (int)PreviewExportOptions.MaximumTimeSeconds,
+                    RestartOnComplete = false
+                },
+                _ => null
+            };
+        }
+
+        private IRenderFrameProvider CreateReanimExportProvider()
+        {
+            ReanimPreviewSimulation simulation = new(_project, Path)
+            {
+                MaxUpdateStepsPerFrame = TodLibConstants.TICKS_PER_SECOND * 2
+            };
+            simulation.SetDefinition(_reanimDefinition);
+            simulation.SetAnimRate((float)ReanimFps);
+            simulation.SetLayer(null);
+            simulation.SetPaused(false);
+            foreach (ReanimTrackViewModel track in ReanimTracks)
+            {
+                simulation.SetTrackVisible(track.Index, track.IsVisible);
+            }
+
+            return simulation;
         }
 
         private static LocalizationManager Loc => LocalizationManager.Instance;
@@ -1280,6 +1380,68 @@ namespace EffectViewer.ViewModels
             return layerNames.Length > 0 ? layerNames : trackNames;
         }
 
+        private int GetFullReanimTimelineFrameCount()
+        {
+            if (_reanimDefinition?.mTracks is null || _reanimDefinition.mTrackCount <= 0)
+            {
+                return 0;
+            }
+
+            return System.Math.Max(0, (int)(_reanimDefinition.mTracks[0]?.mTransformCount ?? 0));
+        }
+
+        private bool TryGetReanimLayerFrameRange(string layerName, out int frameStart, out int frameCount)
+        {
+            frameStart = 0;
+            frameCount = 0;
+            if (_reanimDefinition?.mTracks is null || string.IsNullOrWhiteSpace(layerName))
+            {
+                return false;
+            }
+
+            ReanimatorTrack track = _reanimDefinition.mTracks
+                .Take(_reanimDefinition.mTrackCount)
+                .FirstOrDefault(candidate => string.Equals(candidate?.mName, layerName, System.StringComparison.OrdinalIgnoreCase));
+            if (track?.mTransforms is null || track.mTransformCount <= 0)
+            {
+                return false;
+            }
+
+            frameCount = 1;
+            bool foundStart = false;
+            int count = System.Math.Min(track.mTransformCount, track.mTransforms.Length);
+            for (int i = 0; i < count; i++)
+            {
+                if (track.mTransforms[i].mFrame >= 0f)
+                {
+                    frameStart = i;
+                    foundStart = true;
+                    break;
+                }
+            }
+
+            if (!foundStart)
+            {
+                return true;
+            }
+
+            for (int i = frameStart; i < count; i++)
+            {
+                if (track.mTransforms[i].mFrame >= 0f)
+                {
+                    frameCount = i - frameStart + 1;
+                }
+            }
+
+            return true;
+        }
+
+        private bool IsFullReanimLayer(string layerName)
+        {
+            return string.IsNullOrWhiteSpace(layerName) ||
+                string.Equals(layerName, T("EffectEditor.FullTimeline"), System.StringComparison.Ordinal);
+        }
+
         private void SelectReanimFrame(int frameIndex)
         {
             SelectReanimTimelineFrame(frameIndex);
@@ -1472,7 +1634,7 @@ namespace EffectViewer.ViewModels
 
             _reanimPreview.SetDefinition(_reanimDefinition);
             _reanimPreview.SetAnimRate((float)ReanimFps);
-            _reanimPreview.SetLayer(SelectedReanimLayer == T("EffectEditor.FullTimeline") ? null : SelectedReanimLayer);
+            _reanimPreview.SetLayer(IsFullReanimLayer(SelectedReanimLayer) ? null : SelectedReanimLayer);
             _reanimPreview.SetPaused(!ReanimIsPlaying);
             _reanimPreview.SetFrameIndex(SelectedReanimFrameIndex);
             ApplyReanimTrackVisibility();

@@ -38,6 +38,7 @@ namespace EffectViewer.Runtime.Showcase
         public IReadOnlyList<ShowcaseReanimation> Reanimations => _reanims;
         public IReadOnlyList<ShowcaseParticle> Particles => _particles;
         public IReadOnlyList<ShowcaseTrail> Trails => _trails;
+        public int MaxUpdateStepsPerFrame { get; set; } = 20;
 
         internal void SetScriptCallbacks(IShowcaseScriptCallbacks callbacks)
         {
@@ -132,7 +133,8 @@ namespace EffectViewer.Runtime.Showcase
             ResourceHandler.SetProvider(_resourceProvider);
             _accumulator += deltaSeconds;
             int guard = 0;
-            while (_accumulator >= UpdateStepSeconds && guard++ < 20)
+            int maxUpdateSteps = Math.Max(1, MaxUpdateStepsPerFrame);
+            while (_accumulator >= UpdateStepSeconds && guard++ < maxUpdateSteps)
             {
                 Update(UpdateStepSeconds);
                 _accumulator -= UpdateStepSeconds;

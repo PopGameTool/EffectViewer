@@ -12,6 +12,7 @@
       "Detect": "检测",
       "Delete": "删除",
       "Discard": "放弃",
+      "Export": "导出",
       "Keyframe": "关键帧",
       "Open": "打开",
       "Rename": "重命名",
@@ -43,6 +44,7 @@
       "CloseTabsToLeft": "关闭左侧标签页(_L)",
       "CloseTabsToRight": "关闭右侧标签页(_R)",
       "ExportCurrentFile": "导出当前文件(_E)...",
+      "ExportPreview": "导出预览(_P)...",
       "ExportProjectZip": "导出项目 Zip(_Z)...",
       "ImportProjectZip": "导入项目 Zip(_I)...",
       "ImportResourceFile": "导入资源文件(_F)...",
@@ -81,6 +83,7 @@
       "AnchorY": "锚点 Y",
       "Animated": "动画",
       "Cells": "单元格",
+      "CanvasScale": "画布倍率",
       "Col": "列",
       "Cols": "列数",
       "Collision": "碰撞",
@@ -93,12 +96,15 @@
       "EmitterShape": "发射器形状",
       "EmitterType": "发射器类型",
       "Emitters": "发射器",
-      "EndFrame": "结束帧",
+      "EndFrame": "终止帧",
+      "EndSecond": "终止秒",
       "Errors": "错误",
+      "ExportToEnd": "导出到结束",
       "Fields": "场",
       "FieldType": "场类型",
       "Flags": "标记",
       "Font": "字体",
+      "Format": "格式",
       "FPS": "FPS",
       "Frame": "帧",
       "Frames": "帧数",
@@ -106,6 +112,7 @@
       "Fullscreen": "全屏",
       "General": "常规",
       "HardwareOnly": "仅硬件",
+      "Height": "高度",
       "High": "高值",
       "ID": "ID",
       "ImageCol": "图像列",
@@ -149,6 +156,7 @@
       "SoftwareOnly": "仅软件",
       "Spawn": "生成",
       "StartFrame": "起始帧",
+      "StartSecond": "起始秒",
       "Structure": "结构",
       "SystemColor": "系统颜色",
       "SystemFields": "系统场",
@@ -163,6 +171,7 @@
       "Tweens": "补间",
       "Type": "类型",
       "Visible": "可见",
+      "Width": "宽度",
       "X": "X",
       "Y": "Y"
     },
@@ -181,6 +190,8 @@
       "DeleteProject": "删除项目",
       "DeleteProjectMessage": "删除 {0}（{1}）？",
       "DeleteProjectWarning": "这会移除项目文件夹，且无法撤销。",
+      "ExportPreview": "导出预览",
+      "ExportPreviewMessage": "将当前选中编辑器的预览渲染为图片、PNG 序列、GIF 或 WebP。动画时间线只用于填充帧范围，最终导出范围由起始帧和终止帧决定。",
       "SaveChangesBeforeContinuing": "继续前保存更改？",
       "UntitledEffectProject": "未命名效果项目",
       "UnsavedChangesTitle": "未保存的更改",
@@ -190,6 +201,7 @@
       "Compiled": "已编译",
       "EffectResources": "效果资源",
       "ExportCurrentFile": "导出当前文件",
+      "ExportPreview": "导出预览",
       "ExportProjectZip": "导出 EffectViewer 项目 Zip",
       "ImportResourceFolder": "导入资源文件夹",
       "ImportProjectZip": "导入 EffectViewer 项目 Zip",
@@ -197,6 +209,7 @@
       "JsonLanguageFiles": "JSON 语言文件",
       "Source": "源文件",
       "SupportedFormats": "支持的格式",
+      "PreviewExport": "预览导出",
       "ZipArchive": "Zip 压缩包"
     },
     "DocumentKind": {
@@ -278,6 +291,10 @@
       "Showcases": "展示",
       "UserScript": "用户脚本"
     },
+    "PreviewExport": {
+      "FrameCount": "{0} 帧",
+      "FrameCountUpTo": "最多 {0} 帧"
+    },
     "Status": {
       "CanceledClosingApplication": "已取消关闭应用。",
       "CanceledClosingDocument": "已取消关闭 {0}。",
@@ -297,6 +314,7 @@
       "CouldNotCreateResource": "无法创建资源：{0}",
       "CouldNotDeleteProject": "无法删除项目：{0}",
       "CouldNotExport": "无法导出 {0}：{1}",
+      "CouldNotExportPreview": "无法导出 {0} 的预览：{1}",
       "CouldNotExportProject": "无法导出项目：{0}",
       "CouldNotImportFolder": "无法导入文件夹：{0}",
       "CouldNotImportProject": "无法导入项目：{0}",
@@ -327,6 +345,8 @@
       "EditingTrail": "正在编辑轨迹 {0}",
       "EditingUnsaved": "正在编辑 {0}（未保存）。",
       "Exported": "已导出 {0}。",
+      "ExportedPreview": "已导出 {0} 的预览。",
+      "ExportingPreview": "正在导出 {0} 的预览。",
       "FoundProjects": "找到 {0} 个项目。",
       "ImportedFolder": "已导入 {0} 张图像、{1} 个动画、{2} 个粒子、{3} 条轨迹。缺失图像：{4}。",
       "ImportedProject": "已导入项目 {0}。",
@@ -361,14 +381,20 @@
       "UnpinnedDocument": "已取消固定 {0}。"
     },
     "Transfer": {
+      "CapturingPreviewFrames": "正在捕获帧 {0} / {1}",
       "CompletedScanned": "已扫描 {0} 项",
+      "EncodingPreviewImage": "正在编码图像",
       "ExportingProject": "正在导出项目",
+      "ExportingPreview": "正在导出预览",
       "ImportingProject": "正在导入项目",
       "ImportingResourceFolder": "正在导入资源文件夹",
       "PreparingArchive": "正在准备压缩包",
+      "RasterizingPreviewFrames": "正在栅格化帧 {0} / {1}",
       "ReadingArchive": "正在读取压缩包",
       "ReadingFolder": "正在读取文件夹",
-      "ScanningResourceFolder": "正在扫描资源文件夹"
+      "RenderingPreviewFrames": "正在渲染 {0} 帧",
+      "ScanningResourceFolder": "正在扫描资源文件夹",
+      "WritingPreviewFrames": "正在写入帧 {0} / {1}"
     }
   }
 }

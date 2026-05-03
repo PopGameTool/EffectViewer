@@ -141,6 +141,9 @@
                 <MenuItem Header="{DynamicResource Loc.Menu.ExportCurrentFile}"
                           Click="ExportFileMenuItem_Click"
                           IsEnabled="{Binding CanExportSelectedFile}"/>
+                <MenuItem Header="{DynamicResource Loc.Menu.ExportPreview}"
+                          Command="{Binding ShowPreviewExportDialogCommand}"
+                          IsEnabled="{Binding CanExportSelectedPreview}"/>
                 <Separator/>
                 <MenuItem Header="{DynamicResource Loc.Menu.PreviousTab}"
                           Command="{Binding SelectPreviousEditorCommand}"
@@ -369,6 +372,9 @@
                   <MenuItem Header="{DynamicResource Loc.Menu.SaveAllFiles}"
                             Command="{Binding SaveAllEditorsCommand}"
                             IsEnabled="{Binding CanSaveAnyEditor}"/>
+                  <MenuItem Header="{DynamicResource Loc.Menu.ExportPreview}"
+                            Command="{Binding ShowPreviewExportDialogCommand}"
+                            IsEnabled="{Binding CanExportSelectedPreview}"/>
                   <Separator/>
                   <MenuItem Header="{DynamicResource Loc.Menu.PreviousTab}"
                             Command="{Binding SelectPreviousEditorCommand}"
@@ -622,6 +628,166 @@
             <Button Content="{DynamicResource Loc.Common.Cancel}"
                     MinWidth="80"
                     Command="{Binding CancelRenameProjectCommand}"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <Border Background="#80000000"
+            IsVisible="{Binding IsPreviewExportDialogOpen}">
+      <Border Width="460"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="18">
+        <StackPanel Spacing="14">
+          <TextBlock Text="{DynamicResource Loc.Dialog.ExportPreview}"
+                     FontSize="18"
+                     FontWeight="SemiBold"/>
+          <TextBlock Text="{DynamicResource Loc.Dialog.ExportPreviewMessage}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+          <Grid ColumnDefinitions="Auto,*"
+                RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                ColumnSpacing="12"
+                RowSpacing="8">
+            <TextBlock Text="{DynamicResource Loc.Label.Format}"
+                       VerticalAlignment="Center"/>
+            <ComboBox Grid.Column="1"
+                      ItemsSource="{Binding PreviewExportFormats}"
+                      SelectedItem="{Binding PreviewExportFormat}"
+                      HorizontalAlignment="Stretch"/>
+
+            <TextBlock Grid.Row="1"
+                       Text="{DynamicResource Loc.Label.Timeline}"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding HasPreviewExportTimelineOptions}"/>
+            <ComboBox Grid.Row="1"
+                      Grid.Column="1"
+                      ItemsSource="{Binding PreviewExportTimelines}"
+                      SelectedItem="{Binding SelectedPreviewExportTimeline}"
+                      HorizontalAlignment="Stretch"
+                      IsVisible="{Binding HasPreviewExportTimelineOptions}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate DataType="vm:PreviewExportTimelineOption">
+                  <TextBlock Text="{Binding DisplayName}"/>
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <TextBlock Grid.Row="2"
+                       Text="{DynamicResource Loc.Label.StartFrame}"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding HasPreviewExportFrameRangeOptions}"/>
+            <NumericUpDown Grid.Row="2"
+                           Grid.Column="1"
+                           Value="{Binding PreviewExportStartFrame}"
+                           Minimum="1"
+                           Maximum="{Binding PreviewExportFrameRangeMaximum}"
+                           Increment="1"
+                           FormatString="0"
+                           IsVisible="{Binding HasPreviewExportFrameRangeOptions}"/>
+            <TextBlock Grid.Row="2"
+                       Text="{DynamicResource Loc.Label.StartSecond}"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding HasPreviewExportTimeRangeOptions}"/>
+            <NumericUpDown Grid.Row="2"
+                           Grid.Column="1"
+                           Value="{Binding PreviewExportStartSeconds}"
+                           Minimum="0"
+                           Maximum="200"
+                           Increment="0.1"
+                           FormatString="0.###"
+                           IsVisible="{Binding HasPreviewExportTimeRangeOptions}"/>
+
+            <TextBlock Grid.Row="3"
+                       Text="{DynamicResource Loc.Label.EndFrame}"
+                       VerticalAlignment="Center"
+                       IsEnabled="{Binding IsPreviewExportEndFrameEditable}"
+                       IsVisible="{Binding HasPreviewExportFrameRangeOptions}"/>
+            <NumericUpDown Grid.Row="3"
+                           Grid.Column="1"
+                           Value="{Binding PreviewExportEndFrame}"
+                           Minimum="1"
+                           Maximum="{Binding PreviewExportFrameRangeMaximum}"
+                           Increment="1"
+                           FormatString="0"
+                           IsEnabled="{Binding IsPreviewExportEndFrameEditable}"
+                           IsVisible="{Binding HasPreviewExportFrameRangeOptions}"/>
+            <TextBlock Grid.Row="3"
+                       Text="{DynamicResource Loc.Label.EndSecond}"
+                       VerticalAlignment="Center"
+                       IsEnabled="{Binding IsPreviewExportEndSecondsEditable}"
+                       IsVisible="{Binding HasPreviewExportTimeRangeOptions}"/>
+            <NumericUpDown Grid.Row="3"
+                           Grid.Column="1"
+                           Value="{Binding PreviewExportEndSeconds}"
+                           Minimum="0"
+                           Maximum="200"
+                           Increment="0.1"
+                           FormatString="0.###"
+                           IsEnabled="{Binding IsPreviewExportEndSecondsEditable}"
+                           IsVisible="{Binding HasPreviewExportTimeRangeOptions}"/>
+
+            <CheckBox Grid.Row="4"
+                      Grid.Column="1"
+                      Content="{DynamicResource Loc.Label.ExportToEnd}"
+                      IsChecked="{Binding PreviewExportUntilEnd}"
+                      IsEnabled="{Binding IsPreviewExportUntilEndEditable}"
+                      IsVisible="{Binding HasPreviewExportTimeRangeOptions}"/>
+
+            <TextBlock Grid.Row="5"
+                       Text="{DynamicResource Loc.Label.CanvasScale}"
+                       VerticalAlignment="Center"/>
+            <NumericUpDown Grid.Row="5"
+                           Grid.Column="1"
+                           Value="{Binding PreviewExportCanvasScale}"
+                           Minimum="0.1"
+                           Maximum="16"
+                           Increment="0.25"
+                           FormatString="0.##"/>
+
+            <TextBlock Grid.Row="6"
+                       Text="{DynamicResource Loc.Label.FPS}"
+                       VerticalAlignment="Center"
+                       IsEnabled="{Binding IsPreviewAnimationExport}"/>
+            <NumericUpDown Grid.Row="6"
+                           Grid.Column="1"
+                           Value="{Binding PreviewExportFps}"
+                           Minimum="1"
+                           Maximum="240"
+                           Increment="1"
+                           FormatString="0"
+                           IsEnabled="{Binding IsPreviewAnimationExport}"/>
+
+            <TextBlock Grid.Row="7"
+                       Text="{DynamicResource Loc.Label.Duration}"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding IsPreviewExportDurationVisible}"/>
+            <NumericUpDown Grid.Row="7"
+                           Grid.Column="1"
+                           Value="{Binding PreviewExportDurationSeconds}"
+                           Minimum="0.01"
+                           Maximum="600"
+                           Increment="0.25"
+                           FormatString="0.##"
+                           IsVisible="{Binding IsPreviewExportDurationVisible}"/>
+          </Grid>
+          <TextBlock Text="{Binding PreviewExportFrameCountSummary}"
+                     Foreground="{DynamicResource TextControlPlaceholderForeground}"
+                     IsVisible="{Binding IsPreviewAnimationExport}"/>
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="8">
+            <Button Content="{DynamicResource Loc.Common.Export}"
+                    MinWidth="80"
+                    Command="{Binding RequestPreviewExportCommand}"/>
+            <Button Content="{DynamicResource Loc.Common.Cancel}"
+                    MinWidth="80"
+                    Command="{Binding CancelPreviewExportCommand}"/>
           </StackPanel>
         </StackPanel>
       </Border>

@@ -17,6 +17,8 @@
 
         <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
         <PackageVersion Include="MoonSharp.Interpreter.netcore" Version="3.0.2" />
+        <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
+        <PackageVersion Include="SkiaSharp" Version="3.119.3-preview.1.1" />
 
         <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.0.1.15" />
     </ItemGroup>
