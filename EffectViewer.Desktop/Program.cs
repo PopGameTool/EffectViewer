@@ -18,11 +18,22 @@ namespace EffectViewer.Desktop
         {
             App.ProjectStorageProvider = new DesktopProjectStorageProvider();
             OpenGlEffectViewport.GlInterfaceFactory = new DesktopGlInterfaceFactory();
-            return AppBuilder.Configure<App>()
-                .UsePlatformDetect()
+
+            AppBuilder builder = AppBuilder.Configure<App>()
+                .UsePlatformDetect();
+
+            if (OperatingSystem.IsMacOS())
+            {
+                builder = builder.With(new AvaloniaNativePlatformOptions
+                {
+                    RenderingMode = new[] { AvaloniaNativeRenderingMode.OpenGl }
+                });
+            }
+
 #if DEBUG
-                .WithDeveloperTools()
+            builder = builder.WithDeveloperTools();
 #endif
+            return builder
                 .WithInterFont()
                 .LogToTrace();
         }

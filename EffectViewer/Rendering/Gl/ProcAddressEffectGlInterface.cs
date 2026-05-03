@@ -27,6 +27,9 @@ namespace EffectViewer.Rendering.Gl
         private delegate void GlGenBuffersDelegate(int count, IntPtr buffers);
         private delegate void GlDeleteBuffersDelegate(int count, IntPtr buffers);
         private delegate void GlBindBufferDelegate(uint target, uint buffer);
+        private delegate void GlGenVertexArraysDelegate(int count, IntPtr arrays);
+        private delegate void GlDeleteVertexArraysDelegate(int count, IntPtr arrays);
+        private delegate void GlBindVertexArrayDelegate(uint array);
         private delegate void GlBufferDataDelegate(uint target, IntPtr size, IntPtr data, uint usage);
         private delegate int GlGetAttribLocationDelegate(uint program, IntPtr name);
         private delegate void GlEnableVertexAttribArrayDelegate(uint index);
@@ -65,6 +68,9 @@ namespace EffectViewer.Rendering.Gl
         private readonly GlGenBuffersDelegate _genBuffers;
         private readonly GlDeleteBuffersDelegate _deleteBuffers;
         private readonly GlBindBufferDelegate _bindBuffer;
+        private readonly GlGenVertexArraysDelegate _genVertexArrays;
+        private readonly GlDeleteVertexArraysDelegate _deleteVertexArrays;
+        private readonly GlBindVertexArrayDelegate _bindVertexArray;
         private readonly GlBufferDataDelegate _bufferData;
         private readonly GlGetAttribLocationDelegate _getAttribLocation;
         private readonly GlEnableVertexAttribArrayDelegate _enableVertexAttribArray;
@@ -94,7 +100,7 @@ namespace EffectViewer.Rendering.Gl
             _viewport = Load<GlViewportDelegate>(getProcAddress, "glViewport");
             _clearColor = Load<GlClearColorDelegate>(getProcAddress, "glClearColor");
             _clear = Load<GlClearDelegate>(getProcAddress, "glClear");
-            _bindFramebuffer = Load<GlBindFramebufferDelegate>(getProcAddress, "glBindFramebuffer");
+            _bindFramebuffer = LoadAny<GlBindFramebufferDelegate>(getProcAddress, "glBindFramebuffer", "glBindFramebufferEXT");
             _enable = Load<GlEnableDelegate>(getProcAddress, "glEnable");
             _blendFunc = Load<GlBlendFuncDelegate>(getProcAddress, "glBlendFunc");
             _createShader = Load<GlCreateShaderDelegate>(getProcAddress, "glCreateShader");
@@ -113,6 +119,9 @@ namespace EffectViewer.Rendering.Gl
             _genBuffers = Load<GlGenBuffersDelegate>(getProcAddress, "glGenBuffers");
             _deleteBuffers = Load<GlDeleteBuffersDelegate>(getProcAddress, "glDeleteBuffers");
             _bindBuffer = Load<GlBindBufferDelegate>(getProcAddress, "glBindBuffer");
+            _genVertexArrays = LoadAny<GlGenVertexArraysDelegate>(getProcAddress, "glGenVertexArrays", "glGenVertexArraysAPPLE", "glGenVertexArraysOES");
+            _deleteVertexArrays = LoadAny<GlDeleteVertexArraysDelegate>(getProcAddress, "glDeleteVertexArrays", "glDeleteVertexArraysAPPLE", "glDeleteVertexArraysOES");
+            _bindVertexArray = LoadAny<GlBindVertexArrayDelegate>(getProcAddress, "glBindVertexArray", "glBindVertexArrayAPPLE", "glBindVertexArrayOES");
             _bufferData = Load<GlBufferDataDelegate>(getProcAddress, "glBufferData");
             _getAttribLocation = Load<GlGetAttribLocationDelegate>(getProcAddress, "glGetAttribLocation");
             _enableVertexAttribArray = Load<GlEnableVertexAttribArrayDelegate>(getProcAddress, "glEnableVertexAttribArray");
@@ -160,6 +169,9 @@ namespace EffectViewer.Rendering.Gl
         public string BackendName { get; }
         public bool CanClear { get; }
         public bool CanDraw { get; }
+        public bool SupportsVertexArrayObjects => _genVertexArrays != null &&
+                                                  _deleteVertexArrays != null &&
+                                                  _bindVertexArray != null;
 
         public void Viewport(int x, int y, int width, int height) => _viewport(x, y, width, height);
         public void ClearColor(float red, float green, float blue, float alpha) => _clearColor(red, green, blue, alpha);
@@ -207,6 +219,9 @@ namespace EffectViewer.Rendering.Gl
         public void GenBuffers(int count, uint[] buffers) => InvokeWithPinnedArray(_genBuffers, count, buffers);
         public void DeleteBuffers(int count, uint[] buffers) => InvokeWithPinnedArray(_deleteBuffers, count, buffers);
         public void BindBuffer(uint target, uint buffer) => _bindBuffer(target, buffer);
+        public void GenVertexArrays(int count, uint[] arrays) => InvokeWithPinnedArray(_genVertexArrays, count, arrays);
+        public void DeleteVertexArrays(int count, uint[] arrays) => InvokeWithPinnedArray(_deleteVertexArrays, count, arrays);
+        public void BindVertexArray(uint array) => _bindVertexArray?.Invoke(array);
         public void BufferData(uint target, IntPtr size, IntPtr data, uint usage) => _bufferData(target, size, data, usage);
         public int GetAttribLocation(uint program, string name) => InvokeWithUtf8Name(_getAttribLocation, program, name);
         public void EnableVertexAttribArray(uint index) => _enableVertexAttribArray(index);
@@ -269,6 +284,14 @@ namespace EffectViewer.Rendering.Gl
                 {
                     deleteBuffers(count, handle.AddrOfPinnedObject());
                 }
+                else if (action is GlGenVertexArraysDelegate genVertexArrays)
+                {
+                    genVertexArrays(count, handle.AddrOfPinnedObject());
+                }
+                else if (action is GlDeleteVertexArraysDelegate deleteVertexArrays)
+                {
+                    deleteVertexArrays(count, handle.AddrOfPinnedObject());
+                }
                 else if (action is GlGenTexturesDelegate genTextures)
                 {
                     genTextures(count, handle.AddrOfPinnedObject());
@@ -311,6 +334,21 @@ namespace EffectViewer.Rendering.Gl
             return address == IntPtr.Zero
                 ? null
                 : Marshal.GetDelegateForFunctionPointer<T>(address);
+        }
+
+        private static T LoadAny<T>(Func<string, IntPtr> getProcAddress, params string[] names)
+            where T : Delegate
+        {
+            foreach (string name in names)
+            {
+                T function = Load<T>(getProcAddress, name);
+                if (function != null)
+                {
+                    return function;
+                }
+            }
+
+            return null;
         }
     }
 }

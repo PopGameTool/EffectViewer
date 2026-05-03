@@ -8,6 +8,7 @@ namespace EffectViewer.Rendering.Gl
         string BackendName { get; }
         bool CanClear { get; }
         bool CanDraw { get; }
+        bool SupportsVertexArrayObjects { get; }
 
         void Viewport(int x, int y, int width, int height);
         void ClearColor(float red, float green, float blue, float alpha);
@@ -31,6 +32,9 @@ namespace EffectViewer.Rendering.Gl
         void GenBuffers(int count, uint[] buffers);
         void DeleteBuffers(int count, uint[] buffers);
         void BindBuffer(uint target, uint buffer);
+        void GenVertexArrays(int count, uint[] arrays);
+        void DeleteVertexArrays(int count, uint[] arrays);
+        void BindVertexArray(uint array);
         void BufferData(uint target, IntPtr size, IntPtr data, uint usage);
         int GetAttribLocation(uint program, string name);
         void EnableVertexAttribArray(uint index);

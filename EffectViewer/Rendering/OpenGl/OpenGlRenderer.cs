@@ -11,8 +11,15 @@ namespace EffectViewer.Rendering.OpenGl
     {
         private const int FloatsPerVertex = 8;
 
+        private enum ShaderDialect
+        {
+            Legacy,
+            Core
+        }
+
         private uint _program;
         private uint _vertexBuffer;
+        private uint _vertexArray;
         private int _positionLocation = -1;
         private int _uvLocation = -1;
         private int _colorLocation = -1;
@@ -51,6 +58,14 @@ namespace EffectViewer.Rendering.OpenGl
             }
 
             _program = CreateProgram();
+            if (gl.SupportsVertexArrayObjects)
+            {
+                uint[] arrays = new uint[1];
+                _gl.GenVertexArrays(1, arrays);
+                _vertexArray = arrays[0];
+                _gl.BindVertexArray(_vertexArray);
+            }
+
             uint[] buffers = new uint[1];
             _gl.GenBuffers(1, buffers);
             _vertexBuffer = buffers[0];
@@ -60,8 +75,10 @@ namespace EffectViewer.Rendering.OpenGl
             _colorLocation = _gl.GetAttribLocation(_program, "a_color");
             _textureLocation = _gl.GetUniformLocation(_program, "u_texture");
 
+            bool hasRequiredVertexArray = !gl.SupportsVertexArrayObjects || _vertexArray != 0;
             _canDrawSprites = _program != 0 &&
                               _vertexBuffer != 0 &&
+                              hasRequiredVertexArray &&
                               _positionLocation >= 0 &&
                               _uvLocation >= 0 &&
                               _colorLocation >= 0 &&
@@ -98,6 +115,11 @@ namespace EffectViewer.Rendering.OpenGl
                 _gl.DeleteBuffers(1, [_vertexBuffer]);
             }
 
+            if (_gl != null && _vertexArray != 0)
+            {
+                _gl.DeleteVertexArrays(1, [_vertexArray]);
+            }
+
             if (_gl != null && _program != 0)
             {
                 _gl.DeleteProgram(_program);
@@ -105,6 +127,7 @@ namespace EffectViewer.Rendering.OpenGl
 
             _program = 0;
             _vertexBuffer = 0;
+            _vertexArray = 0;
             _positionLocation = -1;
             _uvLocation = -1;
             _colorLocation = -1;
@@ -212,6 +235,7 @@ namespace EffectViewer.Rendering.OpenGl
         {
             _gl.UseProgram(_program);
             _gl.Uniform1i(_textureLocation, 0);
+            BindVertexArray();
             _gl.BindBuffer(OpenGlConstants.ArrayBuffer, _vertexBuffer);
 
             GCHandle verticesHandle = GCHandle.Alloc(vertices, GCHandleType.Pinned);
@@ -240,6 +264,14 @@ namespace EffectViewer.Rendering.OpenGl
 
             _gl.EnableVertexAttribArray((uint)_colorLocation);
             _gl.VertexAttribPointer((uint)_colorLocation, 4, OpenGlConstants.Float, false, stride, new IntPtr(4 * sizeof(float)));
+        }
+
+        private void BindVertexArray()
+        {
+            if (_vertexArray != 0)
+            {
+                _gl.BindVertexArray(_vertexArray);
+            }
         }
 
         private void BindTexture(RenderTextureRef texture)
@@ -362,48 +394,119 @@ namespace EffectViewer.Rendering.OpenGl
 
         private uint CreateProgram()
         {
-            uint vertexShader = CompileShader(OpenGlConstants.VertexShader, GetVertexShaderSource());
-            uint fragmentShader = CompileShader(OpenGlConstants.FragmentShader, GetFragmentShaderSource());
+            InvalidOperationException lastError = null;
+            ShaderDialect[] dialects = _gl.Api == EffectGlApi.OpenGl
+                ? [ShaderDialect.Legacy, ShaderDialect.Core]
+                : [ShaderDialect.Legacy];
 
-            if (vertexShader == 0 || fragmentShader == 0)
+            foreach (ShaderDialect dialect in dialects)
             {
-                return 0;
+                try
+                {
+                    return CreateProgram(dialect);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    lastError = ex;
+                }
             }
 
-            uint program = _gl.CreateProgram();
-            _gl.AttachShader(program, vertexShader);
-            _gl.AttachShader(program, fragmentShader);
-            _gl.LinkProgram(program);
-            _gl.GetProgramiv(program, OpenGlConstants.LinkStatus, out int linked);
+            throw lastError ?? new InvalidOperationException($"Failed to create {BackendName} shader program.");
+        }
 
-            _gl.DeleteShader(vertexShader);
-            _gl.DeleteShader(fragmentShader);
+        private uint CreateProgram(ShaderDialect dialect)
+        {
+            uint vertexShader = 0;
+            uint fragmentShader = 0;
+            uint program = 0;
 
-            if (linked == 0)
+            try
             {
-                throw new InvalidOperationException($"Failed to link {BackendName} shader program: {_gl.GetProgramInfoLog(program)}");
-            }
+                vertexShader = CompileShader(OpenGlConstants.VertexShader, GetVertexShaderSource(dialect));
+                fragmentShader = CompileShader(OpenGlConstants.FragmentShader, GetFragmentShaderSource(dialect));
 
-            return program;
+                program = _gl.CreateProgram();
+                _gl.AttachShader(program, vertexShader);
+                _gl.AttachShader(program, fragmentShader);
+                _gl.LinkProgram(program);
+                _gl.GetProgramiv(program, OpenGlConstants.LinkStatus, out int linked);
+
+                if (linked == 0)
+                {
+                    throw new InvalidOperationException($"Failed to link {BackendName} shader program: {_gl.GetProgramInfoLog(program)}");
+                }
+
+                return program;
+            }
+            catch
+            {
+                if (program != 0)
+                {
+                    _gl.DeleteProgram(program);
+                }
+
+                throw;
+            }
+            finally
+            {
+                if (vertexShader != 0)
+                {
+                    _gl.DeleteShader(vertexShader);
+                }
+
+                if (fragmentShader != 0)
+                {
+                    _gl.DeleteShader(fragmentShader);
+                }
+            }
         }
 
         private uint CompileShader(uint shaderType, string source)
         {
             uint shader = _gl.CreateShader(shaderType);
-            _gl.ShaderSource(shader, source);
-            _gl.CompileShader(shader);
-            _gl.GetShaderiv(shader, OpenGlConstants.CompileStatus, out int compiled);
-            if (compiled == 0)
+            try
             {
-                string shaderKind = shaderType == OpenGlConstants.VertexShader ? "vertex" : "fragment";
-                throw new InvalidOperationException($"Failed to compile {BackendName} {shaderKind} shader: {_gl.GetShaderInfoLog(shader)}");
-            }
+                _gl.ShaderSource(shader, source);
+                _gl.CompileShader(shader);
+                _gl.GetShaderiv(shader, OpenGlConstants.CompileStatus, out int compiled);
+                if (compiled == 0)
+                {
+                    string shaderKind = shaderType == OpenGlConstants.VertexShader ? "vertex" : "fragment";
+                    throw new InvalidOperationException($"Failed to compile {BackendName} {shaderKind} shader: {_gl.GetShaderInfoLog(shader)}");
+                }
 
-            return shader;
+                return shader;
+            }
+            catch
+            {
+                if (shader != 0)
+                {
+                    _gl.DeleteShader(shader);
+                }
+
+                throw;
+            }
         }
 
-        private string GetVertexShaderSource()
+        private string GetVertexShaderSource(ShaderDialect dialect)
         {
+            if (dialect == ShaderDialect.Core)
+            {
+                return """
+                    #version 150
+                    in vec2 a_position;
+                    in vec2 a_uv;
+                    in vec4 a_color;
+                    out vec2 v_uv;
+                    out vec4 v_color;
+                    void main() {
+                        v_uv = a_uv;
+                        v_color = a_color;
+                        gl_Position = vec4(a_position, 0.0, 1.0);
+                    }
+                    """;
+            }
+
             return """
                 attribute vec2 a_position;
                 attribute vec2 a_uv;
@@ -418,8 +521,22 @@ namespace EffectViewer.Rendering.OpenGl
                 """;
         }
 
-        private string GetFragmentShaderSource()
+        private string GetFragmentShaderSource(ShaderDialect dialect)
         {
+            if (dialect == ShaderDialect.Core)
+            {
+                return """
+                    #version 150
+                    in vec2 v_uv;
+                    in vec4 v_color;
+                    uniform sampler2D u_texture;
+                    out vec4 frag_color;
+                    void main() {
+                        frag_color = texture(u_texture, v_uv) * v_color;
+                    }
+                    """;
+            }
+
             return """
                 #ifdef GL_ES
                 precision mediump float;
