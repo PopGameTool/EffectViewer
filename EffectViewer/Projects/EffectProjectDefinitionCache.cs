@@ -22,27 +22,53 @@ namespace EffectViewer.Projects
             _project = project;
         }
 
-        public void PreloadAll()
+        public void PreloadAll(IProgress<ProjectTransferProgress> progress = null)
         {
             if (_project?.Assets is null)
             {
                 return;
             }
 
+            int total = _project.Assets.Reanims.Count +
+                _project.Assets.Particles.Count +
+                _project.Assets.Trails.Count;
+            int completed = 0;
+            ReportPreloadProgress(progress, completed, total);
+
             foreach (ReanimAsset asset in _project.Assets.Reanims.Values)
             {
                 TryGetReanimDefinition(asset, out _);
+                ReportPreloadProgress(progress, ++completed, total);
             }
 
             foreach (EffectAsset asset in _project.Assets.Particles.Values)
             {
                 TryGetParticleDefinition(asset, out _);
+                ReportPreloadProgress(progress, ++completed, total);
             }
 
             foreach (EffectAsset asset in _project.Assets.Trails.Values)
             {
                 TryGetTrailDefinition(asset, out _);
+                ReportPreloadProgress(progress, ++completed, total);
             }
+        }
+
+        private static void ReportPreloadProgress(
+            IProgress<ProjectTransferProgress> progress,
+            int completed,
+            int total)
+        {
+            if (progress is null || total <= 0)
+            {
+                return;
+            }
+
+            progress.Report(new ProjectTransferProgress
+            {
+                CompletedItems = completed,
+                TotalItems = total
+            });
         }
 
         public void Invalidate(EffectAssetKind kind, string path)

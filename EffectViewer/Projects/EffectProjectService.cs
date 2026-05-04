@@ -31,7 +31,9 @@ namespace EffectViewer.Projects
             _storageProvider = storageProvider ?? new DefaultProjectStorageProvider();
         }
 
-        public async Task<EffectProject> LoadAsync(string projectDirectory)
+        public async Task<EffectProject> LoadAsync(
+            string projectDirectory,
+            IProgress<ProjectTransferProgress> progress = null)
         {
             string manifestPath = System.IO.Path.Combine(projectDirectory, ManifestFileName);
             await using FileStream stream = File.OpenRead(manifestPath);
@@ -40,7 +42,7 @@ namespace EffectViewer.Projects
 
             Normalize(manifest);
             EffectProject project = new(projectDirectory, manifest);
-            await Task.Run(project.Definitions.PreloadAll);
+            await Task.Run(() => project.Definitions.PreloadAll(progress));
             return project;
         }
 
@@ -164,7 +166,7 @@ namespace EffectViewer.Projects
             ResourceFolderImporter importer = new();
             FolderImportResult result = await importer.ImportAsync(source, projectDirectory, progress);
             await SaveAsync(result.Project);
-            await Task.Run(result.Project.Definitions.PreloadAll);
+            await Task.Run(() => result.Project.Definitions.PreloadAll());
 
             return result;
         }
@@ -254,7 +256,7 @@ namespace EffectViewer.Projects
                     TotalItems = fileEntries.Count
                 });
 
-                EffectProject project = await LoadAsync(projectDirectory);
+                EffectProject project = await LoadAsync(projectDirectory, progress);
                 await SaveAsync(project);
                 importCompleted = true;
                 return project;

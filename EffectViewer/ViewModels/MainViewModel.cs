@@ -1488,7 +1488,11 @@ namespace EffectViewer.ViewModels
             ProjectTransferTitle = string.IsNullOrWhiteSpace(progress.Operation)
                 ? ProjectTransferTitle
                 : progress.Operation;
-            ProjectTransferMessage = progress.Message;
+            if (!string.IsNullOrWhiteSpace(progress.Message))
+            {
+                ProjectTransferMessage = progress.Message;
+            }
+
             ProjectTransferProgressValue = progress.Ratio * 100d;
             IsProjectTransferProgressIndeterminate = progress.TotalItems <= 0;
             ProjectTransferProgressText = progress.TotalItems <= 0
@@ -1693,9 +1697,26 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
-            EffectProject project = await _projectService.LoadAsync(projectItem.ProjectPath);
-            LoadProject(project);
-            StatusText = F("Status.OpenedProject", project.Manifest.Name);
+            try
+            {
+                BeginProjectTransfer(T("Transfer.OpeningProject"), T("Transfer.LoadingProjectDefinitions"));
+                Progress<ProjectTransferProgress> progress = new(UpdateProjectTransferProgress);
+                EffectProject project = await _projectService.LoadAsync(projectItem.ProjectPath, progress);
+                ProjectTransferMessage = T("Transfer.BuildingProjectTree");
+                IsProjectTransferProgressIndeterminate = true;
+                ProjectTransferProgressText = string.Empty;
+                LoadProject(project);
+                StatusText = F("Status.OpenedProject", project.Manifest.Name);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException)
+            {
+                StatusText = F("Status.CouldNotOpenProject", ex.Message);
+                IsOpenProjectDialogOpen = true;
+            }
+            finally
+            {
+                EndProjectTransfer();
+            }
         }
 
         [RelayCommand]
