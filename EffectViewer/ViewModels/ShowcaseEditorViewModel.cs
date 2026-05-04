@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -21,6 +22,8 @@ namespace EffectViewer.ViewModels
     {
         private readonly LuaHost _luaHost;
         private readonly EffectProject _project;
+        private bool _canUndoScriptEdit;
+        private bool _canRedoScriptEdit;
         private const string UserScriptPath = "User script";
 
         public string AssetId { get; }
@@ -36,6 +39,8 @@ namespace EffectViewer.ViewModels
         public override bool SupportsSave => !string.IsNullOrWhiteSpace(Path) && Path != UserScriptPath;
         public override bool SupportsFileExport => SupportsSave;
         public override string ExportPath => SupportsSave ? Path : string.Empty;
+        public override bool CanUndo => _canUndoScriptEdit;
+        public override bool CanRedo => _canRedoScriptEdit;
 
         [ObservableProperty]
         private string _scriptText;
@@ -59,6 +64,8 @@ namespace EffectViewer.ViewModels
 
         public event EventHandler<ShowcaseScriptEditRequest> ScriptEditRequested;
         public event EventHandler<ShowcaseScriptNavigationRequest> ScriptNavigationRequested;
+        public event EventHandler ScriptUndoRequested;
+        public event EventHandler ScriptRedoRequested;
 
         public ShowcaseEditorViewModel(LuaHost luaHost, EffectProject project)
             : this(new ShowcaseAsset { Id = "Showcases", Path = UserScriptPath }, luaHost, project)
@@ -132,6 +139,28 @@ namespace EffectViewer.ViewModels
             }
 
             return new ExportShowcaseFrameProvider(exportWorld, result.FrameProvider);
+        }
+
+        public override void Undo()
+        {
+            if (CanUndo)
+            {
+                ScriptUndoRequested?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public override void Redo()
+        {
+            if (CanRedo)
+            {
+                ScriptRedoRequested?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public void SetScriptUndoRedoState(bool canUndo, bool canRedo)
+        {
+            SetProperty(ref _canUndoScriptEdit, canUndo, nameof(CanUndo));
+            SetProperty(ref _canRedoScriptEdit, canRedo, nameof(CanRedo));
         }
 
         [RelayCommand]
@@ -464,43 +493,114 @@ namespace EffectViewer.ViewModels
 
         private static IEnumerable<ShowcaseCompletionItem> CreateCompletionItems()
         {
-            yield return new ShowcaseCompletionItem("scene.clear()", "scene.clear()", "Clear the scene before composing objects.", isMember: false);
-            yield return new ShowcaseCompletionItem("scene.count()", "scene.count()", "Return scene object count.", isMember: false);
-            yield return new ShowcaseCompletionItem("scene.find_reanim(id)", "scene.find_reanim($0)", "Find a reanimation created in this scene.", isMember: false);
-            yield return new ShowcaseCompletionItem("scene.find_particle(id)", "scene.find_particle($0)", "Find a particle created in this scene.", isMember: false);
-            yield return new ShowcaseCompletionItem("scene.find_trail(id)", "scene.find_trail($0)", "Find a trail created in this scene.", isMember: false);
-            yield return new ShowcaseCompletionItem("scene.reanim(id, x, y)", "scene.reanim($0, 400, 300)", "Create a reanimation.", isMember: false);
-            yield return new ShowcaseCompletionItem("scene.particle_system(id, x, y)", "scene.particle_system($0, 400, 300)", "Create a particle effect.", isMember: false);
-            yield return new ShowcaseCompletionItem("scene.trail(id, x, y)", "scene.trail($0, 400, 300)", "Create a trail effect.", isMember: false);
-            yield return new ShowcaseCompletionItem("scene.get_image(id)", "scene.get_image($0)", "Load an image resource.", isMember: false);
-            yield return new ShowcaseCompletionItem("scene.log(message)", "scene.log($0)", "Write a log entry.", isMember: false);
-            yield return new ShowcaseCompletionItem("scene.warn(message)", "scene.warn($0)", "Write a warning log entry.", isMember: false);
-            yield return new ShowcaseCompletionItem("scene.vector2(x, y)", "scene.vector2($0, 0)", "Create a vector.", isMember: false);
-            yield return new ShowcaseCompletionItem("scene.regist(context)", "scene.regist(context)", "Register the script context.", isMember: false);
-            yield return new ShowcaseCompletionItem("function context:update(dt)", "function context:update(dt)\n    $0\nend", "Define a per-frame update callback.", isMember: false);
-            yield return new ShowcaseCompletionItem("function context:draw(g)", "function context:draw(g)\n    $0\nend", "Define a per-frame draw callback.", isMember: false);
+            yield return new ShowcaseCompletionItem("scene", "scene", "Showcase scene API.", ShowcaseCompletionScope.Global);
+            yield return new ShowcaseCompletionItem("global_attachment", "global_attachment", "Global attachment API.", ShowcaseCompletionScope.Global);
+            yield return new ShowcaseCompletionItem("function context:update(dt)", "function context:update(dt)\n    $0\nend", "Define a per-frame update callback.", ShowcaseCompletionScope.Global);
+            yield return new ShowcaseCompletionItem("function context:draw(g)", "function context:draw(g)\n    $0\nend", "Define a per-frame draw callback.", ShowcaseCompletionScope.Global);
 
-            foreach ((string name, string description) in new[]
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems(typeof(LuaSceneApi), ShowcaseCompletionScope.Scene, "Scene API"))
             {
-                ("set_position(x, y)", "Move an object to an absolute position."),
-                ("move(x, y)", "Move an object by an offset."),
-                ("offset(x, y)", "Offset an object by an amount."),
-                ("set_scale(scale)", "Set uniform scale."),
-                ("set_color(r, g, b, a)", "Set object color."),
-                ("set_image_override(imageId)", "Override the displayed image."),
-                ("clear_image_override()", "Clear image override."),
-                ("update()", "Advance this object."),
-                ("draw(g)", "Draw this object."),
-                ("die()", "Remove this object."),
-                ("clear_points()", "Clear all trail points."),
-                ("add_point(x, y)", "Add a trail point."),
-                ("attach_reanim(trackName, child)", "Attach a reanimation to a track."),
-                ("attach_particle(trackName, child)", "Attach a particle to a track."),
-                ("attach_trail(trackName, child)", "Attach a trail to a track.")
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateGlobalTypeCompletionItems("scene", typeof(LuaSceneApi), "Scene API"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems(typeof(LuaGraphicsApi), ShowcaseCompletionScope.Graphics, "Graphics API"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems(typeof(LuaAttachmentApi), ShowcaseCompletionScope.AttachmentApi, "Attachment API"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateGlobalTypeCompletionItems("global_attachment", typeof(LuaAttachmentApi), "Attachment API"))
+            {
+                yield return item;
+            }
+
+            foreach ((ShowcaseCompletionScope scope, Type type, string label) in new[]
+            {
+                (ShowcaseCompletionScope.SceneObject, typeof(SceneObject), "Scene object"),
+                (ShowcaseCompletionScope.Reanimation, typeof(ShowcaseReanimation), "Reanimation"),
+                (ShowcaseCompletionScope.ReanimationTrack, typeof(ShowcaseReanimationTrack), "Reanimation track"),
+                (ShowcaseCompletionScope.ReanimationTransform, typeof(ShowcaseReanimationTransform), "Reanimation transform"),
+                (ShowcaseCompletionScope.ReanimationFrameRange, typeof(ShowcaseReanimationFrameRange), "Reanimation frame range"),
+                (ShowcaseCompletionScope.FrameTime, typeof(ShowcaseFrameTime), "Frame time"),
+                (ShowcaseCompletionScope.Particle, typeof(ShowcaseParticle), "Particle system"),
+                (ShowcaseCompletionScope.ParticleEmitter, typeof(ShowcaseParticleEmitter), "Particle emitter"),
+                (ShowcaseCompletionScope.ParticleInstance, typeof(ShowcaseParticleInstance), "Particle instance"),
+                (ShowcaseCompletionScope.ParticleRenderParams, typeof(ShowcaseParticleRenderParams), "Particle render params"),
+                (ShowcaseCompletionScope.Trail, typeof(ShowcaseTrail), "Trail"),
+                (ShowcaseCompletionScope.TrailPoint, typeof(ShowcaseTrailPoint), "Trail point"),
+                (ShowcaseCompletionScope.Attachment, typeof(ShowcaseAttachment), "Attachment"),
+                (ShowcaseCompletionScope.AttachmentEffect, typeof(ShowcaseAttachmentEffect), "Attachment effect"),
+                (ShowcaseCompletionScope.Image, typeof(ShowcaseImage), "Image"),
+                (ShowcaseCompletionScope.Matrix, typeof(ShowcaseMatrix), "Matrix"),
+                (ShowcaseCompletionScope.Vector, typeof(ShowcaseVector), "Vector"),
+                (ShowcaseCompletionScope.Vector3, typeof(ShowcaseVector3), "Vector3"),
+                (ShowcaseCompletionScope.TriVertex, typeof(ShowcaseTriVertex), "Triangle vertex")
             })
             {
-                yield return new ShowcaseCompletionItem(name, name, description, isMember: true);
+                foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems(type, scope, label))
+                {
+                    yield return item;
+                }
             }
+        }
+
+        private static IEnumerable<ShowcaseCompletionItem> CreateGlobalTypeCompletionItems(string receiver, Type type, string label)
+        {
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems(type, ShowcaseCompletionScope.Global, label, receiver))
+            {
+                yield return item;
+            }
+        }
+
+        private static IEnumerable<ShowcaseCompletionItem> CreateTypeCompletionItems(
+            Type type,
+            ShowcaseCompletionScope scope,
+            string label,
+            string receiver = null)
+        {
+            string prefix = string.IsNullOrWhiteSpace(receiver) ? string.Empty : $"{receiver}.";
+
+            foreach (PropertyInfo property in type
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Where(property => property.GetIndexParameters().Length == 0)
+                .OrderBy(property => property.Name, StringComparer.Ordinal))
+            {
+                string name = $"{prefix}{property.Name}";
+                string mode = property.CanWrite ? "property" : "read-only property";
+                yield return new ShowcaseCompletionItem(name, name, $"{label} {mode}.", scope);
+            }
+
+            foreach (MethodInfo method in type
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Where(method => !method.IsSpecialName)
+                .OrderBy(method => method.Name, StringComparer.Ordinal)
+                .ThenBy(method => method.GetParameters().Length))
+            {
+                string display = $"{prefix}{FormatMethodSignature(method)}";
+                string insert = $"{prefix}{method.Name}({(method.GetParameters().Length == 0 ? string.Empty : "$0")})";
+                yield return new ShowcaseCompletionItem(display, insert, $"{label} method.", scope);
+            }
+        }
+
+        private static string FormatMethodSignature(MethodInfo method)
+        {
+            string parameters = string.Join(", ", method.GetParameters().Select(FormatParameterName));
+            return $"{method.Name}({parameters})";
+        }
+
+        private static string FormatParameterName(ParameterInfo parameter)
+        {
+            string name = string.IsNullOrWhiteSpace(parameter.Name) ? "value" : parameter.Name;
+            return parameter.GetCustomAttribute<ParamArrayAttribute>() is null ? name : $"{name}...";
         }
 
         private static bool IsNotBlank(string value)
