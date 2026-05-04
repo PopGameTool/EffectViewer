@@ -12,25 +12,7 @@ namespace EffectViewer.Runtime.Lua
 
         static LuaHost()
         {
-            RegisterLuaType<LuaEffectApi>();
-            RegisterLuaType<LuaSceneApi>();
-            RegisterLuaType<LuaGraphicsApi>();
-            RegisterLuaType<SceneObject>();
-            RegisterLuaType<ShowcaseAttachmentEffect>();
-            RegisterLuaType<ShowcaseFrameTime>();
-            RegisterLuaType<ShowcaseImage>();
-            RegisterLuaType<ShowcaseMatrix>();
-            RegisterLuaType<ShowcaseReanimation>();
-            RegisterLuaType<ShowcaseReanimationFrameRange>();
-            RegisterLuaType<ShowcaseReanimationTrack>();
-            RegisterLuaType<ShowcaseReanimationTransform>();
-            RegisterLuaType<ShowcaseVector>();
-            RegisterLuaType<ShowcaseParticle>();
-            RegisterLuaType<ShowcaseParticleEmitter>();
-            RegisterLuaType<ShowcaseParticleInstance>();
-            RegisterLuaType<ShowcaseTrail>();
-            RegisterLuaType<ShowcaseTrailPoint>();
-            RegisterLuaType<ShowcaseAttachment>();
+            LuaApiRegistration.RegisterAll();
         }
 
         public LuaHost(EffectWorld world)
@@ -52,20 +34,23 @@ namespace EffectViewer.Runtime.Lua
             {
                 Script script = new(CoreModules.Preset_SoftSandbox);
                 script.Options.DebugPrint = message => logs.Add(message);
-                script.Globals["effect"] = new LuaEffectApi(_world, scene, logs);
-                script.Globals["scene"] = new LuaSceneApi(_world, logs);
+                LuaSceneApi sceneApi = new(_world, scene, logs);
+                script.Globals["scene"] = sceneApi;
+                script.Globals["global_attachment"] = sceneApi.global_attachment;
 
                 script.DoString(code);
 
-                DynValue update = script.Globals.Get("update");
-                DynValue draw = script.Globals.Get("draw");
+                bool hasContext = sceneApi.HasRegisteredContext;
+                DynValue context = hasContext ? sceneApi.RegisteredContext : DynValue.Nil;
+                DynValue update = hasContext ? GetContextFunction(context, "update") : DynValue.Nil;
+                DynValue draw = hasContext ? GetContextFunction(context, "draw") : DynValue.Nil;
                 ValidateOptionalFunction(update, "update");
                 ValidateOptionalFunction(draw, "draw");
 
                 LuaShowcaseScript callbacks = null;
                 if (update.Type == DataType.Function || draw.Type == DataType.Function)
                 {
-                    callbacks = new LuaShowcaseScript(script, update, draw, logs);
+                    callbacks = new LuaShowcaseScript(script, hasContext, context, update, draw, logs);
                     scene.SetScriptCallbacks(callbacks);
                 }
 
@@ -101,7 +86,17 @@ namespace EffectViewer.Runtime.Lua
             throw new ScriptRuntimeException($"'{name}' must be a function when it is defined.");
         }
 
-        private static void RegisterLuaType<
+        private static DynValue GetContextFunction(DynValue context, string name)
+        {
+            if (context.Type == DataType.Table)
+            {
+                return context.Table.Get(name);
+            }
+
+            throw new ScriptRuntimeException("scene.regist(context) expects a Lua table.");
+        }
+
+        internal static void RegisterLuaType<
             [DynamicallyAccessedMembers(
                 DynamicallyAccessedMemberTypes.PublicConstructors |
                 DynamicallyAccessedMemberTypes.PublicMethods |

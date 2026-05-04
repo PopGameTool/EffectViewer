@@ -74,7 +74,7 @@ EffectViewer.Browser/   浏览器/WebAssembly 应用宿主
 EffectViewer.Android/   Android 应用宿主
 EffectViewer.iOS/       iOS 应用宿主
 Samples/                可导入的示例项目
-ShowCases.md            Lua ShowCase 脚本文档
+docs/lua_api.zh-CN.md   Lua ShowCase 脚本文档
 ```
 
 ## 支持的资源类型
@@ -92,22 +92,26 @@ EffectViewer 项目使用 `project.effectproj.json` 作为清单文件，可以�
 ShowCase 是运行在当前项目里的 Lua 脚本。脚本可以创建项目中的资源：
 
 ```lua
-local body = effect.reanim("sample_reanim", 400, 300)
-local fire = effect.particle("fire_burst", 420, 280)
-local slash = effect.trail("sword_slash", 0, 0)
+local body = scene.reanim("sample_reanim", 400, 300)
+local fire = scene.particle_system("fire_burst", 420, 280)
+local slash = scene.trail("sword_slash", 0, 0)
 ```
 
 也可以直接绘图：
 
 ```lua
-function draw(g, elapsed, frame)
+local context = {}
+
+function context:draw(g, elapsed, frame)
     g:reset()
     g:set_color(255, 128, 64, 220)
     g:fill_rect(120, 120, 180, 64)
 end
+
+scene.regist(context)
 ```
 
-完整脚本 API 见 [ShowCases.md](ShowCases.md)。
+完整脚本 API 见 [docs/lua_api.zh-CN.md](docs/lua_api.zh-CN.md)。
 
 ## 开发说明
 
@@ -115,4 +119,3 @@ end
 - 共享 UI 和运行时代码目标框架为 `net10.0`；浏览器宿主目标框架为 `net10.0-browser`。
 - Desktop 和 Browser 构建可以作为大多数共享代码的基础冒烟测试。
 - 移动端构建即使没有改动共享代码，也依然需要对应原生 SDK。
-

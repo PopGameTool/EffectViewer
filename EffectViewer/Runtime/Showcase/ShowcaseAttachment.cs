@@ -4,6 +4,7 @@ using EffectViewer.Runtime.Lua;
 using EffectViewer.TodLib.Common;
 using EffectViewer.TodLib.Graphics;
 using EffectViewer.TodLib.Reanim.Attachment;
+using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Showcase
 {
@@ -17,6 +18,7 @@ namespace EffectViewer.Runtime.Showcase
         internal Attachment Attachment { get; }
 
         public int effect_count => Attachment?.mNumEffects ?? 0;
+        public int num_effects => effect_count;
         public bool dead
         {
             get => Attachment?.mDead ?? true;
@@ -49,10 +51,25 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public ShowcaseAttachment draw(LuaGraphicsApi graphics, bool parentHidden)
+        {
+            if (graphics is not null && Attachment is { mDead: false })
+            {
+                Attachment.Draw(graphics.Graphics, parentHidden);
+            }
+
+            return this;
+        }
+
         public ShowcaseAttachment die()
         {
             Attachment?.AttachmentDie();
             return this;
+        }
+
+        public ShowcaseAttachment attachment_die()
+        {
+            return die();
         }
 
         public ShowcaseAttachment detach()
@@ -66,6 +83,21 @@ namespace EffectViewer.Runtime.Showcase
             return Attachment is null || index < 0 || index >= Attachment.mNumEffects
                 ? null
                 : new ShowcaseAttachmentEffect(Attachment, index);
+        }
+
+        public ShowcaseAttachmentEffect get_effect(int index)
+        {
+            return effect(index);
+        }
+
+        public ShowcaseAttachment set_effect(int index, ShowcaseAttachmentEffect effect)
+        {
+            if (Attachment is not null && effect is not null && index >= 0 && index < Attachment.mNumEffects)
+            {
+                Attachment.mEffectArray[index] = effect.Snapshot();
+            }
+
+            return this;
         }
 
         public ShowcaseAttachment cross_fade(string emitterName)
@@ -104,6 +136,16 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public ShowcaseAttachment set_matrix(ShowcaseMatrix matrix)
+        {
+            if (Attachment is not null && matrix is not null)
+            {
+                Attachment.SetMatrix(matrix.ToMatrix4x4());
+            }
+
+            return this;
+        }
+
         public ShowcaseAttachment set_color(double red, double green, double blue)
         {
             return set_color(red, green, blue, 255);
@@ -119,9 +161,49 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public ShowcaseAttachment override_color(DynValue red, DynValue green, DynValue blue, DynValue alpha)
+        {
+            Attachment?.OverrideColor(new SexyColor(
+                LuaApiUtility.ClampColor(LuaApiUtility.NumberOr(red, 255)),
+                LuaApiUtility.ClampColor(LuaApiUtility.NumberOr(green, 255)),
+                LuaApiUtility.ClampColor(LuaApiUtility.NumberOr(blue, 255)),
+                LuaApiUtility.ClampColor(LuaApiUtility.NumberOr(alpha, 255))));
+            return this;
+        }
+
         public ShowcaseAttachment set_scale(double scale)
         {
             Attachment?.OverrideScale((float)scale);
+            return this;
+        }
+
+        public ShowcaseAttachment override_scale(double scale)
+        {
+            return set_scale(scale);
+        }
+
+        public ShowcaseAttachment propogate_color(
+            double red,
+            double green,
+            double blue,
+            double alpha,
+            bool enableAdditiveColor,
+            double additiveRed,
+            double additiveGreen,
+            double additiveBlue,
+            double additiveAlpha,
+            bool enableOverlayColor,
+            double overlayRed,
+            double overlayGreen,
+            double overlayBlue,
+            double overlayAlpha)
+        {
+            Attachment?.PropogateColor(
+                new SexyColor(ClampColor(red), ClampColor(green), ClampColor(blue), ClampColor(alpha)),
+                enableAdditiveColor,
+                new SexyColor(ClampColor(additiveRed), ClampColor(additiveGreen), ClampColor(additiveBlue), ClampColor(additiveAlpha)),
+                enableOverlayColor,
+                new SexyColor(ClampColor(overlayRed), ClampColor(overlayGreen), ClampColor(overlayBlue), ClampColor(overlayAlpha)));
             return this;
         }
 

@@ -16,6 +16,29 @@ namespace EffectViewer.Runtime.Showcase
 
         public int index => _index;
         public string type => IsValid ? Effect.mEffectType.ToString() : string.Empty;
+        public double effect_id
+        {
+            get => IsValid ? Effect.mEffectID : 0d;
+            set
+            {
+                if (IsValid)
+                {
+                    Effect.mEffectID = value > 0 ? unchecked((uint)System.Math.Round(value)) : 0U;
+                }
+            }
+        }
+
+        public string effect_type
+        {
+            get => type;
+            set
+            {
+                if (IsValid && System.Enum.TryParse(value, ignoreCase: true, out EffectType parsed))
+                {
+                    Effect.mEffectType = parsed;
+                }
+            }
+        }
         public bool dont_draw_if_parent_hidden
         {
             get => IsValid && Effect.mDontDrawIfParentHidden;
@@ -40,9 +63,31 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
+        public bool dont_propogate_color
+        {
+            get => dont_propagate_color;
+            set => dont_propagate_color = value;
+        }
+
         public ShowcaseMatrix offset_matrix()
         {
             return IsValid ? new ShowcaseMatrix(Effect.mOffset) : null;
+        }
+
+        public ShowcaseMatrix get_offset()
+        {
+            return offset_matrix();
+        }
+
+        public ShowcaseMatrix get_offset(ShowcaseMatrix matrix)
+        {
+            ShowcaseMatrix offset = offset_matrix();
+            if (matrix is null || offset is null)
+            {
+                return offset;
+            }
+
+            return matrix.copy_from(offset);
         }
 
         public ShowcaseAttachmentEffect set_offset(double x, double y)
@@ -78,6 +123,16 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public ShowcaseAttachmentEffect set_offset(ShowcaseMatrix matrix)
+        {
+            if (IsValid && matrix is not null)
+            {
+                Effect.mOffset = matrix.ToMatrix4x4();
+            }
+
+            return this;
+        }
+
         public bool is_valid()
         {
             return IsValid && Effect.mEffectType != EffectType.Other;
@@ -85,5 +140,10 @@ namespace EffectViewer.Runtime.Showcase
 
         private ref AttachEffect Effect => ref _attachment.mEffectArray[_index];
         private bool IsValid => _attachment is not null && _index >= 0 && _index < _attachment.mNumEffects;
+
+        internal AttachEffect Snapshot()
+        {
+            return IsValid ? Effect : default;
+        }
     }
 }

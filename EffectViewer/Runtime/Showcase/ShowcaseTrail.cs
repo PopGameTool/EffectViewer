@@ -3,6 +3,7 @@ using EffectViewer.Runtime.Lua;
 using EffectViewer.TodLib.Common;
 using EffectViewer.TodLib.Graphics;
 using EffectViewer.TodLib.Trail;
+using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Showcase
 {
@@ -61,6 +62,8 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
+        public int num_trail_points => point_count;
+
         public int render_order
         {
             get => Trail?.mRenderOrder ?? 0;
@@ -85,6 +88,12 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
+        public int trail_age
+        {
+            get => age;
+            set => age = value;
+        }
+
         public int duration
         {
             get => Trail?.mTrailDuration ?? 0;
@@ -95,6 +104,12 @@ namespace EffectViewer.Runtime.Showcase
                     Trail.mTrailDuration = System.Math.Max(1, value);
                 }
             }
+        }
+
+        public int trail_duration
+        {
+            get => duration;
+            set => duration = value;
         }
 
         public bool is_attachment
@@ -110,8 +125,31 @@ namespace EffectViewer.Runtime.Showcase
         }
 
         public int point_count => Trail?.mNumTrailPoints ?? 0;
+        public double trail_center_x
+        {
+            get => pos_x;
+            set => pos_x = value;
+        }
+
+        public double trail_center_y
+        {
+            get => pos_y;
+            set => pos_y = value;
+        }
+
         public string image_id => Trail?.mDefinition?.mImage;
         public string image_override_id => Trail?.mImageOverride?.mId;
+        public ShowcaseImage image_override
+        {
+            get => Trail?.mImageOverride is null ? null : new ShowcaseImage(Trail.mImageOverride);
+            set
+            {
+                if (Trail is not null)
+                {
+                    Trail.mImageOverride = LuaApiUtility.ImageFrom(value);
+                }
+            }
+        }
         public int trail_flags
         {
             get => Trail?.mDefinition?.mTrailFlags ?? 0;
@@ -201,6 +239,46 @@ namespace EffectViewer.Runtime.Showcase
                 : new ShowcaseTrailPoint(Trail, index);
         }
 
+        public DynValue get_trail_point(int index)
+        {
+            if (Trail is null || index < 0 || index >= Trail.mNumTrailPoints)
+            {
+                return DynValue.Nil;
+            }
+
+            return DynValue.NewTuple(
+                DynValue.NewNumber(Trail.mTrailPoints[index].aPos.X),
+                DynValue.NewNumber(Trail.mTrailPoints[index].aPos.Y));
+        }
+
+        public ShowcaseTrail set_trail_point(int index, double x, double y)
+        {
+            if (Trail is not null && index >= 0 && index < Trail.mNumTrailPoints)
+            {
+                Trail.mTrailPoints[index].aPos.X = (float)x;
+                Trail.mTrailPoints[index].aPos.Y = (float)y;
+            }
+
+            return this;
+        }
+
+        public double get_trail_interp(int index)
+        {
+            return Trail is not null && index >= 0 && index < (int)TrailTracks.NumTrailTracks
+                ? Trail.mTrailInterp[index]
+                : 0d;
+        }
+
+        public ShowcaseTrail set_trail_interp(int index, double value)
+        {
+            if (Trail is not null && index >= 0 && index < (int)TrailTracks.NumTrailTracks)
+            {
+                Trail.mTrailInterp[index] = (float)value;
+            }
+
+            return this;
+        }
+
         public ShowcaseVector normal_at(int index)
         {
             if (Trail is null || index < 0 || index >= Trail.mNumTrailPoints)
@@ -227,11 +305,16 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
-        public ShowcaseTrail set_image_override(string imageId)
+        public DynValue get_color_override()
+        {
+            return Trail is null ? DynValue.Nil : LuaApiUtility.ColorTuple(Trail.mColorOverride);
+        }
+
+        public ShowcaseTrail set_color_override(DynValue red, DynValue green, DynValue blue, DynValue alpha)
         {
             if (Trail is not null)
             {
-                Trail.mImageOverride = RequireImage(imageId);
+                Trail.mColorOverride = LuaApiUtility.MergeColor(Trail.mColorOverride, red, green, blue, alpha);
             }
 
             return this;
@@ -250,6 +333,21 @@ namespace EffectViewer.Runtime.Showcase
         public bool has_image_override()
         {
             return Trail?.mImageOverride is not null;
+        }
+
+        public DynValue get_normal_at_point(int index)
+        {
+            if (Trail is null || index < 0 || index >= Trail.mNumTrailPoints)
+            {
+                return DynValue.NewTuple(DynValue.False, DynValue.Nil, DynValue.Nil);
+            }
+
+            Vector2 normal = default;
+            bool ok = Trail.GetNormalAtPoint(index, ref normal);
+            return DynValue.NewTuple(
+                DynValue.NewBoolean(ok),
+                ok ? DynValue.NewNumber(normal.X) : DynValue.Nil,
+                ok ? DynValue.NewNumber(normal.Y) : DynValue.Nil);
         }
 
         public ShowcaseTrail update()

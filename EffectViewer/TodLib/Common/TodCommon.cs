@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using InlineArray3TriVertex = System.Runtime.CompilerServices.InlineArray3<EffectViewer.TodLib.Common.TriVertex>;
 
 namespace EffectViewer.TodLib.Common
@@ -226,7 +227,9 @@ namespace EffectViewer.TodLib.Common
             second[1] = BuildTriVertex(bottomRight, u1, v1, theColor);
             second[2] = BuildTriVertex(bottomLeft, u0, v1, theColor);
 
-            Span<InlineArray3TriVertex> triangles = [first, second];
+            InlineArray2<InlineArray3TriVertex> triangles = new();
+            triangles[0] = first;
+            triangles[1] = second;
             g.DrawTrianglesTex(theImage, triangles);
             g.mDrawMode = oldMode;
         }

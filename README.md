@@ -74,7 +74,7 @@ EffectViewer.Browser/   Browser/WebAssembly app host
 EffectViewer.Android/   Android app host
 EffectViewer.iOS/       iOS app host
 Samples/                Importable sample projects
-ShowCases.md            Lua ShowCase scripting reference
+docs/lua_api.en-US.md   Lua ShowCase scripting reference
 ```
 
 ## Supported Resource Types
@@ -92,22 +92,26 @@ EffectViewer projects use a `project.effectproj.json` manifest and can reference
 ShowCases are Lua scripts that run inside the current project. A script can create project resources:
 
 ```lua
-local body = effect.reanim("sample_reanim", 400, 300)
-local fire = effect.particle("fire_burst", 420, 280)
-local slash = effect.trail("sword_slash", 0, 0)
+local body = scene.reanim("sample_reanim", 400, 300)
+local fire = scene.particle_system("fire_burst", 420, 280)
+local slash = scene.trail("sword_slash", 0, 0)
 ```
 
 It can also draw directly:
 
 ```lua
-function draw(g, elapsed, frame)
+local context = {}
+
+function context:draw(g, elapsed, frame)
     g:reset()
     g:set_color(255, 128, 64, 220)
     g:fill_rect(120, 120, 180, 64)
 end
+
+scene.regist(context)
 ```
 
-See [ShowCases.md](ShowCases.md) for the full scripting API.
+See [docs/lua_api.en-US.md](docs/lua_api.en-US.md) for the full scripting API.
 
 ## Development Notes
 

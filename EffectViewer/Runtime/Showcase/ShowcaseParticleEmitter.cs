@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using EffectViewer.Runtime.Lua;
 using EffectViewer.TodLib.Graphics;
 using EffectViewer.TodLib.Particle;
+using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Showcase
 {
@@ -15,9 +17,23 @@ namespace EffectViewer.Runtime.Showcase
 
         internal TodParticleEmitter Emitter { get; }
 
+        public ShowcaseParticle particle_system => Emitter?.mParticleSystem is null
+            ? null
+            : new ShowcaseParticle(null, Emitter.mParticleSystem.mEffectType, Emitter.mParticleSystem);
         public string name => Emitter?.mEmitterDef?.mName ?? string.Empty;
         public string image_id => Emitter?.mEmitterDef?.mImage;
         public string image_override_id => Emitter?.mImageOverride?.mId;
+        public ShowcaseImage image_override
+        {
+            get => Emitter?.mImageOverride is null ? null : new ShowcaseImage(Emitter.mImageOverride);
+            set
+            {
+                if (Emitter is not null)
+                {
+                    Emitter.mImageOverride = LuaApiUtility.ImageFrom(value);
+                }
+            }
+        }
         public int image_col => Emitter?.mEmitterDef?.mImageCol ?? 0;
         public int image_row => Emitter?.mEmitterDef?.mImageRow ?? 0;
         public int image_frames => Emitter?.mEmitterDef?.mImageFrames ?? 0;
@@ -52,6 +68,12 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
+        public double system_center_x
+        {
+            get => x;
+            set => x = value;
+        }
+
         public double y
         {
             get => Emitter?.mSystemCenter.Y ?? 0;
@@ -62,6 +84,12 @@ namespace EffectViewer.Runtime.Showcase
                     Emitter.SystemMove(Emitter.mSystemCenter.X, (float)value);
                 }
             }
+        }
+
+        public double system_center_y
+        {
+            get => y;
+            set => y = value;
         }
 
         public int particles_spawned
@@ -112,6 +140,12 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
+        public double system_time_value
+        {
+            get => system_time;
+            set => system_time = value;
+        }
+
         public double last_system_time
         {
             get => Emitter?.mSystemLastTimeValue ?? 0;
@@ -122,6 +156,12 @@ namespace EffectViewer.Runtime.Showcase
                     Emitter.mSystemLastTimeValue = (float)value;
                 }
             }
+        }
+
+        public double system_last_time_value
+        {
+            get => last_system_time;
+            set => last_system_time = value;
         }
 
         public bool dead
@@ -148,6 +188,12 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
+        public bool extra_additive_draw_override
+        {
+            get => extra_additive_draw;
+            set => extra_additive_draw = value;
+        }
+
         public double scale_override
         {
             get => Emitter?.mScaleOverride ?? 1;
@@ -172,6 +218,12 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
+        public int frame_override
+        {
+            get => frame;
+            set => frame = value;
+        }
+
         public int particle_count => Emitter?.mParticleList.Count ?? 0;
         public int cross_fade_countdown
         {
@@ -185,6 +237,24 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
+        public double cross_fade_emitter_id
+        {
+            get => Emitter is null ? 0 : IdToNumber(Emitter.mCrossFadeEmitterID);
+            set
+            {
+                if (Emitter is not null)
+                {
+                    Emitter.mCrossFadeEmitterID = IdFromNumber<ParticleEmitterID>(value);
+                }
+            }
+        }
+
+        public int emitter_cross_fade_count_down
+        {
+            get => cross_fade_countdown;
+            set => cross_fade_countdown = value;
+        }
+
         public bool is_dead() => Emitter is null || Emitter.mDead;
         public double center_x() => Emitter?.mSystemCenter.X ?? 0;
         public double center_y() => Emitter?.mSystemCenter.Y ?? 0;
@@ -192,6 +262,70 @@ namespace EffectViewer.Runtime.Showcase
         public ShowcaseParticleEmitter update()
         {
             Emitter?.Update();
+            return this;
+        }
+
+        public double get_particle_id(int index)
+        {
+            ShowcaseParticleInstance instance = particle(index);
+            return instance?.Particle is not null &&
+                Emitter?.mParticleSystem?.mParticleHolder?.mParticles.DataArrayContains(instance.Particle) == true
+                ? IdToNumber(Emitter.mParticleSystem.mParticleHolder.mParticles.DataArrayGetID(instance.Particle))
+                : 0d;
+        }
+
+        public double get_track_interp(int index)
+        {
+            return Emitter is not null && index >= 0 && index < (int)ParticleSystemTracks.NumSystemTracks
+                ? Emitter.mTrackInterp[index]
+                : 0d;
+        }
+
+        public ShowcaseParticleEmitter set_track_interp(int index, double value)
+        {
+            if (Emitter is not null && index >= 0 && index < (int)ParticleSystemTracks.NumSystemTracks)
+            {
+                Emitter.mTrackInterp[index] = (float)value;
+            }
+
+            return this;
+        }
+
+        public DynValue get_system_field_interp(int index)
+        {
+            if (Emitter is null || index < 0 || index >= 4)
+            {
+                return DynValue.Nil;
+            }
+
+            return DynValue.NewTuple(
+                DynValue.NewNumber(Emitter.mSystemFieldInterp[index][0]),
+                DynValue.NewNumber(Emitter.mSystemFieldInterp[index][1]));
+        }
+
+        public ShowcaseParticleEmitter set_system_field_interp(int index, double value1, double value2)
+        {
+            if (Emitter is not null && index >= 0 && index < 4)
+            {
+                Emitter.mSystemFieldInterp[index][0] = (float)value1;
+                Emitter.mSystemFieldInterp[index][1] = (float)value2;
+            }
+
+            return this;
+        }
+
+        public DynValue get_color_override()
+        {
+            return Emitter is null ? DynValue.Nil : LuaApiUtility.ColorTuple(Emitter.mColorOverride);
+        }
+
+        public ShowcaseParticleEmitter set_color_override(DynValue red, DynValue green, DynValue blue, DynValue alpha)
+        {
+            if (Emitter is not null)
+            {
+                Emitter.mColorOverride = LuaApiUtility.MergeColor(Emitter.mColorOverride, red, green, blue, alpha);
+            }
+
             return this;
         }
 
@@ -209,6 +343,11 @@ namespace EffectViewer.Runtime.Showcase
         {
             Emitter?.SystemMove((float)x, (float)y);
             return this;
+        }
+
+        public ShowcaseParticleEmitter system_move(double x, double y)
+        {
+            return set_position(x, y);
         }
 
         public ShowcaseParticleEmitter move(double x, double y)
@@ -255,16 +394,6 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
-        public ShowcaseParticleEmitter set_image_override(string imageId)
-        {
-            if (Emitter is not null)
-            {
-                Emitter.mImageOverride = RequireImage(imageId);
-            }
-
-            return this;
-        }
-
         public ShowcaseParticleEmitter clear_image_override()
         {
             if (Emitter is not null)
@@ -301,6 +430,23 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public ShowcaseParticleEmitter update_spawning()
+        {
+            Emitter?.UpdateSpawning();
+            return this;
+        }
+
+        public bool update_particle(ShowcaseParticleInstance particle)
+        {
+            return Emitter is not null && particle?.Particle is not null && Emitter.UpdateParticle(particle.Particle);
+        }
+
+        public ShowcaseParticleInstance spawn_particle(int index, int spawnCount)
+        {
+            TodParticle particle = Emitter?.SpawnParticle(index, spawnCount);
+            return particle is null ? null : new ShowcaseParticleInstance(particle);
+        }
+
         public ShowcaseParticleEmitter delete_all()
         {
             Emitter?.DeleteAll();
@@ -335,6 +481,34 @@ namespace EffectViewer.Runtime.Showcase
             if (Emitter is not null && toEmitter?.Emitter is not null)
             {
                 Emitter.CrossFadeEmitter(toEmitter.Emitter);
+            }
+
+            return this;
+        }
+
+        public ShowcaseParticleEmitter cross_fade_emitter(ShowcaseParticleEmitter toEmitter)
+        {
+            return cross_fade_to(toEmitter);
+        }
+
+        public ShowcaseParticleRenderParams get_render_params(ShowcaseParticleInstance particle)
+        {
+            if (particle?.Particle is null)
+            {
+                return null;
+            }
+
+            ParticleRenderParams renderParams = default;
+            return TodParticleEmitter.GetRenderParams(particle.Particle, ref renderParams)
+                ? new ShowcaseParticleRenderParams(renderParams)
+                : null;
+        }
+
+        public ShowcaseParticleEmitter draw_particle(LuaGraphicsApi graphics, ShowcaseParticleInstance particle)
+        {
+            if (graphics is not null && Emitter is not null && particle?.Particle is not null)
+            {
+                Emitter.DrawParticle(graphics.Graphics, particle.Particle);
             }
 
             return this;
@@ -403,6 +577,20 @@ namespace EffectViewer.Runtime.Showcase
         {
             Image image = ResourceHandler.GetImage(imageId);
             return image ?? throw new InvalidOperationException($"Image '{imageId}' was not found in the current project.");
+        }
+
+        private static double IdToNumber<TId>(TId id)
+            where TId : unmanaged
+        {
+            uint raw = Unsafe.As<TId, uint>(ref id);
+            return raw;
+        }
+
+        private static TId IdFromNumber<TId>(double id)
+            where TId : unmanaged
+        {
+            uint raw = double.IsFinite(id) && id > 0 ? unchecked((uint)Math.Round(id)) : 0U;
+            return Unsafe.As<uint, TId>(ref raw);
         }
     }
 }

@@ -1,92 +1,91 @@
 namespace EffectViewer.Runtime.Showcase
 {
-    public sealed class ShowcaseVector
+    public sealed class ShowcaseVector3
     {
-        public ShowcaseVector(double x, double y)
+        public ShowcaseVector3(double x, double y, double z)
         {
             this.x = x;
             this.y = y;
+            this.z = z;
         }
 
         public double x { get; set; }
         public double y { get; set; }
-        public double length => System.Math.Sqrt(x * x + y * y);
-        public double length_squared => x * x + y * y;
+        public double z { get; set; }
+        public double length => System.Math.Sqrt(x * x + y * y + z * z);
+        public double length_squared => x * x + y * y + z * z;
 
-        public ShowcaseVector set(double x, double y)
+        public ShowcaseVector3 set(double x, double y, double z)
         {
             this.x = x;
             this.y = y;
+            this.z = z;
             return this;
         }
 
-        public ShowcaseVector copy_from(ShowcaseVector other)
+        public ShowcaseVector3 copy_from(ShowcaseVector3 other)
         {
             if (other is not null)
             {
                 x = other.x;
                 y = other.y;
+                z = other.z;
             }
 
             return this;
         }
 
-        public ShowcaseVector clone()
+        public ShowcaseVector3 clone()
         {
-            return new ShowcaseVector(x, y);
+            return new ShowcaseVector3(x, y, z);
         }
 
-        public ShowcaseVector add(double otherX, double otherY)
+        public ShowcaseVector3 add(double otherX, double otherY, double otherZ)
         {
             x += otherX;
             y += otherY;
+            z += otherZ;
             return this;
         }
 
-        public ShowcaseVector subtract(double otherX, double otherY)
+        public ShowcaseVector3 subtract(double otherX, double otherY, double otherZ)
         {
             x -= otherX;
             y -= otherY;
+            z -= otherZ;
             return this;
         }
 
-        public ShowcaseVector scale(double value)
+        public ShowcaseVector3 scale(double value)
         {
             x *= value;
             y *= value;
+            z *= value;
             return this;
         }
 
-        public ShowcaseVector normalize()
+        public double dot(double otherX, double otherY, double otherZ)
         {
-            return clone().normalize_safe();
+            return x * otherX + y * otherY + z * otherZ;
         }
 
-        public ShowcaseVector normalize_safe()
+        public ShowcaseVector3 normalize_safe()
         {
             double magnitude = length;
             if (magnitude <= 0.000001d)
             {
                 x = 0;
                 y = 0;
+                z = 0;
             }
             else
             {
                 x /= magnitude;
                 y /= magnitude;
+                z /= magnitude;
             }
 
             return this;
-        }
-
-        public double dot(double otherX, double otherY)
-        {
-            return x * otherX + y * otherY;
-        }
-
-        public ShowcaseVector get_perp()
-        {
-            return new ShowcaseVector(-y, x);
         }
     }
 }

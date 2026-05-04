@@ -9,6 +9,8 @@ namespace EffectViewer.Runtime.Lua
     internal sealed class LuaShowcaseScript : IShowcaseScriptCallbacks
     {
         private readonly Script _script;
+        private readonly bool _hasContext;
+        private readonly DynValue _context;
         private readonly DynValue _update;
         private readonly DynValue _draw;
         private readonly IList<string> _logs;
@@ -18,9 +20,11 @@ namespace EffectViewer.Runtime.Lua
         private bool _drawFailed;
         private bool _disposed;
 
-        public LuaShowcaseScript(Script script, DynValue update, DynValue draw, IList<string> logs)
+        public LuaShowcaseScript(Script script, bool hasContext, DynValue context, DynValue update, DynValue draw, IList<string> logs)
         {
             _script = script ?? throw new ArgumentNullException(nameof(script));
+            _hasContext = hasContext;
+            _context = context;
             _update = update;
             _draw = draw;
             _logs = logs ?? throw new ArgumentNullException(nameof(logs));
@@ -47,7 +51,14 @@ namespace EffectViewer.Runtime.Lua
 
             try
             {
-                _script.Call(_update, deltaSeconds, _elapsedSeconds, _frame);
+                if (!_hasContext)
+                {
+                    _script.Call(_update, deltaSeconds, _elapsedSeconds, _frame);
+                }
+                else
+                {
+                    _script.Call(_update, _context, deltaSeconds, _elapsedSeconds, _frame);
+                }
             }
             catch (ScriptRuntimeException ex)
             {
@@ -70,7 +81,15 @@ namespace EffectViewer.Runtime.Lua
 
             try
             {
-                _script.Call(_draw, new LuaGraphicsApi(graphics), _elapsedSeconds, _frame);
+                LuaGraphicsApi api = new(graphics);
+                if (!_hasContext)
+                {
+                    _script.Call(_draw, api, _elapsedSeconds, _frame);
+                }
+                else
+                {
+                    _script.Call(_draw, _context, api, _elapsedSeconds, _frame);
+                }
                 return true;
             }
             catch (ScriptRuntimeException ex)

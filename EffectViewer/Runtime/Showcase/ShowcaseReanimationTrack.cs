@@ -1,9 +1,11 @@
 using System;
+using System.Runtime.CompilerServices;
 using EffectViewer.Runtime.Lua;
 using EffectViewer.TodLib.Common;
 using EffectViewer.TodLib.Graphics;
 using EffectViewer.TodLib.Reanim;
 using EffectViewer.TodLib.Reanim.Attachment;
+using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Showcase
 {
@@ -22,6 +24,11 @@ namespace EffectViewer.Runtime.Showcase
         public int index => _trackIndex;
         public int transform_count => _reanimation.mDefinition?.mTracks?[_trackIndex].mTransformCount ?? 0;
         public string image_override_id => Track.mImageOverride?.mId;
+        public ShowcaseImage image_override
+        {
+            get => Track.mImageOverride is null ? null : new ShowcaseImage(Track.mImageOverride);
+            set => Track.mImageOverride = LuaApiUtility.ImageFrom(value);
+        }
 
         public int blend_counter
         {
@@ -51,6 +58,12 @@ namespace EffectViewer.Runtime.Showcase
         {
             get => Track.mShakeY;
             set => Track.mShakeY = (float)value;
+        }
+
+        public double attachment_id
+        {
+            get => IdToNumber(Track.mAttachmentID);
+            set => Track.mAttachmentID = IdFromNumber<AttachmentID>(value);
         }
 
         public int render_group
@@ -115,6 +128,11 @@ namespace EffectViewer.Runtime.Showcase
 
         public bool has_attachment() => Track.mAttachmentID != AttachmentID.Null;
 
+        internal ReanimatorTrackInstance Snapshot()
+        {
+            return Track;
+        }
+
         public ShowcaseAttachment attachment()
         {
             if (Track.mAttachmentID == AttachmentID.Null)
@@ -138,6 +156,56 @@ namespace EffectViewer.Runtime.Showcase
                 ClampColor(green),
                 ClampColor(blue),
                 ClampColor(alpha));
+            return this;
+        }
+
+        public DynValue get_track_color()
+        {
+            return LuaApiUtility.ColorTuple(Track.mTrackColor);
+        }
+
+        public ShowcaseReanimationTrack set_track_color(DynValue red, DynValue green, DynValue blue, DynValue alpha)
+        {
+            Track.mTrackColor = LuaApiUtility.MergeColor(Track.mTrackColor, red, green, blue, alpha);
+            return this;
+        }
+
+        public DynValue get_blend_transform()
+        {
+            ReanimatorTransform transform = Track.mBlendTransform;
+            return DynValue.NewTuple(
+                DynValue.NewNumber(transform.mTransX),
+                DynValue.NewNumber(transform.mTransY),
+                DynValue.NewNumber(transform.mSkewX),
+                DynValue.NewNumber(transform.mSkewY),
+                DynValue.NewNumber(transform.mScaleX),
+                DynValue.NewNumber(transform.mScaleY),
+                DynValue.NewNumber(transform.mFrame),
+                DynValue.NewNumber(transform.mAlpha),
+                StringOrNil(transform.mImage),
+                StringOrNil(transform.mFont),
+                StringOrNil(transform.mText));
+        }
+
+        public ShowcaseReanimationTrack set_blend_transform(params DynValue[] values)
+        {
+            ReanimatorTransform transform = Track.mBlendTransform;
+            if (values is not null)
+            {
+                if (values.Length > 0 && !LuaApiUtility.IsNil(values[0])) transform.mTransX = (float)values[0].CastToNumber();
+                if (values.Length > 1 && !LuaApiUtility.IsNil(values[1])) transform.mTransY = (float)values[1].CastToNumber();
+                if (values.Length > 2 && !LuaApiUtility.IsNil(values[2])) transform.mSkewX = (float)values[2].CastToNumber();
+                if (values.Length > 3 && !LuaApiUtility.IsNil(values[3])) transform.mSkewY = (float)values[3].CastToNumber();
+                if (values.Length > 4 && !LuaApiUtility.IsNil(values[4])) transform.mScaleX = (float)values[4].CastToNumber();
+                if (values.Length > 5 && !LuaApiUtility.IsNil(values[5])) transform.mScaleY = (float)values[5].CastToNumber();
+                if (values.Length > 6 && !LuaApiUtility.IsNil(values[6])) transform.mFrame = (float)values[6].CastToNumber();
+                if (values.Length > 7 && !LuaApiUtility.IsNil(values[7])) transform.mAlpha = (float)values[7].CastToNumber();
+                if (values.Length > 8 && !LuaApiUtility.IsNil(values[8])) transform.mImage = values[8].CastToString();
+                if (values.Length > 9 && !LuaApiUtility.IsNil(values[9])) transform.mFont = values[9].CastToString();
+                if (values.Length > 10 && !LuaApiUtility.IsNil(values[10])) transform.mText = values[10].CastToString();
+            }
+
+            Track.mBlendTransform = transform;
             return this;
         }
 
@@ -299,6 +367,25 @@ namespace EffectViewer.Runtime.Showcase
         {
             Image image = ResourceHandler.GetImage(imageId);
             return image ?? throw new InvalidOperationException($"Image '{imageId}' was not found in the current project.");
+        }
+
+        private static double IdToNumber<TId>(TId id)
+            where TId : unmanaged
+        {
+            uint raw = Unsafe.As<TId, uint>(ref id);
+            return raw;
+        }
+
+        private static TId IdFromNumber<TId>(double id)
+            where TId : unmanaged
+        {
+            uint raw = double.IsFinite(id) && id > 0 ? unchecked((uint)Math.Round(id)) : 0U;
+            return Unsafe.As<uint, TId>(ref raw);
+        }
+
+        private static DynValue StringOrNil(string value)
+        {
+            return value is null ? DynValue.Nil : DynValue.NewString(value);
         }
     }
 }

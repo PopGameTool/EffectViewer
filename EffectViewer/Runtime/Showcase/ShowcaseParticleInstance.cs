@@ -1,5 +1,8 @@
 using System;
+using System.Runtime.CompilerServices;
+using EffectViewer.Runtime.Lua;
 using EffectViewer.TodLib.Particle;
+using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Showcase
 {
@@ -12,6 +15,8 @@ namespace EffectViewer.Runtime.Showcase
 
         internal TodParticle Particle { get; }
 
+        public ShowcaseParticleEmitter particle_emitter => emitter();
+
         public int duration
         {
             get => Particle?.mParticleDuration ?? 0;
@@ -22,6 +27,12 @@ namespace EffectViewer.Runtime.Showcase
                     Particle.mParticleDuration = Math.Max(1, value);
                 }
             }
+        }
+
+        public int particle_duration
+        {
+            get => duration;
+            set => duration = value;
         }
 
         public int age
@@ -36,6 +47,12 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
+        public int particle_age
+        {
+            get => age;
+            set => age = value;
+        }
+
         public double time
         {
             get => Particle?.mParticleTimeValue ?? 0;
@@ -46,6 +63,12 @@ namespace EffectViewer.Runtime.Showcase
                     Particle.mParticleTimeValue = (float)value;
                 }
             }
+        }
+
+        public double particle_time_value
+        {
+            get => time;
+            set => time = value;
         }
 
         public double last_time
@@ -60,6 +83,12 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
+        public double particle_last_time_value
+        {
+            get => last_time;
+            set => last_time = value;
+        }
+
         public double animation_time
         {
             get => Particle?.mAnimationTimeValue ?? 0;
@@ -70,6 +99,12 @@ namespace EffectViewer.Runtime.Showcase
                     Particle.mAnimationTimeValue = (float)value;
                 }
             }
+        }
+
+        public double animation_time_value
+        {
+            get => animation_time;
+            set => animation_time = value;
         }
 
         public double x
@@ -84,6 +119,12 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
+        public double position_x
+        {
+            get => x;
+            set => x = value;
+        }
+
         public double y
         {
             get => Particle?.mPosition.Y ?? 0;
@@ -94,6 +135,12 @@ namespace EffectViewer.Runtime.Showcase
                     Particle.mPosition.Y = (float)value;
                 }
             }
+        }
+
+        public double position_y
+        {
+            get => y;
+            set => y = value;
         }
 
         public double velocity_x
@@ -144,6 +191,24 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
+        public double spin_position
+        {
+            get => spin;
+            set => spin = value;
+        }
+
+        public double cross_fade_particle_id
+        {
+            get => Particle is null ? 0 : IdToNumber(Particle.mCrossFadeParticleID);
+            set
+            {
+                if (Particle is not null)
+                {
+                    Particle.mCrossFadeParticleID = IdFromNumber<ParticleID>(value);
+                }
+            }
+        }
+
         public double spin_velocity
         {
             get => Particle?.mSpinVelocity ?? 0;
@@ -177,6 +242,46 @@ namespace EffectViewer.Runtime.Showcase
         public ShowcaseParticleEmitter emitter()
         {
             return Particle?.mParticleEmitter is null ? null : new ShowcaseParticleEmitter(Particle.mParticleEmitter);
+        }
+
+        public double get_particle_interp(int index)
+        {
+            return Particle is not null && index >= 0 && index < (int)ParticleTracks.NumParticleTracks
+                ? Particle.mParticleInterp[index]
+                : 0d;
+        }
+
+        public ShowcaseParticleInstance set_particle_interp(int index, double value)
+        {
+            if (Particle is not null && index >= 0 && index < (int)ParticleTracks.NumParticleTracks)
+            {
+                Particle.mParticleInterp[index] = (float)value;
+            }
+
+            return this;
+        }
+
+        public DynValue get_particle_field_interp(int index)
+        {
+            if (Particle is null || index < 0 || index >= 4)
+            {
+                return DynValue.Nil;
+            }
+
+            return DynValue.NewTuple(
+                DynValue.NewNumber(Particle.mParticleFieldInterp[index][0]),
+                DynValue.NewNumber(Particle.mParticleFieldInterp[index][1]));
+        }
+
+        public ShowcaseParticleInstance set_particle_field_interp(int index, double value1, double value2)
+        {
+            if (Particle is not null && index >= 0 && index < 4)
+            {
+                Particle.mParticleFieldInterp[index][0] = (float)value1;
+                Particle.mParticleFieldInterp[index][1] = (float)value2;
+            }
+
+            return this;
         }
 
         public ShowcaseParticleInstance set_position(double x, double y)
@@ -238,6 +343,20 @@ namespace EffectViewer.Runtime.Showcase
             }
 
             return this;
+        }
+
+        private static double IdToNumber<TId>(TId id)
+            where TId : unmanaged
+        {
+            uint raw = Unsafe.As<TId, uint>(ref id);
+            return raw;
+        }
+
+        private static TId IdFromNumber<TId>(double id)
+            where TId : unmanaged
+        {
+            uint raw = double.IsFinite(id) && id > 0 ? unchecked((uint)Math.Round(id)) : 0U;
+            return Unsafe.As<uint, TId>(ref raw);
         }
     }
 }

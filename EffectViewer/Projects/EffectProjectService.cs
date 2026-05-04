@@ -913,7 +913,7 @@ namespace EffectViewer.Projects
             string safeId = string.IsNullOrWhiteSpace(assetId) ? "showcase" : assetId;
             return $"""
                 scene.clear()
-                effect.log("{safeId} initialized")
+                scene.log("{safeId} initialized")
                 """;
         }
 

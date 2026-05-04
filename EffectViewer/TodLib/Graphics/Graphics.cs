@@ -9,6 +9,7 @@ namespace EffectViewer.TodLib.Graphics
         public float mTransY;
         public DrawMode mDrawMode;
         public SexyColor mColor;
+        public bool mColorizeImages;
         public Rectangle mClipRect;
 
         public SexyColor GetColor()
@@ -23,7 +24,7 @@ namespace EffectViewer.TodLib.Graphics
 
         public bool GetColorizeImages()
         {
-            return false;
+            return mColorizeImages;
         }
 
         public DrawMode GetDrawMode()

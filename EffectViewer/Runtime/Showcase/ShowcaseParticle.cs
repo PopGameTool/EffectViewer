@@ -3,13 +3,17 @@ using EffectViewer.Runtime.Lua;
 using EffectViewer.TodLib.Common;
 using EffectViewer.TodLib.Graphics;
 using EffectViewer.TodLib.Particle;
+using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Showcase
 {
     public sealed class ShowcaseParticle
     {
+        private readonly ShowcaseScene _scene;
+
         internal ShowcaseParticle(ShowcaseScene scene, string id, TodParticleSystem particleSystem)
         {
+            _scene = scene;
             id_ = id;
             ParticleSystem = particleSystem;
         }
@@ -27,6 +31,12 @@ namespace EffectViewer.Runtime.Showcase
                     ParticleSystem.mEffectType = value;
                 }
             }
+        }
+
+        public string effect_type
+        {
+            get => type;
+            set => type = value;
         }
 
         public bool dead
@@ -99,6 +109,18 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public double get_emitter_id(int index)
+        {
+            return _scene?.GetEmitterId(emitter_at(index)) ?? 0d;
+        }
+
+        public ShowcaseParticle tod_particle_initialize(double x, double y, string effectType)
+        {
+            type = effectType;
+            set_position(x, y);
+            return this;
+        }
+
         public ShowcaseParticle move(double x, double y)
         {
             return set_position(x, y);
@@ -129,6 +151,18 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public ShowcaseParticle override_color(DynValue emitterName, DynValue red, DynValue green, DynValue blue, DynValue alpha)
+        {
+            ParticleSystem?.OverrideColor(
+                LuaApiUtility.StringOr(emitterName),
+                new SexyColor(
+                    LuaApiUtility.ClampColor(LuaApiUtility.NumberOr(red, 255)),
+                    LuaApiUtility.ClampColor(LuaApiUtility.NumberOr(green, 255)),
+                    LuaApiUtility.ClampColor(LuaApiUtility.NumberOr(blue, 255)),
+                    LuaApiUtility.ClampColor(LuaApiUtility.NumberOr(alpha, 255))));
+            return this;
+        }
+
         public ShowcaseParticle set_emitter_color(string emitterName, double red, double green, double blue)
         {
             return set_emitter_color(emitterName, red, green, blue, 255);
@@ -147,6 +181,30 @@ namespace EffectViewer.Runtime.Showcase
         public ShowcaseParticle set_scale(double scale)
         {
             ParticleSystem?.OverrideScale(null, (float)scale);
+            return this;
+        }
+
+        public ShowcaseParticle override_extra_additive_draw(DynValue emitterName, bool enabled)
+        {
+            ParticleSystem?.OverrideExtraAdditiveDraw(LuaApiUtility.StringOr(emitterName), enabled);
+            return this;
+        }
+
+        public ShowcaseParticle override_image(DynValue emitterName, ShowcaseImage image)
+        {
+            ParticleSystem?.OverrideImage(LuaApiUtility.StringOr(emitterName), LuaApiUtility.ImageFrom(image));
+            return this;
+        }
+
+        public ShowcaseParticle override_frame(DynValue emitterName, double frame)
+        {
+            ParticleSystem?.OverrideFrame(LuaApiUtility.StringOr(emitterName), (int)System.Math.Round(frame));
+            return this;
+        }
+
+        public ShowcaseParticle override_scale(DynValue emitterName, double scale)
+        {
+            ParticleSystem?.OverrideScale(LuaApiUtility.StringOr(emitterName), (float)scale);
             return this;
         }
 
@@ -214,6 +272,11 @@ namespace EffectViewer.Runtime.Showcase
         {
             TodParticleEmitter emitter = ParticleSystem?.FindEmitterByName(emitterName);
             return emitter is null ? null : new ShowcaseParticleEmitter(emitter);
+        }
+
+        public ShowcaseParticleEmitter find_emitter_by_name(string emitterName)
+        {
+            return emitter(emitterName);
         }
 
         public ShowcaseParticleEmitter emitter_at(int index)
@@ -306,6 +369,11 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public ShowcaseParticle system_move(double x, double y)
+        {
+            return set_position(x, y);
+        }
+
         public ShowcaseParticle draw(LuaGraphicsApi graphics)
         {
             if (graphics is not null && ParticleSystem is { mDead: false })
@@ -320,6 +388,11 @@ namespace EffectViewer.Runtime.Showcase
         {
             ParticleSystem?.ParticleSystemDie();
             return this;
+        }
+
+        public ShowcaseParticle particle_system_die()
+        {
+            return die();
         }
 
         private TodParticleEmitter FirstEmitter()

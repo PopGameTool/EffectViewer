@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using EffectViewer.Assets;
 using EffectViewer.Projects;
 using EffectViewer.Rendering;
@@ -40,6 +41,7 @@ namespace EffectViewer.Runtime.Showcase
         public IReadOnlyList<ShowcaseParticle> Particles => _particles;
         public IReadOnlyList<ShowcaseTrail> Trails => _trails;
         public int MaxUpdateStepsPerFrame { get; set; } = 20;
+        internal EffectSystem EffectSystem => _effectSystem;
 
         internal void SetScriptCallbacks(IShowcaseScriptCallbacks callbacks)
         {
@@ -228,6 +230,78 @@ namespace EffectViewer.Runtime.Showcase
             GlobalMembersAttachment.AttachmentDetach(_effectSystem, ref track.mAttachmentID);
         }
 
+        internal double GetReanimationId(ShowcaseReanimation reanimation)
+        {
+            return reanimation?.Reanimation is not null && _effectSystem.mReanimationHolder.mReanimations.DataArrayContains(reanimation.Reanimation)
+                ? IdToNumber(_effectSystem.mReanimationHolder.mReanimations.DataArrayGetID(reanimation.Reanimation))
+                : 0d;
+        }
+
+        internal double GetParticleSystemId(ShowcaseParticle particle)
+        {
+            return particle?.ParticleSystem is not null && _effectSystem.mParticleHolder.mParticleSystems.DataArrayContains(particle.ParticleSystem)
+                ? IdToNumber(_effectSystem.mParticleHolder.mParticleSystems.DataArrayGetID(particle.ParticleSystem))
+                : 0d;
+        }
+
+        internal double GetEmitterId(ShowcaseParticleEmitter emitter)
+        {
+            return emitter?.Emitter is not null && _effectSystem.mParticleHolder.mEmitters.DataArrayContains(emitter.Emitter)
+                ? IdToNumber(_effectSystem.mParticleHolder.mEmitters.DataArrayGetID(emitter.Emitter))
+                : 0d;
+        }
+
+        internal double GetParticleId(ShowcaseParticleInstance particle)
+        {
+            return particle?.Particle is not null && _effectSystem.mParticleHolder.mParticles.DataArrayContains(particle.Particle)
+                ? IdToNumber(_effectSystem.mParticleHolder.mParticles.DataArrayGetID(particle.Particle))
+                : 0d;
+        }
+
+        internal double GetAttachmentId(ShowcaseAttachment attachment)
+        {
+            return attachment?.Attachment is not null && _effectSystem.mAttachmentHolder.mAttachments.DataArrayContains(attachment.Attachment)
+                ? IdToNumber(_effectSystem.mAttachmentHolder.mAttachments.DataArrayGetID(attachment.Attachment))
+                : 0d;
+        }
+
+        internal double GetTrailId(ShowcaseTrail trail)
+        {
+            return trail?.Trail is not null && _effectSystem.mTrailHolder.mTrails.DataArrayContains(trail.Trail)
+                ? IdToNumber(_effectSystem.mTrailHolder.mTrails.DataArrayGetID(trail.Trail))
+                : 0d;
+        }
+
+        internal Reanimation GetReanimationById(double id)
+        {
+            return _effectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet(IdFromNumber<ReanimationID>(id));
+        }
+
+        internal TodParticleSystem GetParticleSystemById(double id)
+        {
+            return _effectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet(IdFromNumber<ParticleSystemID>(id));
+        }
+
+        internal TodParticleEmitter GetEmitterById(double id)
+        {
+            return _effectSystem.mParticleHolder.mEmitters.DataArrayTryToGet(IdFromNumber<ParticleEmitterID>(id));
+        }
+
+        internal TodParticle GetParticleById(double id)
+        {
+            return _effectSystem.mParticleHolder.mParticles.DataArrayTryToGet(IdFromNumber<ParticleID>(id));
+        }
+
+        internal Attachment GetAttachmentById(double id)
+        {
+            return _effectSystem.mAttachmentHolder.mAttachments.DataArrayTryToGet(IdFromNumber<AttachmentID>(id));
+        }
+
+        internal Trail GetTrailById(double id)
+        {
+            return _effectSystem.mTrailHolder.mTrails.DataArrayTryToGet(IdFromNumber<TrailID>(id));
+        }
+
         private void Update(double deltaSeconds)
         {
             if (_scriptCallbacks?.HasUpdate == true)
@@ -295,6 +369,20 @@ namespace EffectViewer.Runtime.Showcase
             {
                 throw new InvalidOperationException($"Track '{trackName}' was not found on reanim '{parent.mReanimationType}'.");
             }
+        }
+
+        private static double IdToNumber<TId>(TId id)
+            where TId : unmanaged
+        {
+            uint raw = Unsafe.As<TId, uint>(ref id);
+            return raw;
+        }
+
+        private static TId IdFromNumber<TId>(double id)
+            where TId : unmanaged
+        {
+            uint raw = double.IsFinite(id) && id > 0 ? unchecked((uint)Math.Round(id)) : 0U;
+            return Unsafe.As<uint, TId>(ref raw);
         }
 
         private void EnsureSameEffectSystem(Reanimation reanimation)

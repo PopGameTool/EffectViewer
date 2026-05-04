@@ -260,13 +260,14 @@ namespace EffectViewer.ViewModels
             return """
                 scene.clear()
 
-                local body = effect.reanim("sample_reanim", 400, 300)
-                local fire = effect.particle("fire_burst", 420, 280)
-                local slash = effect.trail("sword_slash", 0, 0)
+                local body = scene.reanim("sample_reanim", 400, 300)
+                local fire = scene.particle_system("fire_burst", 420, 280)
+                local slash = scene.trail("sword_slash", 0, 0)
 
+                local context = {}
                 local t = 0
 
-                function update(dt)
+                function context:update(dt)
                     t = t + dt
                     body:set_position(400 + math.sin(t * 2) * 40, 300)
                     fire:set_scale(0.8 + math.sin(t * 3) * 0.2)
@@ -275,13 +276,14 @@ namespace EffectViewer.ViewModels
                     slash:add_point(470, 280 + math.sin(t * 4) * 40)
                 end
 
-                function draw(g)
+                function context:draw(g)
                     body:draw(g)
                     fire:draw(g)
                     slash:draw(g)
                 end
 
-                effect.log("showcase initialized")
+                scene.regist(context)
+                scene.log("showcase initialized")
                 """;
         }
 
@@ -334,20 +336,22 @@ namespace EffectViewer.ViewModels
                 $$"""
                 scene.clear()
 
-                local body = effect.reanim("{{EscapeLuaString(reanimId)}}", 400, 300)
+                local body = scene.reanim("{{EscapeLuaString(reanimId)}}", 400, 300)
+                local context = {}
                 local t = 0
 
-                function update(dt)
+                function context:update(dt)
                     t = t + dt
                     body:set_position(400 + math.sin(t * 2) * 40, 300)
                     body:update()
                 end
 
-                function draw(g)
+                function context:draw(g)
                     body:draw(g)
                 end
 
-                effect.log("showcase initialized")
+                scene.regist(context)
+                scene.log("showcase initialized")
                 """);
 
             yield return new ShowcaseScriptAction(
@@ -356,12 +360,13 @@ namespace EffectViewer.ViewModels
                 $$"""
                 scene.clear()
 
-                local body = effect.reanim("{{EscapeLuaString(reanimId)}}", 400, 300)
-                local burst = effect.particle("{{EscapeLuaString(particleId)}}", 420, 280)
-                local slash = effect.trail("{{EscapeLuaString(trailId)}}", 0, 0)
+                local body = scene.reanim("{{EscapeLuaString(reanimId)}}", 400, 300)
+                local burst = scene.particle_system("{{EscapeLuaString(particleId)}}", 420, 280)
+                local slash = scene.trail("{{EscapeLuaString(trailId)}}", 0, 0)
+                local context = {}
                 local t = 0
 
-                function update(dt)
+                function context:update(dt)
                     t = t + dt
                     body:set_position(400 + math.sin(t * 2) * 40, 300)
                     burst:set_scale(0.85 + math.sin(t * 3) * 0.15)
@@ -370,44 +375,46 @@ namespace EffectViewer.ViewModels
                     slash:add_point(470, 280 + math.sin(t * 4) * 40)
                 end
 
-                function draw(g)
+                function context:draw(g)
                     body:draw(g)
                     burst:draw(g)
                     slash:draw(g)
                 end
+
+                scene.regist(context)
                 """);
         }
 
         private static IEnumerable<ShowcaseScriptAction> CreateSnippets()
         {
             yield return new ShowcaseScriptAction(
-                "update(dt)",
+                "context:update(dt)",
                 "Per-frame update callback.",
                 """
-                function update(dt)
+                function context:update(dt)
                     $0
                 end
                 """);
             yield return new ShowcaseScriptAction(
-                "draw(g)",
+                "context:draw(g)",
                 "Per-frame draw callback.",
                 """
-                function draw(g)
+                function context:draw(g)
                     $0
                 end
                 """);
             yield return new ShowcaseScriptAction(
-                "effect.reanim",
+                "scene.reanim",
                 "Create a reanimation object.",
-                "local body = effect.reanim($0, 400, 300)");
+                "local body = scene.reanim($0, 400, 300)");
             yield return new ShowcaseScriptAction(
-                "effect.particle",
+                "scene.particle_system",
                 "Create a particle object.",
-                "local fx = effect.particle($0, 400, 300)");
+                "local fx = scene.particle_system($0, 400, 300)");
             yield return new ShowcaseScriptAction(
-                "effect.trail",
+                "scene.trail",
                 "Create a trail object.",
-                "local trail = effect.trail($0, 400, 300)");
+                "local trail = scene.trail($0, 400, 300)");
             yield return new ShowcaseScriptAction(
                 "trail points",
                 "Reset and draw two manual trail points.",
@@ -417,9 +424,9 @@ namespace EffectViewer.ViewModels
                 trail:add_point(460, 300)
                 """);
             yield return new ShowcaseScriptAction(
-                "effect.log",
+                "scene.log",
                 "Write to the showcase log.",
-                "effect.log($0)");
+                "scene.log($0)");
         }
 
         private static IEnumerable<ShowcaseResourceReference> CreateResourceReferences(EffectProject project)
@@ -462,15 +469,16 @@ namespace EffectViewer.ViewModels
             yield return new ShowcaseCompletionItem("scene.find_reanim(id)", "scene.find_reanim($0)", "Find a reanimation created in this scene.", isMember: false);
             yield return new ShowcaseCompletionItem("scene.find_particle(id)", "scene.find_particle($0)", "Find a particle created in this scene.", isMember: false);
             yield return new ShowcaseCompletionItem("scene.find_trail(id)", "scene.find_trail($0)", "Find a trail created in this scene.", isMember: false);
-            yield return new ShowcaseCompletionItem("effect.reanim(id, x, y)", "effect.reanim($0, 400, 300)", "Create a reanimation.", isMember: false);
-            yield return new ShowcaseCompletionItem("effect.particle(id, x, y)", "effect.particle($0, 400, 300)", "Create a particle effect.", isMember: false);
-            yield return new ShowcaseCompletionItem("effect.trail(id, x, y)", "effect.trail($0, 400, 300)", "Create a trail effect.", isMember: false);
-            yield return new ShowcaseCompletionItem("effect.image(id)", "effect.image($0)", "Load an image resource.", isMember: false);
-            yield return new ShowcaseCompletionItem("effect.log(message)", "effect.log($0)", "Write a log entry.", isMember: false);
-            yield return new ShowcaseCompletionItem("effect.warn(message)", "effect.warn($0)", "Write a warning log entry.", isMember: false);
-            yield return new ShowcaseCompletionItem("effect.vector(x, y)", "effect.vector($0, 0)", "Create a vector.", isMember: false);
-            yield return new ShowcaseCompletionItem("function update(dt)", "function update(dt)\n    $0\nend", "Define a per-frame update callback.", isMember: false);
-            yield return new ShowcaseCompletionItem("function draw(g)", "function draw(g)\n    $0\nend", "Define a per-frame draw callback.", isMember: false);
+            yield return new ShowcaseCompletionItem("scene.reanim(id, x, y)", "scene.reanim($0, 400, 300)", "Create a reanimation.", isMember: false);
+            yield return new ShowcaseCompletionItem("scene.particle_system(id, x, y)", "scene.particle_system($0, 400, 300)", "Create a particle effect.", isMember: false);
+            yield return new ShowcaseCompletionItem("scene.trail(id, x, y)", "scene.trail($0, 400, 300)", "Create a trail effect.", isMember: false);
+            yield return new ShowcaseCompletionItem("scene.get_image(id)", "scene.get_image($0)", "Load an image resource.", isMember: false);
+            yield return new ShowcaseCompletionItem("scene.log(message)", "scene.log($0)", "Write a log entry.", isMember: false);
+            yield return new ShowcaseCompletionItem("scene.warn(message)", "scene.warn($0)", "Write a warning log entry.", isMember: false);
+            yield return new ShowcaseCompletionItem("scene.vector2(x, y)", "scene.vector2($0, 0)", "Create a vector.", isMember: false);
+            yield return new ShowcaseCompletionItem("scene.regist(context)", "scene.regist(context)", "Register the script context.", isMember: false);
+            yield return new ShowcaseCompletionItem("function context:update(dt)", "function context:update(dt)\n    $0\nend", "Define a per-frame update callback.", isMember: false);
+            yield return new ShowcaseCompletionItem("function context:draw(g)", "function context:draw(g)\n    $0\nend", "Define a per-frame draw callback.", isMember: false);
 
             foreach ((string name, string description) in new[]
             {
