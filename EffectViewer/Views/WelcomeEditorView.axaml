@@ -39,6 +39,9 @@
             <Button Content="{DynamicResource Loc.Welcome.ImportResourceFolderAction}"
                     MinWidth="130"
                     Command="{Binding ImportResourceFolderCommand}"/>
+            <Button Content="{DynamicResource Loc.Welcome.ImportResourcePakAction}"
+                    MinWidth="110"
+                    Command="{Binding ImportResourcePakCommand}"/>
           </StackPanel>
         </Grid>
       </Border>

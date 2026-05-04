@@ -290,6 +290,7 @@ namespace EffectViewer.ViewModels
 
         public event EventHandler ImportResourceFileRequested;
         public event EventHandler ImportResourceFolderRequested;
+        public event EventHandler ImportResourcePakRequested;
         public event EventHandler ExportFileRequested;
         public event EventHandler PreviewExportRequested;
 
@@ -674,6 +675,38 @@ namespace EffectViewer.ViewModels
             }
         }
 
+        public async Task ImportResourcePakAsync(string sourceFileName, Stream sourceStream)
+        {
+            if (sourceStream is null)
+            {
+                return;
+            }
+
+            if (!await ConfirmAllUnsavedChangesAsync())
+            {
+                StatusText = T("Status.CanceledPakImport");
+                return;
+            }
+
+            try
+            {
+                BeginProjectTransfer(T("Transfer.ImportingResourcePak"), T("Transfer.ReadingPak"));
+                Progress<ProjectTransferProgress> progress = new(UpdateProjectTransferProgress);
+                FolderImportResult result = await _projectService.ImportPakAsync(sourceFileName, sourceStream, progress);
+
+                LoadProject(result.Project);
+                StatusText = F("Status.ImportedPak", result.ImageCount, result.FontCount, result.ReanimCount, result.ParticleCount, result.TrailCount, result.MissingImageCount);
+            }
+            catch (Exception ex)
+            {
+                StatusText = F("Status.CouldNotImportPak", ex.Message);
+            }
+            finally
+            {
+                EndProjectTransfer();
+            }
+        }
+
         [RelayCommand]
         private void RequestImportResourceFile()
         {
@@ -690,6 +723,12 @@ namespace EffectViewer.ViewModels
         private void RequestImportResourceFolder()
         {
             ImportResourceFolderRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        [RelayCommand]
+        private void RequestImportResourcePak()
+        {
+            ImportResourcePakRequested?.Invoke(this, EventArgs.Empty);
         }
 
         [RelayCommand]
@@ -1797,7 +1836,8 @@ namespace EffectViewer.ViewModels
             return new WelcomeEditorViewModel(
                 ShowNewProjectDialogCommand,
                 ShowOpenProjectDialogCommand,
-                RequestImportResourceFolderCommand);
+                RequestImportResourceFolderCommand,
+                RequestImportResourcePakCommand);
         }
 
         private void RefreshCurrentProject()

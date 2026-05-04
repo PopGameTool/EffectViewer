@@ -232,6 +232,8 @@
               <MenuItem Header="{DynamicResource Loc.Menu.ImportResourceFolder}"
                         Click="ImportFolderMenuItem_Click"
                         InputGesture="Ctrl+Shift+I"/>
+              <MenuItem Header="{DynamicResource Loc.Menu.ImportResourcePak}"
+                        Click="ImportPakMenuItem_Click"/>
               <MenuItem x:Name="RecentlyOpenedMenuItem"
                         Header="{DynamicResource Loc.Menu.RecentlyOpened}"
                         IsVisible="{Binding HasRecentlyOpenedProjectItems}"/>

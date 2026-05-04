@@ -179,6 +179,15 @@ namespace EffectViewer.Projects
             return await ImportFolderAsync(source, progress);
         }
 
+        public async Task<FolderImportResult> ImportPakAsync(
+            string sourceFileName,
+            Stream pakStream,
+            IProgress<ProjectTransferProgress> progress = null)
+        {
+            PakResourceFolderSource source = await PakResourceFolderSource.FromStreamAsync(sourceFileName, pakStream);
+            return await ImportFolderAsync(source, progress);
+        }
+
         public async Task<EffectProject> ImportProjectZipAsync(Stream zipStream, IProgress<ProjectTransferProgress> progress = null)
         {
             if (zipStream is null)

@@ -147,6 +147,7 @@ namespace EffectViewer.Views
                 _observedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
                 _observedViewModel.ImportResourceFileRequested -= OnImportResourceFileRequested;
                 _observedViewModel.ImportResourceFolderRequested -= OnImportResourceFolderRequested;
+                _observedViewModel.ImportResourcePakRequested -= OnImportResourcePakRequested;
                 _observedViewModel.ExportFileRequested -= OnExportFileRequested;
                 _observedViewModel.PreviewExportRequested -= OnPreviewExportRequested;
                 _observedViewModel.RecentlyOpenedProjectItems.CollectionChanged -= OnRecentlyOpenedProjectItemsChanged;
@@ -158,6 +159,7 @@ namespace EffectViewer.Views
                 _observedViewModel.PropertyChanged += OnViewModelPropertyChanged;
                 _observedViewModel.ImportResourceFileRequested += OnImportResourceFileRequested;
                 _observedViewModel.ImportResourceFolderRequested += OnImportResourceFolderRequested;
+                _observedViewModel.ImportResourcePakRequested += OnImportResourcePakRequested;
                 _observedViewModel.ExportFileRequested += OnExportFileRequested;
                 _observedViewModel.PreviewExportRequested += OnPreviewExportRequested;
                 _observedViewModel.RecentlyOpenedProjectItems.CollectionChanged += OnRecentlyOpenedProjectItemsChanged;
@@ -774,7 +776,15 @@ namespace EffectViewer.Views
                 }
 
                 await using Stream resourceStream = await file.OpenReadAsync();
-                await viewModel.ImportResourceFileAsync(file.Name, resourceStream);
+                if (IsPakResourceFileName(file.Name))
+                {
+                    await viewModel.ImportResourcePakAsync(file.Name, resourceStream);
+                }
+                else
+                {
+                    await viewModel.ImportResourceFileAsync(file.Name, resourceStream);
+                }
+
                 return true;
             }
 
@@ -790,7 +800,16 @@ namespace EffectViewer.Views
             }
 
             await using FileStream localResourceStream = File.OpenRead(localPath);
-            await viewModel.ImportResourceFileAsync(Path.GetFileName(localPath), localResourceStream);
+            string localFileName = Path.GetFileName(localPath);
+            if (IsPakResourceFileName(localFileName))
+            {
+                await viewModel.ImportResourcePakAsync(localFileName, localResourceStream);
+            }
+            else
+            {
+                await viewModel.ImportResourceFileAsync(localFileName, localResourceStream);
+            }
+
             return true;
         }
 
@@ -802,6 +821,16 @@ namespace EffectViewer.Views
         private async void OnImportResourceFolderRequested(object sender, System.EventArgs e)
         {
             await ImportResourceFolderFromPickerAsync();
+        }
+
+        private async void ImportPakMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            await ImportResourcePakFromPickerAsync();
+        }
+
+        private async void OnImportResourcePakRequested(object sender, System.EventArgs e)
+        {
+            await ImportResourcePakFromPickerAsync();
         }
 
         private async Task ImportResourceFolderFromPickerAsync()
@@ -826,6 +855,30 @@ namespace EffectViewer.Views
             {
                 viewModel.StatusText = Loc.Format("Status.CouldNotImportFolder", ex.Message);
             }
+        }
+
+        private async Task ImportResourcePakFromPickerAsync()
+        {
+            TopLevel topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.StorageProvider is null || DataContext is not MainViewModel viewModel)
+            {
+                return;
+            }
+
+            var files = await RunStoragePickerAsync(() => topLevel.StorageProvider.OpenFilePickerAsync(new()
+            {
+                Title = Loc.Text("FilePicker.ImportResourcePak"),
+                AllowMultiple = false,
+                FileTypeFilter = [PakFileType]
+            }));
+
+            if (files.Count == 0)
+            {
+                return;
+            }
+
+            await using Stream stream = await files[0].OpenReadAsync();
+            await viewModel.ImportResourcePakAsync(files[0].Name, stream);
         }
 
         private async void ImportProjectMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -1056,13 +1109,25 @@ namespace EffectViewer.Views
                 lower.EndsWith(".trail.compiled", StringComparison.OrdinalIgnoreCase) ||
                 lower.EndsWith(".lua", StringComparison.OrdinalIgnoreCase) ||
                 lower.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase) ||
+                lower.EndsWith(".pak", StringComparison.OrdinalIgnoreCase) ||
                 Path.GetExtension(lower) is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".gif" or ".webp" or ".tga";
+        }
+
+        private static bool IsPakResourceFileName(string fileName)
+        {
+            return string.Equals(Path.GetExtension(fileName ?? string.Empty), ".pak", StringComparison.OrdinalIgnoreCase);
         }
 
         private static FilePickerFileType ZipFileType => new(Loc.Text("FilePicker.ZipArchive"))
         {
             Patterns = ["*.zip"],
             MimeTypes = ["application/zip", "application/x-zip-compressed"]
+        };
+
+        private static FilePickerFileType PakFileType => new(Loc.Text("FilePicker.PakArchive"))
+        {
+            Patterns = ["*.pak"],
+            MimeTypes = ["application/octet-stream"]
         };
 
         private static FilePickerFileType ResourceFileType => new(Loc.Text("FilePicker.EffectResources"))
