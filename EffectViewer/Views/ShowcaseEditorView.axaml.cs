@@ -484,7 +484,7 @@ namespace EffectViewer.Views
             (ShowcaseCompletionScope.Trail, @"scene\s*[:\.]\s*(?:trail|find_trail|trail_at|trail_get|trail_try_to_get)\s*\("),
             (ShowcaseCompletionScope.Attachment, @"scene\s*[:\.]\s*(?:attachment_get|attachment_try_to_get)\s*\("),
             (ShowcaseCompletionScope.SceneObject, @"scene\s*[:\.]\s*(?:object_at|find_object)\s*\("),
-            (ShowcaseCompletionScope.Image, @"scene\s*[:\.]\s*(?:get_image|image)\s*\("),
+            (ShowcaseCompletionScope.Image, @"scene\s*[:\.]\s*get_image\s*\("),
             (ShowcaseCompletionScope.Matrix, @"scene\s*[:\.]\s*matrix3x3\s*\("),
             (ShowcaseCompletionScope.Vector, @"scene\s*[:\.]\s*vector2\s*\("),
             (ShowcaseCompletionScope.Vector3, @"scene\s*[:\.]\s*vector3\s*\("),
@@ -499,6 +499,7 @@ namespace EffectViewer.Views
             (ShowcaseCompletionScope.TrailPoint, @"[A-Za-z_][A-Za-z0-9_]*\s*[:\.]\s*(?:point|get_trail_point)\s*\("),
             (ShowcaseCompletionScope.Attachment, @"[A-Za-z_][A-Za-z0-9_]*\s*[:\.]\s*(?:attachment|find_first_attachment)\s*\("),
             (ShowcaseCompletionScope.AttachmentEffect, @"[A-Za-z_][A-Za-z0-9_]*\s*[:\.]\s*(?:effect|get_effect)\s*\("),
+            (ShowcaseCompletionScope.Font, @"scene\s*[:\.]\s*get_font\s*\("),
             (ShowcaseCompletionScope.Matrix, @"[A-Za-z_][A-Za-z0-9_]*\s*[:\.]\s*(?:matrix|get_overlay_matrix|track_matrix|track_matrix_at|get_track_matrix|attachment_overlay_matrix|attachment_overlay_matrix_at|get_attachment_overlay_matrix|track_base_pose_matrix|track_base_pose_matrix_at|get_track_base_pos_matrix|offset_matrix|get_offset|base_pose_matrix)\s*\("),
             (ShowcaseCompletionScope.Vector, @"[A-Za-z_][A-Za-z0-9_]*\s*[:\.]\s*(?:position|normal|normal_at|get_perp)\s*\(")
         ];

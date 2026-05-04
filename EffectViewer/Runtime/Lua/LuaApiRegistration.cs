@@ -12,6 +12,7 @@ namespace EffectViewer.Runtime.Lua
             LuaHost.RegisterLuaType<SceneObject>();
             LuaHost.RegisterLuaType<ShowcaseAttachmentEffect>();
             LuaHost.RegisterLuaType<ShowcaseFrameTime>();
+            LuaHost.RegisterLuaType<ShowcaseFont>();
             LuaHost.RegisterLuaType<ShowcaseImage>();
             LuaHost.RegisterLuaType<ShowcaseMatrix>();
             LuaHost.RegisterLuaType<ShowcaseParticleRenderParams>();

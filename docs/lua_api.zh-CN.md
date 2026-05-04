@@ -51,7 +51,8 @@ scene.regist(context)
 | `scene.matrix3x3()` | 无 | Matrix3x3 | 创建单位矩阵。 |
 | `scene.matrix3x3(m11, m12, m13, m21, m22, m23, m31, m32, m33)` | 9 个 number | Matrix3x3 | 创建 3x3 矩阵。 |
 | `scene.get_image(id)` | 图片资源 ID | Image 或 nil | 获取并缓存图片包装对象。 |
-| `scene.resource_exist(id, type)` | 资源 ID, `"reanim"`/`"particle"`/`"trail"`/`"image"` | bool | 判断项目资源是否存在。 |
+| `scene.get_font(id)` | 字体资源 ID | Font 或 nil | 获取并缓存字体包装对象。 |
+| `scene.resource_exist(id, type)` | 资源 ID, `"reanim"`/`"particle"`/`"trail"`/`"image"`/`"font"` | bool | 判断项目资源是否存在。 |
 | `scene.tri_vertex(pos_x, pos_y, pos_z, r, g, b, a, coordinate_x, coordinate_y)` | 顶点坐标、颜色、UV | TriVertex | 创建纹理三角形顶点。 |
 | `scene.reanim_get_id(reanim)` | Reanimation | number | 获取 reanim 运行时 ID。 |
 | `scene.particle_system_get_id(particle)` | TodParticleSystem | number | 获取粒子系统运行时 ID。 |
@@ -89,6 +90,8 @@ scene.regist(context)
 | `g:fill_rect(x, y, width, height)` | number | Graphics | 填充矩形。 |
 | `g:draw_image(img, x, y)` | Image, 坐标 | Graphics | 以左上角坐标绘制图片当前 cel。 |
 | `g:draw_image_matrix(img, matrix, src_x, src_y, src_width, src_height)` | Image, Matrix3x3, 源矩形 | Graphics | 使用矩阵绘制图片源矩形。 |
+| `g:draw_string(font, msg, x, y)` | Font, string, 坐标 | Graphics | 使用当前 Graphics 颜色在指定位置绘制文字。 |
+| `g:draw_string_matrix(font, msg, matrix3x3)` | Font, string, Matrix3x3 | Graphics | 使用当前 Graphics 颜色通过矩阵绘制文字。 |
 | `g:draw_triangles_tex(img, v0, v1, v2, ...)` | Image, TriVertex 三个一组 | Graphics | 绘制纹理三角形。 |
 | `g:reset()` | 无 | Graphics | 重置平移、颜色、模式和裁剪。 |
 
@@ -421,6 +424,37 @@ scene.regist(context)
 | --- | --- | --- | --- |
 | `get_cel_width()` | 无 | int | 返回单帧宽度。 |
 | `get_cel_height()` | 无 | int | 返回单帧高度。 |
+
+## Font
+
+由 `scene.get_font(id)` 返回。绘制时传给 `g:draw_string` 或 `g:draw_string_matrix`。
+
+字段：
+
+| 字段 | 类型 | 作用 |
+| --- | --- | --- |
+| `id` | string | 字体资源 ID。 |
+| `is_true_type` | bool | 是否为 TrueType 字体。 |
+| `supports_chinese` | bool | TrueType 字体是否支持中文字符集。 |
+| `is_initialized` | bool | 底层字体资源是否已初始化。 |
+| `true_type_font_size` | int | TrueType 字体字号；位图字体为 0。 |
+| `true_type_border_size` | int | TrueType 字体描边尺寸；位图字体为 0。 |
+| `true_type_glyph_count` | int | 已生成的 TrueType 字形数量。 |
+| `ascent` | number | 字体上升高度。 |
+| `ascent_padding` | number | 上升高度补偿。 |
+| `height` | number | 字体行高。 |
+| `line_spacing_offset` | number | 行距偏移。 |
+| `default_point_size` | int | 默认字号。 |
+| `point_size` | int | 当前字号；可写，主要影响位图字体。 |
+| `scale` | number | 当前缩放；可写，主要影响位图字体。 |
+
+函数：
+
+| 函数 | 参数 | 返回值 | 作用 |
+| --- | --- | --- | --- |
+| `string_width(text)` | string | int | 计算文本宽度。 |
+| `char_width(text)` | string | int | 计算首个字符宽度；空字符串返回 0。 |
+| `char_width_kern(text, previous)` | string, string | int | 计算首个字符在前一字符后的字距宽度。 |
 
 ## Matrix3x3
 

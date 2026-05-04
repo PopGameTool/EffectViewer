@@ -470,6 +470,11 @@ namespace EffectViewer.ViewModels
                 yield return new ShowcaseResourceReference(EffectAssetKind.Image, id);
             }
 
+            foreach (string id in project.Manifest.Fonts.Select(asset => asset.Id).Where(IsNotBlank).OrderBy(id => id, StringComparer.OrdinalIgnoreCase))
+            {
+                yield return new ShowcaseResourceReference(EffectAssetKind.Font, id);
+            }
+
             foreach (string id in project.Manifest.Reanims.Select(asset => asset.Id).Where(IsNotBlank).OrderBy(id => id, StringComparer.OrdinalIgnoreCase))
             {
                 yield return new ShowcaseResourceReference(EffectAssetKind.Reanim, id);
@@ -539,6 +544,7 @@ namespace EffectViewer.ViewModels
                 (ShowcaseCompletionScope.TrailPoint, typeof(ShowcaseTrailPoint), "Trail point"),
                 (ShowcaseCompletionScope.Attachment, typeof(ShowcaseAttachment), "Attachment"),
                 (ShowcaseCompletionScope.AttachmentEffect, typeof(ShowcaseAttachmentEffect), "Attachment effect"),
+                (ShowcaseCompletionScope.Font, typeof(ShowcaseFont), "Font"),
                 (ShowcaseCompletionScope.Image, typeof(ShowcaseImage), "Image"),
                 (ShowcaseCompletionScope.Matrix, typeof(ShowcaseMatrix), "Matrix"),
                 (ShowcaseCompletionScope.Vector, typeof(ShowcaseVector), "Vector"),

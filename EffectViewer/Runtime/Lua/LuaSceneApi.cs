@@ -19,6 +19,7 @@ namespace EffectViewer.Runtime.Lua
         private readonly ShowcaseScene _scene;
         private readonly IList<string> _logs;
         private readonly Dictionary<string, ShowcaseImage> _imageCache = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, ShowcaseFont> _fontCache = new(StringComparer.OrdinalIgnoreCase);
 
         public LuaSceneApi(EffectWorld world, ShowcaseScene scene, IList<string> logs)
         {
@@ -140,9 +141,27 @@ namespace EffectViewer.Runtime.Lua
             return result;
         }
 
-        public ShowcaseImage image(string id)
+        public ShowcaseFont get_font(string id)
         {
-            return get_image(id);
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return null;
+            }
+
+            if (_fontCache.TryGetValue(id, out ShowcaseFont cached))
+            {
+                return cached;
+            }
+
+            Font font = ResourceHandler.GetFont(id);
+            if (font is null)
+            {
+                return null;
+            }
+
+            ShowcaseFont result = new(font);
+            _fontCache[id] = result;
+            return result;
         }
 
         public bool resource_exist(string id, string type)
@@ -159,6 +178,7 @@ namespace EffectViewer.Runtime.Lua
                 "particle" or "particle_system" or "particles" => _world.Project?.Assets.Particles.ContainsKey(id) == true,
                 "trail" => _world.Project?.Assets.Trails.ContainsKey(id) == true,
                 "image" or "img" => _world.Project?.Assets.TryGetImage(id, out _) == true,
+                "font" => _world.Project?.Assets.TryGetFont(id, out _) == true,
                 _ => false
             };
         }

@@ -51,7 +51,8 @@ Functions:
 | `scene.matrix3x3()` | none | Matrix3x3 | Creates an identity matrix. |
 | `scene.matrix3x3(m11, m12, m13, m21, m22, m23, m31, m32, m33)` | 9 numbers | Matrix3x3 | Creates a 3x3 matrix. |
 | `scene.get_image(id)` | image resource ID | Image or nil | Gets and caches an image wrapper. |
-| `scene.resource_exist(id, type)` | ID, `"reanim"` / `"particle"` / `"trail"` / `"image"` | bool | Checks whether a project resource exists. |
+| `scene.get_font(id)` | font resource ID | Font or nil | Gets and caches a font wrapper. |
+| `scene.resource_exist(id, type)` | ID, `"reanim"` / `"particle"` / `"trail"` / `"image"` / `"font"` | bool | Checks whether a project resource exists. |
 | `scene.tri_vertex(pos_x, pos_y, pos_z, r, g, b, a, coordinate_x, coordinate_y)` | position, color, UV | TriVertex | Creates a textured triangle vertex. |
 | `scene.reanim_get_id(reanim)` | Reanimation | number | Gets a reanimation runtime ID. |
 | `scene.particle_system_get_id(particle)` | TodParticleSystem | number | Gets a particle system runtime ID. |
@@ -89,6 +90,8 @@ Functions:
 | `g:fill_rect(x, y, width, height)` | numbers | Graphics | Fills a rectangle. |
 | `g:draw_image(img, x, y)` | Image, coordinates | Graphics | Draws the current image cel at top-left coordinates. |
 | `g:draw_image_matrix(img, matrix, src_x, src_y, src_width, src_height)` | Image, Matrix3x3, source rect | Graphics | Draws an image source rectangle through a matrix. |
+| `g:draw_string(font, msg, x, y)` | Font, string, coordinates | Graphics | Draws text at a position with the current Graphics color. |
+| `g:draw_string_matrix(font, msg, matrix3x3)` | Font, string, Matrix3x3 | Graphics | Draws text through a matrix with the current Graphics color. |
 | `g:draw_triangles_tex(img, v0, v1, v2, ...)` | Image, TriVertex groups of three | Graphics | Draws textured triangles. |
 | `g:reset()` | none | Graphics | Resets translation, color, draw mode, and clip rect. |
 
@@ -419,6 +422,37 @@ Functions:
 | --- | --- | --- | --- |
 | `get_cel_width()` | none | int | Gets cel width. |
 | `get_cel_height()` | none | int | Gets cel height. |
+
+## Font
+
+Returned by `scene.get_font(id)`. Pass it to `g:draw_string` or `g:draw_string_matrix` for text drawing.
+
+Fields:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | string | Font resource ID. |
+| `is_true_type` | bool | Whether this is a TrueType font. |
+| `supports_chinese` | bool | Whether the TrueType font supports Chinese glyphs. |
+| `is_initialized` | bool | Whether the underlying font resource is initialized. |
+| `true_type_font_size` | int | TrueType font size; 0 for bitmap fonts. |
+| `true_type_border_size` | int | TrueType border size; 0 for bitmap fonts. |
+| `true_type_glyph_count` | int | Number of generated TrueType glyphs. |
+| `ascent` | number | Font ascent. |
+| `ascent_padding` | number | Ascent padding. |
+| `height` | number | Font line height. |
+| `line_spacing_offset` | number | Line spacing offset. |
+| `default_point_size` | int | Default point size. |
+| `point_size` | int | Current point size; writable, mainly affects bitmap fonts. |
+| `scale` | number | Current scale; writable, mainly affects bitmap fonts. |
+
+Functions:
+
+| Function | Parameters | Returns | Description |
+| --- | --- | --- | --- |
+| `string_width(text)` | string | int | Measures text width. |
+| `char_width(text)` | string | int | Measures the first character; empty string returns 0. |
+| `char_width_kern(text, previous)` | string, string | int | Measures the first character after a previous character. |
 
 ## Matrix3x3
 

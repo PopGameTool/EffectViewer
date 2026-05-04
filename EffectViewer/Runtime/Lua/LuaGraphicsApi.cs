@@ -175,6 +175,34 @@ namespace EffectViewer.Runtime.Lua
             return this;
         }
 
+        public LuaGraphicsApi draw_string(ShowcaseFont font, string msg, double x, double y)
+        {
+            if (font?.Font is null)
+            {
+                return this;
+            }
+
+            Matrix4x4 matrix = Matrix4x4.Identity;
+            matrix.M41 = (float)(x + _graphics.mTransX);
+            matrix.M42 = (float)(y + _graphics.mTransY);
+            TodCommon.TodDrawStringMatrix(_graphics, font.Font, matrix, msg ?? string.Empty, _graphics.mColor);
+            return this;
+        }
+
+        public LuaGraphicsApi draw_string_matrix(ShowcaseFont font, string msg, ShowcaseMatrix transform)
+        {
+            if (font?.Font is null || transform is null)
+            {
+                return this;
+            }
+
+            Matrix4x4 matrix = transform.ToMatrix4x4();
+            matrix.M41 += _graphics.mTransX;
+            matrix.M42 += _graphics.mTransY;
+            TodCommon.TodDrawStringMatrix(_graphics, font.Font, matrix, msg ?? string.Empty, _graphics.mColor);
+            return this;
+        }
+
         public LuaGraphicsApi draw_triangles_tex(ShowcaseImage image, params ShowcaseTriVertex[] vertices)
         {
             if (image?.Image is null || vertices is null || vertices.Length < 3)
