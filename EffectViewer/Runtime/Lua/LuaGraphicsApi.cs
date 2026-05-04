@@ -138,7 +138,7 @@ namespace EffectViewer.Runtime.Lua
                 image.Image,
                 transform,
                 _graphics.mClipRect,
-                _graphics.mColor,
+                GetImageColor(),
                 _graphics.mDrawMode,
                 new Rectangle(0, 0, width, height));
             return this;
@@ -165,7 +165,7 @@ namespace EffectViewer.Runtime.Lua
                 image.Image,
                 matrix,
                 _graphics.mClipRect,
-                _graphics.mColor,
+                GetImageColor(),
                 _graphics.mDrawMode,
                 new Rectangle(
                     (int)Math.Round(src_rect_x),
@@ -238,6 +238,11 @@ namespace EffectViewer.Runtime.Lua
         private static int ClampColor(double value)
         {
             return Math.Clamp((int)Math.Round(value), 0, 255);
+        }
+
+        private SexyColor GetImageColor()
+        {
+            return _graphics.mColorizeImages ? _graphics.mColor : SexyColor.White;
         }
 
         private static DrawMode ParseDrawMode(string value)
