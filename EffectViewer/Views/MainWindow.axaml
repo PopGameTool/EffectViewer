@@ -6,7 +6,7 @@
         xmlns:views="using:EffectViewer.Views"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="EffectViewer.Views.MainWindow"
-        Icon="/Assets/avalonia-logo.ico"
+        Icon="/Assets/effectviewer-icon.ico"
         Title="EffectViewer"
         Width="1200"
         Height="760"
