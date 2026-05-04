@@ -38,7 +38,9 @@ namespace EffectViewer.Projects
                 ?? new ProjectManifest();
 
             Normalize(manifest);
-            return new EffectProject(projectDirectory, manifest);
+            EffectProject project = new(projectDirectory, manifest);
+            await Task.Run(project.Definitions.PreloadAll);
+            return project;
         }
 
         public async Task<IReadOnlyList<ProjectInfo>> ListProjectsAsync()
@@ -161,6 +163,7 @@ namespace EffectViewer.Projects
             ResourceFolderImporter importer = new();
             FolderImportResult result = await importer.ImportAsync(source, projectDirectory, progress);
             await SaveAsync(result.Project);
+            await Task.Run(result.Project.Definitions.PreloadAll);
 
             return result;
         }
@@ -390,6 +393,8 @@ namespace EffectViewer.Projects
             AddManifestAsset(project.Manifest, kind, assetId, relativePath);
             await SaveAsync(project);
             project.RebuildAssetIndex();
+            project.Definitions.Invalidate(kind, relativePath);
+            project.Definitions.PreloadAll();
             return new ProjectResourceResult(project, kind, assetId, relativePath);
         }
 
@@ -422,6 +427,8 @@ namespace EffectViewer.Projects
             AddManifestAsset(project.Manifest, kind, assetId, relativePath);
             await SaveAsync(project);
             project.RebuildAssetIndex();
+            project.Definitions.Invalidate(kind, relativePath);
+            project.Definitions.PreloadAll();
             return new ProjectResourceResult(project, kind, assetId, relativePath);
         }
 
@@ -507,6 +514,7 @@ namespace EffectViewer.Projects
             removeAsset();
             await SaveAsync(project);
             project.RebuildAssetIndex();
+            project.Definitions.Invalidate(kind, deletedProjectPath);
             return new ProjectResourceResult(project, kind, deletedAssetId, deletedProjectPath);
         }
 

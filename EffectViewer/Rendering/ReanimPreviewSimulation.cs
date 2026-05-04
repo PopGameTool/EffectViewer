@@ -38,13 +38,16 @@ namespace EffectViewer.Rendering
             _resourceProvider = new ProjectResourceProvider(project);
             ResourceHandler.SetProvider(_resourceProvider);
             _effectSystem.EffectSystemInitialize();
-            (_reanimationParams, _reanimationDefinitions) = BuildProjectReanimations(project);
+            (_reanimationParams, _reanimationDefinitions) = project?.Definitions?.CreateReanimationRuntimeDictionaries() ??
+                BuildProjectReanimations(project);
             ApplyProjectReanimations();
             string fullPath = ResolvePath(project, path);
             _reanimationType = ResolveReanimationType(project, path);
             _x = x;
             _y = y;
-            SetDefinition(LoadDefinition(fullPath));
+            SetDefinition(project?.Definitions?.TryGetReanimDefinitionByPath(path, out ReanimatorDefinition definition) == true
+                ? definition
+                : LoadDefinition(fullPath));
         }
 
         public RenderFrame GetFrame(double deltaSeconds)

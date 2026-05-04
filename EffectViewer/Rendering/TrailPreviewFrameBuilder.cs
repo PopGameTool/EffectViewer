@@ -18,7 +18,9 @@ namespace EffectViewer.Rendering
                 return EffectPreviewFrameBuilder.BuildPlaceholder(EffectAssetKind.Trail, fallbackId);
             }
 
-            TrailDefinition definition = LoadDefinition(fullPath);
+            TrailDefinition definition = project?.Definitions?.TryGetTrailDefinitionByPath(path, out TrailDefinition cached) == true
+                ? cached
+                : LoadDefinition(fullPath);
             return Build(definition, fallbackId);
         }
 

@@ -1391,6 +1391,7 @@ namespace EffectViewer.ViewModels
                 await using FileStream reanimStream = File.Create(reanimFullPath);
                 ReanimReader.Encode(reanimStream, _reanimDefinition, reanimFullPath);
                 await projectService.SaveAsync(project);
+                project.Definitions.SetReanimDefinition(Path, _reanimDefinition);
                 AcceptSavedState();
                 return;
             }
@@ -1416,6 +1417,7 @@ namespace EffectViewer.ViewModels
 
                 await using FileStream particleStream = File.Create(particleFullPath);
                 SexyParticleReader.Encode(particleStream, _particleDefinition, particleFullPath);
+                project.Definitions.SetParticleDefinition(Path, _particleDefinition);
                 AcceptSavedState();
                 return;
             }
@@ -1445,6 +1447,7 @@ namespace EffectViewer.ViewModels
 
             await using FileStream stream = File.Create(fullPath);
             TrailReader.Encode(stream, _trailDefinition, fullPath);
+            project.Definitions.SetTrailDefinition(Path, _trailDefinition);
             AcceptSavedState();
         }
 
@@ -1540,10 +1543,7 @@ namespace EffectViewer.ViewModels
 
         private void InitializeTrailEditor()
         {
-            string fullPath = TrailPreviewFrameBuilder.ResolvePath(_project, Path);
-            _trailDefinition = !string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath)
-                ? TrailPreviewFrameBuilder.LoadDefinition(fullPath)
-                : new TrailDefinition();
+            _trailDefinition = _project?.Definitions?.GetTrailDefinitionCloneByPath(Path) ?? new TrailDefinition();
             _trailDefinition.ApplyDefaults();
 
             SetTrailProperties(
@@ -1573,6 +1573,13 @@ namespace EffectViewer.ViewModels
 
         private TodParticleDefinition LoadParticleDefinitionFromFile()
         {
+            TodParticleDefinition cached = _project?.Definitions?.GetParticleDefinitionClone(AssetId) ??
+                _project?.Definitions?.GetParticleDefinitionCloneByPath(Path);
+            if (cached is not null)
+            {
+                return cached;
+            }
+
             string fullPath = ResolveEffectPath(_project, Path, _project.Assets.Particles.TryGetValue(AssetId, out EffectAsset asset) ? asset : null);
             if (string.IsNullOrWhiteSpace(fullPath) || !File.Exists(fullPath))
             {
@@ -1585,6 +1592,13 @@ namespace EffectViewer.ViewModels
 
         private ReanimatorDefinition LoadReanimDefinitionFromFile()
         {
+            ReanimatorDefinition cached = _project?.Definitions?.GetReanimDefinitionClone(AssetId) ??
+                _project?.Definitions?.GetReanimDefinitionCloneByPath(Path);
+            if (cached is not null)
+            {
+                return cached;
+            }
+
             string fullPath = ResolveEffectPath(_project, Path, _project.Assets.Reanims.TryGetValue(AssetId, out ReanimAsset asset) ? asset : null);
             if (string.IsNullOrWhiteSpace(fullPath) || !File.Exists(fullPath))
             {

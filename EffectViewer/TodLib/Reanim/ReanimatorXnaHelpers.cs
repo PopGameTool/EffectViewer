@@ -161,7 +161,12 @@ namespace EffectViewer.TodLib.Reanim
 
         public static void ForceReanimatorEnsureDefinitionLoaded(string theReanimType, bool theIsPreloading)
         {
-            ReanimatorDefinition reanimatorDefinition = gReanimatorDefArray[theReanimType];
+            if (gReanimatorDefArray is null)
+            {
+                return;
+            }
+
+            gReanimatorDefArray.TryGetValue(theReanimType, out ReanimatorDefinition reanimatorDefinition);
             if (reanimatorDefinition != null && reanimatorDefinition.mTracks != null &&
                 reanimatorDefinition.mTrackCount != 0)
             {
@@ -173,15 +178,29 @@ namespace EffectViewer.TodLib.Reanim
 
         public static void ReanimatorEnsureDefinitionLoaded(string theReanimType, bool theIsPreloading)
         {
-            ReanimatorDefinition reanimatorDefinition = gReanimatorDefArray[theReanimType];
+            if (gReanimatorDefArray is null ||
+                gReanimationParamArray is null ||
+                string.IsNullOrWhiteSpace(theReanimType))
+            {
+                return;
+            }
+
+            gReanimatorDefArray.TryGetValue(theReanimType, out ReanimatorDefinition reanimatorDefinition);
             if (reanimatorDefinition != null && reanimatorDefinition.mTracks != null &&
                 reanimatorDefinition.mTrackCount != 0)
             {
                 return;
             }
 
-            ReanimationParams reanimationParams = gReanimationParamArray[theReanimType];
-            ReanimationLoadDefinition(reanimationParams.mReanimFileName.ToLowerInvariant(), ref reanimatorDefinition);
+            if (!gReanimationParamArray.TryGetValue(theReanimType, out ReanimationParams reanimationParams))
+            {
+                return;
+            }
+
+            string fileName = string.IsNullOrWhiteSpace(reanimationParams.mResolvedFileName)
+                ? reanimationParams.mReanimFileName
+                : reanimationParams.mResolvedFileName;
+            ReanimationLoadDefinition(fileName, ref reanimatorDefinition);
             gReanimatorDefArray[theReanimType] = reanimatorDefinition;
         }
 

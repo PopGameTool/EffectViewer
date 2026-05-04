@@ -44,8 +44,12 @@ namespace EffectViewer.Projects
 
         private static EffectFileSummary AnalyzeReanim(EffectProject project, string fullPath)
         {
-            using FileStream stream = File.OpenRead(fullPath);
-            ReanimatorDefinition definition = ReanimReader.Decode(stream);
+            ReanimatorDefinition definition;
+            if (project?.Definitions?.TryGetReanimDefinitionByPath(fullPath, out definition) != true)
+            {
+                using FileStream stream = File.OpenRead(fullPath);
+                definition = ReanimReader.Decode(stream);
+            }
 
             HashSet<string> images = new(StringComparer.OrdinalIgnoreCase);
             int frameCount = 0;
@@ -82,8 +86,12 @@ namespace EffectViewer.Projects
 
         private static EffectFileSummary AnalyzeParticle(EffectProject project, string fullPath)
         {
-            using FileStream stream = File.OpenRead(fullPath);
-            TodParticleDefinition definition = SexyParticleReader.Decode(stream);
+            TodParticleDefinition definition;
+            if (project?.Definitions?.TryGetParticleDefinitionByPath(fullPath, out definition) != true)
+            {
+                using FileStream stream = File.OpenRead(fullPath);
+                definition = SexyParticleReader.Decode(stream);
+            }
 
             HashSet<string> images = new(StringComparer.OrdinalIgnoreCase);
             int fieldCount = 0;
@@ -112,8 +120,12 @@ namespace EffectViewer.Projects
 
         private static EffectFileSummary AnalyzeTrail(EffectProject project, string fullPath)
         {
-            using FileStream stream = File.OpenRead(fullPath);
-            TrailDefinition definition = TrailReader.Decode(stream);
+            TrailDefinition definition;
+            if (project?.Definitions?.TryGetTrailDefinitionByPath(fullPath, out definition) != true)
+            {
+                using FileStream stream = File.OpenRead(fullPath);
+                definition = TrailReader.Decode(stream);
+            }
 
             List<string> images = [];
             if (!string.IsNullOrWhiteSpace(definition.mImage))

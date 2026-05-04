@@ -32,6 +32,7 @@ namespace EffectViewer.Runtime.Showcase
             _project = project ?? throw new ArgumentNullException(nameof(project));
             _resourceProvider = new ProjectResourceProvider(project);
             ResourceHandler.SetProvider(_resourceProvider);
+            project.Definitions.ApplyReanimationGlobals();
             _effectSystem.EffectSystemInitialize();
         }
 
@@ -59,7 +60,7 @@ namespace EffectViewer.Runtime.Showcase
             Reanimation reanimation = _effectSystem.mReanimationHolder.mReanimations.DataArrayAlloc();
             reanimation.mReanimationHolder = _effectSystem.mReanimationHolder;
             reanimation.mRenderOrder = _reanims.Count + _particles.Count + _trails.Count;
-            InitializeReanimation(reanimation, id, ResolveAssetPath(asset.Path), (float)x, (float)y);
+            InitializeReanimation(reanimation, id, asset, (float)x, (float)y);
 
             ShowcaseReanimation instance = new(this, id, reanimation);
             _reanims.Add(instance);
@@ -343,13 +344,9 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
-        private void InitializeReanimation(Reanimation reanimation, string id, string fullPath, float x, float y)
+        private void InitializeReanimation(Reanimation reanimation, string id, ReanimAsset asset, float x, float y)
         {
-            ReanimatorDefinition definition = null;
-            if (!string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath))
-            {
-                ReanimatorXnaHelpers.ReanimationLoadDefinition(fullPath, ref definition);
-            }
+            _project.Definitions.TryGetReanimDefinition(asset, out ReanimatorDefinition definition);
 
             reanimation.mReanimationType = id;
             reanimation.mDefinition = definition ?? new ReanimatorDefinition();
@@ -385,6 +382,12 @@ namespace EffectViewer.Runtime.Showcase
 
         private TodParticleDefinition LoadParticleDefinition(EffectAsset asset)
         {
+            TodParticleDefinition cached = _project.Definitions.GetParticleDefinitionCloneByPath(asset.Path);
+            if (cached is not null)
+            {
+                return cached;
+            }
+
             string fullPath = ResolveAssetPath(asset.Path);
             try
             {
@@ -408,6 +411,13 @@ namespace EffectViewer.Runtime.Showcase
 
         private TrailDefinition LoadTrailDefinition(EffectAsset asset)
         {
+            TrailDefinition cached = _project.Definitions.GetTrailDefinitionCloneByPath(asset.Path);
+            if (cached is not null)
+            {
+                cached.ApplyDefaults();
+                return cached;
+            }
+
             string fullPath = ResolveAssetPath(asset.Path);
             try
             {

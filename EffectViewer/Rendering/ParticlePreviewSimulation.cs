@@ -182,6 +182,12 @@ namespace EffectViewer.Rendering
 
         private TodParticleDefinition LoadDefinition()
         {
+            TodParticleDefinition cached = _project?.Definitions?.GetParticleDefinitionClone(_assetId);
+            if (cached is not null)
+            {
+                return cached;
+            }
+
             string fullPath = ResolvePath(_project, _path);
             if (_project.Assets.Particles.TryGetValue(_assetId, out EffectAsset asset))
             {

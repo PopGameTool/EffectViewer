@@ -47,6 +47,12 @@ namespace EffectViewer.Rendering
 
         private static TrailDefinition LoadDefinition(EffectProject project, string path)
         {
+            TrailDefinition cached = project?.Definitions?.GetTrailDefinitionCloneByPath(path);
+            if (cached is not null)
+            {
+                return cached;
+            }
+
             string fullPath = TrailPreviewFrameBuilder.ResolvePath(project, path);
             return !string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath)
                 ? TrailPreviewFrameBuilder.LoadDefinition(fullPath)
