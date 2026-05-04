@@ -18,6 +18,7 @@ namespace EffectViewer.Projects
         public const string ManifestFileName = "project.effectproj.json";
         public const string AssetsDirectoryName = "assets";
         private const string ImagesDirectory = "assets/images";
+        private const string FontsDirectory = "assets/fonts";
         private const string ReanimsDirectory = "assets/reanims";
         private const string ParticlesDirectory = "assets/particles";
         private const string TrailsDirectory = "assets/trails";
@@ -461,6 +462,15 @@ namespace EffectViewer.Projects
                     removeAsset = () => project.Manifest.Images.RemoveAt(imageIndex);
                     break;
 
+                case EffectAssetKind.Font:
+                    int fontIndex = FindManifestAssetIndex(project.Manifest.Fonts, assetId, projectPath);
+                    FontAsset font = project.Manifest.Fonts[fontIndex];
+                    deletedAssetId = font.Id;
+                    deletedProjectPath = font.Path;
+                    AddProjectPath(deletedPaths, font.Path);
+                    removeAsset = () => project.Manifest.Fonts.RemoveAt(fontIndex);
+                    break;
+
                 case EffectAssetKind.Reanim:
                     int reanimIndex = FindManifestAssetIndex(project.Manifest.Reanims, assetId, projectPath);
                     ReanimAsset reanim = project.Manifest.Reanims[reanimIndex];
@@ -644,6 +654,11 @@ namespace EffectViewer.Projects
             }
 
             string extension = Path.GetExtension(lower);
+            if (extension is ".ttf")
+            {
+                return EffectAssetKind.Font;
+            }
+
             if (extension is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".gif" or ".webp" or ".tga")
             {
                 return EffectAssetKind.Image;
@@ -678,6 +693,7 @@ namespace EffectViewer.Projects
                 EffectAssetKind.Particle => [".xml.compiled", ".xml"],
                 EffectAssetKind.Trail => [".trail.compiled", ".trail"],
                 EffectAssetKind.Showcase => [".lua"],
+                EffectAssetKind.Font => [".ttf"],
                 EffectAssetKind.Image => [],
                 _ => []
             };
@@ -711,6 +727,7 @@ namespace EffectViewer.Projects
             return kind switch
             {
                 EffectAssetKind.Image => ImagesDirectory,
+                EffectAssetKind.Font => FontsDirectory,
                 EffectAssetKind.Reanim => ReanimsDirectory,
                 EffectAssetKind.Particle => ParticlesDirectory,
                 EffectAssetKind.Trail => TrailsDirectory,
@@ -758,6 +775,7 @@ namespace EffectViewer.Projects
             return kind switch
             {
                 EffectAssetKind.Image => manifest.Images.Any(asset => comparer.Equals(asset.Id, assetId)),
+                EffectAssetKind.Font => manifest.Fonts.Any(asset => comparer.Equals(asset.Id, assetId)),
                 EffectAssetKind.Reanim => manifest.Reanims.Any(asset => comparer.Equals(asset.Id, assetId)),
                 EffectAssetKind.Particle => manifest.Particles.Any(asset => comparer.Equals(asset.Id, assetId)),
                 EffectAssetKind.Trail => manifest.Trails.Any(asset => comparer.Equals(asset.Id, assetId)),
@@ -788,6 +806,17 @@ namespace EffectViewer.Projects
 
                 case EffectAssetKind.Reanim:
                     manifest.Reanims.Add(new ReanimAsset { Id = assetId, Path = relativePath });
+                    break;
+
+                case EffectAssetKind.Font:
+                    manifest.Fonts.Add(new FontAsset
+                    {
+                        Id = assetId,
+                        Path = relativePath,
+                        TrueType = string.Equals(Path.GetExtension(relativePath), ".ttf", StringComparison.OrdinalIgnoreCase),
+                        FontSize = 32,
+                        BorderSize = 0
+                    });
                     break;
 
                 case EffectAssetKind.Particle:
@@ -991,6 +1020,7 @@ namespace EffectViewer.Projects
         {
             manifest.Version = manifest.Version <= 0 ? 1 : manifest.Version;
             manifest.Images ??= [];
+            manifest.Fonts ??= [];
             manifest.Reanims ??= [];
             manifest.Particles ??= [];
             manifest.Trails ??= [];
@@ -1000,6 +1030,16 @@ namespace EffectViewer.Projects
             {
                 image.Rows = image.Rows < 1 ? 1 : image.Rows;
                 image.Cols = image.Cols < 1 ? 1 : image.Cols;
+            }
+
+            foreach (FontAsset font in manifest.Fonts)
+            {
+                if (font.TrueType || string.Equals(Path.GetExtension(font.Path), ".ttf", StringComparison.OrdinalIgnoreCase))
+                {
+                    font.TrueType = true;
+                    font.FontSize = font.FontSize <= 0 ? 32 : font.FontSize;
+                    font.BorderSize = Math.Max(0, font.BorderSize);
+                }
             }
 
             foreach (ReanimAsset reanim in manifest.Reanims)

@@ -9,6 +9,7 @@ namespace EffectViewer.Projects
         WriteIndented = true)]
     [JsonSerializable(typeof(ProjectManifest))]
     [JsonSerializable(typeof(List<ImageAsset>))]
+    [JsonSerializable(typeof(List<FontAsset>))]
     [JsonSerializable(typeof(List<ReanimAsset>))]
     [JsonSerializable(typeof(List<ReanimTween>))]
     [JsonSerializable(typeof(List<EffectAsset>))]

@@ -851,6 +851,7 @@ namespace EffectViewer.Views
                 lower.EndsWith(".trail", StringComparison.OrdinalIgnoreCase) ||
                 lower.EndsWith(".trail.compiled", StringComparison.OrdinalIgnoreCase) ||
                 lower.EndsWith(".lua", StringComparison.OrdinalIgnoreCase) ||
+                lower.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase) ||
                 Path.GetExtension(lower) is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".gif" or ".webp" or ".tga";
         }
 
@@ -877,6 +878,7 @@ namespace EffectViewer.Views
                 "*.xml.compiled",
                 "*.trail",
                 "*.trail.compiled",
+                "*.ttf",
                 "*.lua"
             ]
         };

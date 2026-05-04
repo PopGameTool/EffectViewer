@@ -16,6 +16,7 @@ namespace EffectViewer
             {
                 MainViewModel => new MainView(),
                 EffectEditorViewModel => new EffectEditorView(),
+                FontEditorViewModel => new FontEditorView(),
                 ImageEditorViewModel => new ImageEditorView(),
                 ShowcaseEditorViewModel => new ShowcaseEditorView(),
                 WelcomeEditorViewModel => new WelcomeEditorView(),
@@ -28,6 +29,7 @@ namespace EffectViewer
         {
             return data is MainViewModel
                 or EffectEditorViewModel
+                or FontEditorViewModel
                 or ImageEditorViewModel
                 or ShowcaseEditorViewModel
                 or WelcomeEditorViewModel;

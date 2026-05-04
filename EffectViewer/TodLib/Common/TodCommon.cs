@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using InlineArray3TriVertex = System.Runtime.CompilerServices.InlineArray3<EffectViewer.TodLib.Common.TriVertex>;
 
@@ -186,7 +187,136 @@ namespace EffectViewer.TodLib.Common
 
         public static void TodDrawStringMatrix(EffectViewer.TodLib.Graphics.Graphics g, Font theFont, in Matrix4x4 theMatrix, string theString, in SexyColor theColor)
         {
+            if (g == null || theFont == null || !theFont.IsInitialized || string.IsNullOrEmpty(theString))
+            {
+                return;
+            }
 
+            if (theFont.IsTrueType)
+            {
+                TodDrawTrueTypeStringMatrix(g, theFont, theMatrix, theString, theColor);
+                return;
+            }
+
+            List<FontRenderCommand>[] renderBuckets = new List<FontRenderCommand>[256];
+            int curXPos = 0;
+            for (int charIndex = 0; charIndex < theString.Length; charIndex++)
+            {
+                char sourceChar = theString[charIndex];
+                char mappedChar = theFont.GetMappedChar(sourceChar);
+                char nextChar = charIndex < theString.Length - 1
+                    ? theFont.GetMappedChar(theString[charIndex + 1])
+                    : '\0';
+                int maxXPos = curXPos;
+                foreach (FontLayer layer in theFont.Layers)
+                {
+                    FontCharData charData = layer.GetCharData(mappedChar);
+                    Rectangle srcRect = charData.ImageRect;
+                    float scale = theFont.mScale;
+                    int layerPointSize = layer.PointSize;
+                    if (layerPointSize != 0)
+                    {
+                        scale *= theFont.mPointSize / (float)layerPointSize;
+                    }
+
+                    int imageX;
+                    int imageY;
+                    int charWidth;
+                    int spacing;
+                    if (FloatApproxEqual(scale, 1f))
+                    {
+                        imageX = charData.Offset.X + layer.Offset.X + curXPos;
+                        imageY = charData.Offset.Y + layer.Offset.Y - layer.Ascent;
+                        charWidth = charData.Width;
+                        spacing = nextChar == '\0' ? 0 : layer.Spacing + charData.GetKerning(nextChar);
+                    }
+                    else
+                    {
+                        imageX = curXPos + (int)MathF.Floor((charData.Offset.X + layer.Offset.X) * scale);
+                        imageY = -(int)MathF.Floor((layer.Ascent - layer.Offset.Y - charData.Offset.Y) * scale);
+                        charWidth = (int)(charData.Width * scale);
+                        spacing = nextChar == '\0' ? 0 : (int)((layer.Spacing + charData.GetKerning(nextChar)) * scale);
+                    }
+
+                    if (srcRect.Width <= 0 || srcRect.Height <= 0)
+                    {
+                        maxXPos = Math.Max(maxXPos, curXPos + spacing + charWidth);
+                        continue;
+                    }
+
+                    SexyColor color = new(
+                        Math.Min(layer.ColorAdd.mRed + theColor.mRed * layer.ColorMult.mRed / 255, 255),
+                        Math.Min(layer.ColorAdd.mGreen + theColor.mGreen * layer.ColorMult.mGreen / 255, 255),
+                        Math.Min(layer.ColorAdd.mBlue + theColor.mBlue * layer.ColorMult.mBlue / 255, 255),
+                        Math.Min(layer.ColorAdd.mAlpha + theColor.mAlpha * layer.ColorMult.mAlpha / 255, 255));
+
+                    int orderIndex = ClampInt(charData.Order + layer.BaseOrder + 128, 0, 255);
+                    renderBuckets[orderIndex] ??= [];
+                    renderBuckets[orderIndex].Add(new FontRenderCommand(layer.Image, imageX, imageY, srcRect, layer.DrawMode, color));
+                    maxXPos = Math.Max(maxXPos, curXPos + spacing + charWidth);
+                }
+
+                curXPos = maxXPos;
+            }
+
+            DrawMode oldDrawMode = g.GetDrawMode();
+            foreach (List<FontRenderCommand> bucket in renderBuckets)
+            {
+                if (bucket is null)
+                {
+                    continue;
+                }
+
+                foreach (FontRenderCommand command in bucket)
+                {
+                    if (command.Image == null)
+                    {
+                        continue;
+                    }
+
+                    Matrix4x4 glyphMatrix = Matrix4x4.Identity;
+                    SexyMatrix3Translation(ref glyphMatrix, command.SourceRect.Width * 0.5f + command.X, command.SourceRect.Height * 0.5f + command.Y);
+                    SexyMatrix3Multiply(ref glyphMatrix, theMatrix, glyphMatrix);
+
+                    DrawMode drawMode = command.DrawMode >= 0 ? (DrawMode)command.DrawMode : oldDrawMode;
+                    TodBltMatrix(g, command.Image, glyphMatrix, g.mClipRect, command.Color, drawMode, command.SourceRect);
+                }
+            }
+        }
+
+        private static void TodDrawTrueTypeStringMatrix(EffectViewer.TodLib.Graphics.Graphics g, Font theFont, in Matrix4x4 theMatrix, string theString, in SexyColor theColor)
+        {
+            theFont.PrepareTrueTypeText(theString);
+            Image image = theFont.TrueTypeAtlas?.TextureImage;
+            if (image == null)
+            {
+                return;
+            }
+
+            DrawMode oldDrawMode = g.GetDrawMode();
+            int curXPos = 0;
+            foreach (char c in theString)
+            {
+                if (char.IsControl(c))
+                {
+                    continue;
+                }
+
+                if (!theFont.TryGetTrueTypeGlyph(c, out TrueTypeGlyphData glyph))
+                {
+                    curXPos += theFont.CharWidth(c);
+                    continue;
+                }
+
+                Matrix4x4 glyphMatrix = Matrix4x4.Identity;
+                SexyMatrix3Translation(
+                    ref glyphMatrix,
+                    glyph.SourceRect.Width * 0.5f + curXPos + glyph.Left,
+                    glyph.SourceRect.Height * 0.5f + glyph.Top);
+                SexyMatrix3Multiply(ref glyphMatrix, theMatrix, glyphMatrix);
+                TodBltMatrix(g, image, glyphMatrix, g.mClipRect, theColor, oldDrawMode, glyph.SourceRect);
+                curXPos += glyph.Advance;
+            }
         }
 
         public static void TodBltMatrix(EffectViewer.TodLib.Graphics.Graphics g, Image theImage, in Matrix4x4 theTransform, in Rectangle theClipRect, in SexyColor theColor, DrawMode theDrawMode, in Rectangle theSrcRect)
@@ -253,6 +383,14 @@ namespace EffectViewer.TodLib.Common
                 Color = color
             };
         }
+
+        private readonly record struct FontRenderCommand(
+            Image Image,
+            int X,
+            int Y,
+            Rectangle SourceRect,
+            int DrawMode,
+            SexyColor Color);
 
         public static void TodScaleTransformMatrix(out Matrix4x4 m, float x, float y, float theScaleX, float theScaleY)
         {

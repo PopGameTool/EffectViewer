@@ -7,12 +7,14 @@ namespace EffectViewer.Projects
     public sealed class AssetIndex
     {
         private readonly Dictionary<string, ImageAsset> _images = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, FontAsset> _fonts = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, ReanimAsset> _reanims = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, EffectAsset> _particles = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, EffectAsset> _trails = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, ShowcaseAsset> _showcases = new(StringComparer.OrdinalIgnoreCase);
 
         public IReadOnlyDictionary<string, ImageAsset> Images => _images;
+        public IReadOnlyDictionary<string, FontAsset> Fonts => _fonts;
         public IReadOnlyDictionary<string, ReanimAsset> Reanims => _reanims;
         public IReadOnlyDictionary<string, EffectAsset> Particles => _particles;
         public IReadOnlyDictionary<string, EffectAsset> Trails => _trails;
@@ -28,6 +30,7 @@ namespace EffectViewer.Projects
                 }
             }
 
+            AddEffects(manifest.Fonts, _fonts);
             AddReanims(manifest.Reanims, _reanims);
             AddEffects(manifest.Particles, _particles);
             AddEffects(manifest.Trails, _trails);
@@ -64,9 +67,33 @@ namespace EffectViewer.Projects
             return false;
         }
 
-        private static void AddEffects(IEnumerable<EffectAsset> source, Dictionary<string, EffectAsset> target)
+        public bool TryGetFont(string id, out FontAsset asset)
         {
-            foreach (EffectAsset asset in source)
+            asset = null;
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return false;
+            }
+
+            if (_fonts.TryGetValue(id, out asset))
+            {
+                return true;
+            }
+
+            const string fontPrefix = "FONT_";
+            if (id.StartsWith(fontPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                string fallbackId = id[fontPrefix.Length..];
+                return _fonts.TryGetValue(fallbackId, out asset);
+            }
+
+            return _fonts.TryGetValue(fontPrefix + id, out asset);
+        }
+
+        private static void AddEffects<TAsset>(IEnumerable<TAsset> source, Dictionary<string, TAsset> target)
+            where TAsset : EffectAsset
+        {
+            foreach (TAsset asset in source)
             {
                 if (!string.IsNullOrWhiteSpace(asset.Id))
                 {

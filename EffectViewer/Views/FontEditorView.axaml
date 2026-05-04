@@ -1,0 +1,195 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:EffectViewer.Controls"
+             xmlns:vm="using:EffectViewer.ViewModels"
+             x:Class="EffectViewer.Views.FontEditorView"
+             x:DataType="vm:FontEditorViewModel">
+  <Grid RowDefinitions="Auto,*" Margin="24" RowSpacing="16">
+    <DockPanel LastChildFill="True">
+      <Menu DockPanel.Dock="Right"
+            Background="Transparent">
+        <MenuItem Header="{DynamicResource Loc.Menu.Layout}">
+          <MenuItem Header="{DynamicResource Loc.Menu.Properties}"
+                    Command="{Binding ToggleSidePanelCommand}"
+                    IsChecked="{Binding IsSidePanelVisible, Mode=OneWay}"
+                    ToggleType="CheckBox"/>
+          <Separator/>
+          <MenuItem Header="{DynamicResource Loc.Menu.DockPropertiesLeft}"
+                    Command="{Binding DockSidePanelLeftCommand}"
+                    IsChecked="{Binding IsSidePanelOnLeft, Mode=OneWay}"
+                    ToggleType="Radio"/>
+          <MenuItem Header="{DynamicResource Loc.Menu.DockPropertiesRight}"
+                    Command="{Binding DockSidePanelRightCommand}"
+                    IsChecked="{Binding IsSidePanelOnRight, Mode=OneWay}"
+                    ToggleType="Radio"/>
+          <Separator/>
+          <MenuItem Header="{DynamicResource Loc.Menu.ResetEditorLayout}"
+                    Command="{Binding ResetEditorLayoutCommand}"/>
+        </MenuItem>
+      </Menu>
+      <StackPanel Spacing="4">
+        <TextBlock Text="{Binding AssetId}" FontSize="24" FontWeight="SemiBold"/>
+        <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+      </StackPanel>
+    </DockPanel>
+
+    <controls:DockablePanelView Grid.Row="1"
+                                IsSidePanelVisible="{Binding IsSidePanelVisible}"
+                                IsSidePanelOnLeft="{Binding IsSidePanelOnLeft}"
+                                LayoutResetRevision="{Binding LayoutResetRevision}"
+                                DefaultSidePanelWidth="340"
+                                MinimumSidePanelWidth="240">
+      <controls:DockablePanelView.PrimaryContent>
+        <Grid RowDefinitions="Auto,*" RowSpacing="8">
+          <DockPanel LastChildFill="True">
+            <ComboBox DockPanel.Dock="Right"
+                      Width="280"
+                      ItemsSource="{Binding Textures}"
+                      SelectedItem="{Binding SelectedTexture}"
+                      IsVisible="{Binding HasMultipleTextures}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate DataType="vm:FontTexturePreviewViewModel">
+                  <TextBlock Text="{Binding DisplayName}"/>
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <StackPanel Spacing="2">
+              <TextBlock Text="{DynamicResource Loc.Label.Preview}" FontSize="16" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding SelectedTexture.Path}"
+                         Foreground="{DynamicResource TextControlPlaceholderForeground}"
+                         IsVisible="{Binding HasSelectedTexture}"/>
+              <TextBlock Text="{Binding PreviewText}"
+                         Foreground="{DynamicResource TextControlPlaceholderForeground}"
+                         IsVisible="{Binding IsTrueType}"/>
+            </StackPanel>
+          </DockPanel>
+          <Border Grid.Row="1"
+                  BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                  BorderThickness="1"
+                  CornerRadius="6"
+                  Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+            <Grid>
+              <controls:InteractiveEffectViewport Frame="{Binding PreviewFrame}"
+                                                  TextureSource="{Binding TextureSource}"
+                                                  IsVisible="{Binding HasViewportPreview}"/>
+              <TextBlock Text="{DynamicResource Loc.FontEditor.NoTextureMaps}"
+                         TextWrapping="Wrap"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource TextControlPlaceholderForeground}"
+                         IsVisible="{Binding HasNoTextureMaps}"/>
+            </Grid>
+          </Border>
+        </Grid>
+      </controls:DockablePanelView.PrimaryContent>
+
+      <controls:DockablePanelView.SideContent>
+        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="1"
+                CornerRadius="6">
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="12" Margin="14">
+              <TextBlock Text="{DynamicResource Loc.Label.Properties}" FontSize="16" FontWeight="SemiBold"/>
+
+              <TextBlock Text="{DynamicResource Loc.Label.Metadata}" FontWeight="SemiBold"/>
+              <TextBlock Text="{DynamicResource Loc.Label.ID}"/>
+              <TextBox Text="{Binding AssetId, UpdateSourceTrigger=LostFocus}"/>
+
+              <StackPanel Spacing="8" IsVisible="{Binding IsTrueType}">
+                <TextBlock Text="{DynamicResource Loc.Label.FontSize}"/>
+                <NumericUpDown Value="{Binding FontSize, UpdateSourceTrigger=PropertyChanged}"
+                               Minimum="1"
+                               Maximum="256"
+                               Increment="1"/>
+                <TextBlock Text="{DynamicResource Loc.Label.BorderSize}"/>
+                <NumericUpDown Value="{Binding BorderSize, UpdateSourceTrigger=PropertyChanged}"
+                               Minimum="0"
+                               Maximum="64"
+                               Increment="1"/>
+              </StackPanel>
+
+              <Separator Margin="0,4"/>
+              <TextBlock Text="{DynamicResource Loc.Label.General}" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+                <TextBlock Text="{DynamicResource Loc.Label.DefaultPointSize}"/>
+                <TextBlock Grid.Column="1" Text="{Binding DefaultPointSize}"/>
+                <TextBlock Grid.Row="1" Text="{DynamicResource Loc.Label.PointSize}"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PointSize}"/>
+                <TextBlock Grid.Row="2" Text="{DynamicResource Loc.Label.Ascent}"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Ascent}"/>
+                <TextBlock Grid.Row="3" Text="{DynamicResource Loc.Label.AscentPadding}"/>
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AscentPadding}"/>
+                <TextBlock Grid.Row="4" Text="{DynamicResource Loc.Label.Height}"/>
+                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Height}"/>
+                <TextBlock Grid.Row="5" Text="{DynamicResource Loc.Label.LineSpacingOffset}"/>
+                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LineSpacingOffset}"/>
+                <TextBlock Grid.Row="6" Text="{DynamicResource Loc.Label.Layers}"/>
+                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding LayerCount}"/>
+                <TextBlock Grid.Row="7" Text="{DynamicResource Loc.Label.Glyphs}"/>
+                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding GlyphCount}"/>
+                <TextBlock Grid.Row="8" Text="{DynamicResource Loc.Label.Textures}"/>
+                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding TextureCount}"/>
+              </Grid>
+
+              <TextBlock Text="{Binding LoadError}"
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
+                         IsVisible="{Binding HasLoadError}"/>
+
+              <StackPanel Spacing="12" IsVisible="{Binding IsImageFont}">
+                <Separator Margin="0,4"/>
+                <TextBlock Text="{DynamicResource Loc.Label.TextureMap}" FontWeight="SemiBold"/>
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6"
+                      IsVisible="{Binding HasSelectedTexture}">
+                  <TextBlock Text="{DynamicResource Loc.Label.Layer}"/>
+                  <TextBlock Grid.Column="1" Text="{Binding SelectedTexture.LayerName}" TextWrapping="Wrap"/>
+                  <TextBlock Grid.Row="1" Text="{DynamicResource Loc.Label.ImageID}"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedTexture.ImageId}" TextWrapping="Wrap"/>
+                  <TextBlock Grid.Row="2" Text="{DynamicResource Loc.Label.TextureSize}"/>
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedTexture.TextureSize}"/>
+                  <TextBlock Grid.Row="3" Text="{DynamicResource Loc.Label.ImageName}"/>
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedTexture.ImageName}" TextWrapping="Wrap"/>
+                </Grid>
+
+                <Separator Margin="0,4"/>
+                <TextBlock Text="{DynamicResource Loc.Label.Layers}" FontWeight="SemiBold"/>
+                <ItemsControl ItemsSource="{Binding Layers}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="vm:FontLayerViewModel">
+                      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                              BorderThickness="1"
+                              CornerRadius="6"
+                              Padding="10"
+                              Margin="0,0,0,8">
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="4">
+                            <TextBlock Text="{DynamicResource Loc.Label.ImageName}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding ImageName}" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="1" Text="{DynamicResource Loc.Label.ResolvedImage}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DisplayImageId}" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="2" Text="{DynamicResource Loc.Label.PointSize}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PointSize}"/>
+                            <TextBlock Grid.Row="3" Text="{DynamicResource Loc.Label.Ascent}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Ascent}"/>
+                            <TextBlock Grid.Row="4" Text="{DynamicResource Loc.Label.Height}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Height}"/>
+                            <TextBlock Grid.Row="5" Text="{DynamicResource Loc.Label.Spacing}"/>
+                            <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Spacing}"/>
+                            <TextBlock Grid.Row="6" Text="{DynamicResource Loc.Label.Glyphs}"/>
+                            <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding CharacterCount}"/>
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
+        </Border>
+      </controls:DockablePanelView.SideContent>
+    </controls:DockablePanelView>
+  </Grid>
+</UserControl>

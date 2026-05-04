@@ -16,6 +16,7 @@ namespace EffectViewer.Projects
     {
         private const string ImportOperation = "Importing Resource Folder";
         private const string ImagesDirectory = "assets/images";
+        private const string FontsDirectory = "assets/fonts";
         private const string ReanimsDirectory = "assets/reanims";
         private const string ParticlesDirectory = "assets/particles";
         private const string TrailsDirectory = "assets/trails";
@@ -58,6 +59,7 @@ namespace EffectViewer.Projects
             };
 
             Dictionary<string, ImageAsset> images = new(StringComparer.OrdinalIgnoreCase);
+            List<FontAsset> fonts = [];
             HashSet<string> copiedProjectPaths = new(StringComparer.OrdinalIgnoreCase);
             HashSet<string> knownSourceFiles = new(StringComparer.OrdinalIgnoreCase);
             int missingImages = 0;
@@ -71,6 +73,7 @@ namespace EffectViewer.Projects
                     fileIndex,
                     projectDirectory,
                     images,
+                    fonts,
                     copiedProjectPaths,
                     knownSourceFiles,
                     importProgress);
@@ -94,12 +97,16 @@ namespace EffectViewer.Projects
             manifest.Images = images.Values
                 .OrderBy(asset => asset.Id, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+            manifest.Fonts = fonts
+                .OrderBy(asset => asset.Id, StringComparer.OrdinalIgnoreCase)
+                .ToList();
             importProgress.Advance("Built project manifest");
 
             EffectProject project = new(projectDirectory, manifest);
             return new FolderImportResult(
                 project,
                 manifest.Images.Count,
+                manifest.Fonts.Count,
                 manifest.Reanims.Count,
                 manifest.Particles.Count,
                 manifest.Trails.Count,
@@ -109,6 +116,7 @@ namespace EffectViewer.Projects
         private static void EnsureProjectDirectories(string projectDirectory)
         {
             Directory.CreateDirectory(Path.Combine(projectDirectory, ImagesDirectory.Replace('/', Path.DirectorySeparatorChar)));
+            Directory.CreateDirectory(Path.Combine(projectDirectory, FontsDirectory.Replace('/', Path.DirectorySeparatorChar)));
             Directory.CreateDirectory(Path.Combine(projectDirectory, ReanimsDirectory.Replace('/', Path.DirectorySeparatorChar)));
             Directory.CreateDirectory(Path.Combine(projectDirectory, ParticlesDirectory.Replace('/', Path.DirectorySeparatorChar)));
             Directory.CreateDirectory(Path.Combine(projectDirectory, TrailsDirectory.Replace('/', Path.DirectorySeparatorChar)));
@@ -123,7 +131,7 @@ namespace EffectViewer.Projects
 
             if (fileIndex.ContainsKey("properties/resources.xml"))
             {
-                count += await CountResourcesXmlImagesAsync(source, "properties/resources.xml");
+                count += await CountResourcesXmlAssetsAsync(source, "properties/resources.xml");
             }
 
             count += files.Count(file => IsImageFile(file.RelativePath));
@@ -145,7 +153,7 @@ namespace EffectViewer.Projects
             return count;
         }
 
-        private static async Task<int> CountResourcesXmlImagesAsync(IResourceFolderSource source, string resourcesPath)
+        private static async Task<int> CountResourcesXmlAssetsAsync(IResourceFolderSource source, string resourcesPath)
         {
             int count = 0;
             Stream stream;
@@ -163,7 +171,7 @@ namespace EffectViewer.Projects
             SexyXmlParser parser = SexyXmlParser.FromStream(stream, resourcesPath);
             while (parser.TryNextElement(out SexyXmlElement element))
             {
-                if (element.Type == SexyXmlElementType.Start && element.Value == "Image")
+                if (element.Type == SexyXmlElementType.Start && element.Value is "Image" or "Font")
                 {
                     count++;
                 }
@@ -186,6 +194,7 @@ namespace EffectViewer.Projects
             IReadOnlyDictionary<string, ResourceFolderFile> fileIndex,
             string projectDirectory,
             Dictionary<string, ImageAsset> images,
+            IList<FontAsset> fonts,
             HashSet<string> copiedProjectPaths,
             HashSet<string> knownSourceFiles,
             FolderImportProgress progress)
@@ -207,7 +216,7 @@ namespace EffectViewer.Projects
             while (parser.TryNextElement(out SexyXmlElement element))
             {
                 if (element.Type != SexyXmlElementType.Start ||
-                    element.Value is not ("SetDefaults" or "Image"))
+                    element.Value is not ("SetDefaults" or "Image" or "Font"))
                 {
                     continue;
                 }
@@ -219,45 +228,90 @@ namespace EffectViewer.Projects
                     continue;
                 }
 
-                string rawId = ReadAttribute(element, "id") ?? string.Empty;
-                string rawPath = ReadAttribute(element, "path") ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(rawId) || string.IsNullOrWhiteSpace(rawPath))
+                if (element.Value == "Image")
                 {
-                    progress.Advance("Skipped incomplete image resource");
+                    string rawId = ReadAttribute(element, "id") ?? string.Empty;
+                    string rawPath = ReadAttribute(element, "path") ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(rawId) || string.IsNullOrWhiteSpace(rawPath))
+                    {
+                        progress.Advance("Skipped incomplete image resource");
+                        continue;
+                    }
+
+                    string id = BuildResourceId(rawId, currentPrefix);
+
+                    ResourceFolderFile sourceFile = FindImageFile(fileIndex, currentPath, rawPath, out bool alphaOnly);
+                    if (sourceFile is null)
+                    {
+                        missingImages++;
+                        progress.Advance($"Missing image {rawPath}");
+                        continue;
+                    }
+
+                    progress.Report($"Importing image {sourceFile.RelativePath}");
+                    string imagePath = await CopyAssetFileAsync(source, projectDirectory, sourceFile, ImagesDirectory, id, copiedProjectPaths, progress);
+                    if (imagePath is null)
+                    {
+                        continue;
+                    }
+
+                    ImageAsset asset = new()
+                    {
+                        Id = id,
+                        Path = imagePath,
+                        AlphaOnly = alphaOnly,
+                        Rows = ReadPositiveInt(element, "rows", 1),
+                        Cols = ReadPositiveInt(element, "cols", 1)
+                    };
+                    knownSourceFiles.Add(sourceFile.RelativePath);
+                    await AttachAlphaCompanionAsync(source, fileIndex, projectDirectory, asset, sourceFile, copiedProjectPaths, knownSourceFiles);
+
+                    images[id] = asset;
+                    progress.Advance($"Imported image {id}");
                     continue;
                 }
 
-                string id = rawId.StartsWith(currentPrefix, StringComparison.OrdinalIgnoreCase)
-                    ? rawId
-                    : currentPrefix + rawId;
-
-                ResourceFolderFile sourceFile = FindImageFile(fileIndex, currentPath, rawPath);
-                if (sourceFile is null)
+                if (element.Value == "Font")
                 {
-                    missingImages++;
-                    progress.Advance($"Missing image {rawPath}");
-                    continue;
+                    string rawId = ReadAttribute(element, "id") ?? string.Empty;
+                    string rawPath = ReadAttribute(element, "path") ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(rawId) || string.IsNullOrWhiteSpace(rawPath))
+                    {
+                        progress.Advance("Skipped incomplete font resource");
+                        continue;
+                    }
+
+                    string id = BuildResourceId(rawId, currentPrefix);
+                    if (ContainsAssetId(fonts, id))
+                    {
+                        progress.Advance($"Skipped duplicate font {id}");
+                        continue;
+                    }
+
+                    ResourceFolderFile sourceFile = FindFontFile(fileIndex, currentPath, rawPath);
+                    if (sourceFile is null)
+                    {
+                        progress.Advance($"Missing font {rawPath}");
+                        continue;
+                    }
+
+                    progress.Report($"Importing font {sourceFile.RelativePath}");
+                    string fontPath = await CopyAssetFileAsync(source, projectDirectory, sourceFile, FontsDirectory, id, copiedProjectPaths, progress);
+                    if (fontPath is null)
+                    {
+                        continue;
+                    }
+
+                    fonts.Add(new FontAsset
+                    {
+                        Id = id,
+                        Path = fontPath,
+                        TrueType = IsTrueTypeFontPath(fontPath),
+                        FontSize = IsTrueTypeFontPath(fontPath) ? 32 : 0
+                    });
+                    knownSourceFiles.Add(sourceFile.RelativePath);
+                    progress.Advance($"Imported font {id}");
                 }
-
-                progress.Report($"Importing image {sourceFile.RelativePath}");
-                string imagePath = await CopyAssetFileAsync(source, projectDirectory, sourceFile, ImagesDirectory, id, copiedProjectPaths, progress);
-                if (imagePath is null)
-                {
-                    continue;
-                }
-
-                ImageAsset asset = new()
-                {
-                    Id = id,
-                    Path = imagePath,
-                    Rows = ReadPositiveInt(element, "rows", 1),
-                    Cols = ReadPositiveInt(element, "cols", 1)
-                };
-                knownSourceFiles.Add(sourceFile.RelativePath);
-                await AttachAlphaCompanionAsync(source, fileIndex, projectDirectory, asset, sourceFile, copiedProjectPaths, knownSourceFiles);
-
-                images[id] = asset;
-                progress.Advance($"Imported image {id}");
             }
 
             return missingImages;
@@ -308,6 +362,7 @@ namespace EffectViewer.Projects
                 {
                     Id = id,
                     Path = imagePath,
+                    AlphaOnly = IsAlphaOnlyImageSource(fileIndex, file),
                     Rows = 1,
                     Cols = 1
                 };
@@ -469,12 +524,19 @@ namespace EffectViewer.Projects
         private static ResourceFolderFile FindImageFile(
             IReadOnlyDictionary<string, ResourceFolderFile> fileIndex,
             string relativeDirectory,
-            string rawPath)
+            string rawPath,
+            out bool alphaOnly)
         {
+            alphaOnly = false;
             string path = ResourceFolderPath.Combine(relativeDirectory, rawPath);
             if (ResourceFolderPath.HasExtension(path))
             {
-                return fileIndex.TryGetValue(path, out ResourceFolderFile file) ? file : null;
+                if (fileIndex.TryGetValue(path, out ResourceFolderFile file))
+                {
+                    return file;
+                }
+
+                return FindAlphaOnlyImageFile(fileIndex, path, out alphaOnly);
             }
 
             foreach (string extension in ImageExtensions)
@@ -486,7 +548,56 @@ namespace EffectViewer.Projects
                 }
             }
 
-            return null;
+            return FindAlphaOnlyImageFile(fileIndex, path, out alphaOnly);
+        }
+
+        private static ResourceFolderFile FindFontFile(
+            IReadOnlyDictionary<string, ResourceFolderFile> fileIndex,
+            string relativeDirectory,
+            string rawPath)
+        {
+            string path = ResourceFolderPath.Combine(relativeDirectory, rawPath);
+            if (ResourceFolderPath.HasExtension(path))
+            {
+                return fileIndex.TryGetValue(path, out ResourceFolderFile file) ? file : null;
+            }
+
+            string candidate = path + ".txt";
+            if (fileIndex.TryGetValue(candidate, out ResourceFolderFile fontFile))
+            {
+                return fontFile;
+            }
+
+            candidate = path + ".ttf";
+            return fileIndex.TryGetValue(candidate, out fontFile) ? fontFile : null;
+        }
+
+        private static bool IsTrueTypeFontPath(string path)
+        {
+            return string.Equals(Path.GetExtension(path ?? string.Empty), ".ttf", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string BuildResourceId(string rawId, string currentPrefix)
+        {
+            if (string.IsNullOrWhiteSpace(rawId))
+            {
+                return string.Empty;
+            }
+
+            if (HasKnownResourcePrefix(rawId) ||
+                (!string.IsNullOrWhiteSpace(currentPrefix) && rawId.StartsWith(currentPrefix, StringComparison.OrdinalIgnoreCase)))
+            {
+                return rawId;
+            }
+
+            return (currentPrefix ?? string.Empty) + rawId;
+        }
+
+        private static bool HasKnownResourcePrefix(string id)
+        {
+            return id.StartsWith("IMAGE_", StringComparison.OrdinalIgnoreCase) ||
+                   id.StartsWith("FONT_", StringComparison.OrdinalIgnoreCase) ||
+                   id.StartsWith("SOUND_", StringComparison.OrdinalIgnoreCase);
         }
 
         private static async Task AttachAlphaCompanionAsync(
@@ -536,6 +647,12 @@ namespace EffectViewer.Projects
 
             foreach (string extension in ImageExtensions)
             {
+                string leadingCandidate = ResourceFolderPath.Combine(directory, "_" + name + extension);
+                if (fileIndex.TryGetValue(leadingCandidate, out alphaFile))
+                {
+                    return true;
+                }
+
                 string candidate = ResourceFolderPath.Combine(directory, name + "_" + extension);
                 if (fileIndex.TryGetValue(candidate, out alphaFile))
                 {
@@ -554,12 +671,15 @@ namespace EffectViewer.Projects
             baseFile = null;
             string directory = ResourceFolderPath.GetDirectoryName(alphaFile.RelativePath);
             string name = ResourceFolderPath.GetFileNameWithoutExtension(alphaFile.RelativePath);
-            if (string.IsNullOrWhiteSpace(name) || !name.EndsWith("_", StringComparison.Ordinal))
+            if (string.IsNullOrWhiteSpace(name) ||
+                (!name.EndsWith("_", StringComparison.Ordinal) && !name.StartsWith("_", StringComparison.Ordinal)))
             {
                 return false;
             }
 
-            string baseName = name[..^1];
+            string baseName = name.EndsWith("_", StringComparison.Ordinal)
+                ? name[..^1]
+                : name[1..];
             if (string.IsNullOrWhiteSpace(baseName))
             {
                 return false;
@@ -575,6 +695,55 @@ namespace EffectViewer.Projects
             }
 
             return false;
+        }
+
+        private static ResourceFolderFile FindAlphaOnlyImageFile(
+            IReadOnlyDictionary<string, ResourceFolderFile> fileIndex,
+            string path,
+            out bool alphaOnly)
+        {
+            alphaOnly = false;
+            string directory = ResourceFolderPath.GetDirectoryName(path);
+            string name = ResourceFolderPath.GetFileNameWithoutExtension(path);
+            string extension = ResourceFolderPath.GetExtension(path);
+
+            IEnumerable<string> extensions = string.IsNullOrEmpty(extension)
+                ? ImageExtensions
+                : [extension];
+
+            foreach (string candidateExtension in extensions)
+            {
+                string leadingCandidate = ResourceFolderPath.Combine(directory, "_" + name + candidateExtension);
+                if (fileIndex.TryGetValue(leadingCandidate, out ResourceFolderFile leadingFile))
+                {
+                    alphaOnly = true;
+                    return leadingFile;
+                }
+
+                string trailingCandidate = ResourceFolderPath.Combine(directory, name + "_" + candidateExtension);
+                if (fileIndex.TryGetValue(trailingCandidate, out ResourceFolderFile trailingFile))
+                {
+                    alphaOnly = true;
+                    return trailingFile;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsAlphaOnlyImageSource(
+            IReadOnlyDictionary<string, ResourceFolderFile> fileIndex,
+            ResourceFolderFile file)
+        {
+            if (file is null)
+            {
+                return false;
+            }
+
+            string name = ResourceFolderPath.GetFileNameWithoutExtension(file.RelativePath);
+            bool looksLikeAlphaFile = name.StartsWith("_", StringComparison.Ordinal) ||
+                                      name.EndsWith("_", StringComparison.Ordinal);
+            return looksLikeAlphaFile && !TryFindAlphaBaseFile(fileIndex, file, out _);
         }
 
         private static async Task<string> CopyAssetFileAsync(
@@ -759,7 +928,9 @@ namespace EffectViewer.Projects
 
         private static bool IsAlphaCompanionFile(string path)
         {
-            return ResourceFolderPath.GetFileNameWithoutExtension(path).EndsWith("_", StringComparison.Ordinal);
+            string name = ResourceFolderPath.GetFileNameWithoutExtension(path);
+            return name.StartsWith("_", StringComparison.Ordinal) ||
+                   name.EndsWith("_", StringComparison.Ordinal);
         }
 
         private sealed class FolderImportProgress

@@ -107,7 +107,7 @@ namespace EffectViewer.Rendering.OpenGl
             Vector4 clear = clearColorOverride ?? frame.ClearColor;
             _gl.ClearColor(clear.X, clear.Y, clear.Z, clear.W);
             _gl.Enable(OpenGlConstants.Blend);
-            _gl.BlendFunc(OpenGlConstants.One, OpenGlConstants.OneMinusSrcAlpha);
+            SetBlendMode(RenderBlendMode.Normal);
 
             _gl.Clear(OpenGlConstants.ColorBufferBit);
             if (checkerboardColor.HasValue)
@@ -344,15 +344,17 @@ namespace EffectViewer.Rendering.OpenGl
 
         private bool BindTexture(RenderTextureRef texture)
         {
-            if (!_textureCache.TryGetTexture(texture, out int handle))
+            int revision = GetTextureRevision(texture);
+            if (!_textureCache.TryGetTexture(texture, revision, out int handle))
             {
-                handle = CreateTexture(texture);
+                DeleteCachedTexture(texture);
+                handle = CreateTexture(texture, out int loadedRevision);
                 if (handle == 0)
                 {
                     return false;
                 }
 
-                _textureCache.SetTexture(texture, handle);
+                _textureCache.SetTexture(texture, handle, loadedRevision);
             }
 
             _gl.ActiveTexture(OpenGlConstants.Texture0);
@@ -360,8 +362,9 @@ namespace EffectViewer.Rendering.OpenGl
             return true;
         }
 
-        private int CreateTexture(RenderTextureRef texture)
+        private int CreateTexture(RenderTextureRef texture, out int revision)
         {
+            revision = 0;
             if (!_textureSource.TryLoad(texture, out TextureUploadData data) ||
                 data.Width <= 0 ||
                 data.Height <= 0 ||
@@ -370,6 +373,7 @@ namespace EffectViewer.Rendering.OpenGl
                 return 0;
             }
 
+            revision = data.Revision;
             uint[] handles = new uint[1];
             _gl.GenTextures(1, handles);
             uint handle = handles[0];
@@ -405,6 +409,22 @@ namespace EffectViewer.Rendering.OpenGl
             }
 
             return (int)handle;
+        }
+
+        private int GetTextureRevision(RenderTextureRef texture)
+        {
+            return _textureSource is ITextureRevisionSource revisionSource
+                ? revisionSource.GetTextureRevision(texture)
+                : 0;
+        }
+
+        private void DeleteCachedTexture(RenderTextureRef texture)
+        {
+            int oldHandle = _textureCache.Remove(texture);
+            if (oldHandle != 0)
+            {
+                _gl.DeleteTextures(1, [(uint)oldHandle]);
+            }
         }
 
         private static byte[] CreatePremultipliedPixels(byte[] source, int byteCount)
@@ -652,7 +672,9 @@ namespace EffectViewer.Rendering.OpenGl
                     uniform sampler2D u_texture;
                     out vec4 frag_color;
                     void main() {
-                        frag_color = texture(u_texture, v_uv) * v_color;
+                        vec4 color = texture(u_texture, v_uv) * v_color;
+                        color.rgb *= v_color.a;
+                        frag_color = color;
                     }
                     """;
             }
@@ -665,7 +687,9 @@ namespace EffectViewer.Rendering.OpenGl
                 varying vec4 v_color;
                 uniform sampler2D u_texture;
                 void main() {
-                    gl_FragColor = texture2D(u_texture, v_uv) * v_color;
+                    vec4 color = texture2D(u_texture, v_uv) * v_color;
+                    color.rgb *= v_color.a;
+                    gl_FragColor = color;
                 }
                 """;
         }

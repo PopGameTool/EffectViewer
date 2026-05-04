@@ -12,6 +12,7 @@ namespace EffectViewer.Rendering
             Vector4 color = kind switch
             {
                 EffectAssetKind.Image => new Vector4(0.25f, 0.55f, 0.95f, 1f),
+                EffectAssetKind.Font => new Vector4(0.4f, 0.72f, 0.62f, 1f),
                 EffectAssetKind.Reanim => new Vector4(0.85f, 0.55f, 0.2f, 1f),
                 EffectAssetKind.Particle => new Vector4(0.95f, 0.35f, 0.18f, 1f),
                 EffectAssetKind.Trail => new Vector4(0.3f, 0.82f, 0.62f, 1f),
@@ -56,6 +57,13 @@ namespace EffectViewer.Rendering
                 RenderBlendMode.Normal));
 
             return frame;
+        }
+
+        public static RenderFrame BuildFontTexturePreview(string textureId, int imageWidth = 0, int imageHeight = 0)
+        {
+            return string.IsNullOrWhiteSpace(textureId)
+                ? BuildPlaceholder(EffectAssetKind.Font, string.Empty)
+                : BuildImagePreview(textureId, 1, 1, 0, imageWidth, imageHeight);
         }
     }
 }

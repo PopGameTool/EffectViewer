@@ -39,6 +39,7 @@ namespace EffectViewer.ViewModels
         private ProjectExplorerItemViewModel _resourceBeingDeleted;
         private static readonly StringComparer ProjectTreeNameComparer = StringComparer.OrdinalIgnoreCase;
         private const string ImagesProjectTreeGroupKey = "images";
+        private const string FontsProjectTreeGroupKey = "fonts";
         private const string ReanimsProjectTreeGroupKey = "reanims";
         private const string ParticlesProjectTreeGroupKey = "particles";
         private const string TrailsProjectTreeGroupKey = "trails";
@@ -548,6 +549,15 @@ namespace EffectViewer.ViewModels
                 }
             }
 
+            foreach (FontEditorViewModel fontEditor in OpenEditors.OfType<FontEditorViewModel>())
+            {
+                if (!fontEditor.ApplyPendingAssetId())
+                {
+                    StatusText = F("Status.CouldNotSaveFontIdEmpty", fontEditor.Title);
+                    return;
+                }
+            }
+
             foreach (EffectEditorViewModel effectEditor in OpenEditors.OfType<EffectEditorViewModel>())
             {
                 if (string.IsNullOrWhiteSpace(effectEditor.AssetId))
@@ -618,7 +628,7 @@ namespace EffectViewer.ViewModels
                 FolderImportResult result = await _projectService.ImportFolderAsync(sourceDirectory, progress);
 
                 LoadProject(result.Project);
-                StatusText = F("Status.ImportedFolder", result.ImageCount, result.ReanimCount, result.ParticleCount, result.TrailCount, result.MissingImageCount);
+                StatusText = F("Status.ImportedFolder", result.ImageCount, result.FontCount, result.ReanimCount, result.ParticleCount, result.TrailCount, result.MissingImageCount);
             }
             catch (Exception ex)
             {
@@ -650,7 +660,7 @@ namespace EffectViewer.ViewModels
                 FolderImportResult result = await _projectService.ImportFolderAsync(sourceFolder, progress);
 
                 LoadProject(result.Project);
-                StatusText = F("Status.ImportedFolder", result.ImageCount, result.ReanimCount, result.ParticleCount, result.TrailCount, result.MissingImageCount);
+                StatusText = F("Status.ImportedFolder", result.ImageCount, result.FontCount, result.ReanimCount, result.ParticleCount, result.TrailCount, result.MissingImageCount);
             }
             catch (Exception ex)
             {
@@ -1808,6 +1818,14 @@ namespace EffectViewer.ViewModels
                     }
                     break;
 
+                case EffectAssetKind.Font:
+                    if (CurrentProject.Assets.Fonts.TryGetValue(item.AssetId, out Assets.FontAsset font))
+                    {
+                        OpenOrSelectEditor(item.Kind, item.AssetId, () => new FontEditorViewModel(font, CurrentProject));
+                        StatusText = F("Status.EditingFont", font.Id);
+                    }
+                    break;
+
                 case EffectAssetKind.Reanim:
                     OpenOrSelectEditor(item.Kind, item.AssetId, () => new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
                     StatusText = F("Status.EditingReanim", item.AssetId);
@@ -1848,6 +1866,14 @@ namespace EffectViewer.ViewModels
             {
                 AddRecentlyOpenedResource(kind, image.Id, image.Path);
                 OpenOrSelectEditor(kind, assetId, () => new ImageEditorViewModel(image, CurrentProject));
+                return;
+            }
+
+            if (kind == EffectAssetKind.Font &&
+                CurrentProject.Assets.Fonts.TryGetValue(assetId, out FontAsset font))
+            {
+                AddRecentlyOpenedResource(kind, font.Id, font.Path);
+                OpenOrSelectEditor(kind, assetId, () => new FontEditorViewModel(font, CurrentProject));
                 return;
             }
 
@@ -2440,6 +2466,15 @@ namespace EffectViewer.ViewModels
                     imageEditor.AssetId,
                     imageEditor.Path);
             }
+            else if (editor is FontEditorViewModel fontEditor &&
+                e.PropertyName == nameof(FontEditorViewModel.AssetId))
+            {
+                UpdateProjectExplorerItemIdentity(
+                    EffectAssetKind.Font,
+                    fontEditor.SavedAssetId,
+                    fontEditor.AssetId,
+                    fontEditor.Path);
+            }
             else if (editor is EffectEditorViewModel effectEditor &&
                 e.PropertyName == nameof(EffectEditorViewModel.AssetId))
             {
@@ -2560,6 +2595,7 @@ namespace EffectViewer.ViewModels
 
             ProjectTreeResourceCount =
                 CurrentProject.Manifest.Images.Count +
+                CurrentProject.Manifest.Fonts.Count +
                 CurrentProject.Manifest.Reanims.Count +
                 CurrentProject.Manifest.Particles.Count +
                 CurrentProject.Manifest.Trails.Count +
@@ -2578,6 +2614,13 @@ namespace EffectViewer.ViewModels
                 ImagesProjectTreeGroupKey,
                 T("ProjectTree.Images"),
                 CreateFilteredResourceItems(CurrentProject.Manifest.Images, EffectAssetKind.Image, asset => asset.Id, asset => asset.Path),
+                isSearchActive);
+
+            AddProjectTreeFolder(
+                root,
+                FontsProjectTreeGroupKey,
+                T("ProjectTree.Fonts"),
+                CreateFilteredResourceItems(CurrentProject.Manifest.Fonts, EffectAssetKind.Font, asset => asset.Id, asset => asset.Path),
                 isSearchActive);
 
             AddProjectTreeFolder(
@@ -2992,6 +3035,18 @@ namespace EffectViewer.ViewModels
                     {
                         resolvedAssetId = image.Id;
                         resolvedPath = image.Path;
+                        return true;
+                    }
+
+                    break;
+
+                case EffectAssetKind.Font:
+                    FontAsset font = CurrentProject.Manifest.Fonts.FirstOrDefault(asset =>
+                        ResourceIdentityMatches(asset.Id, asset.Path, assetId, path));
+                    if (font is not null)
+                    {
+                        resolvedAssetId = font.Id;
+                        resolvedPath = font.Path;
                         return true;
                     }
 

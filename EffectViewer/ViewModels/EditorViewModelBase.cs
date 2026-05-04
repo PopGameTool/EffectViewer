@@ -41,6 +41,7 @@ namespace EffectViewer.ViewModels
         public string KindCode => Kind switch
         {
             EffectAssetKind.Image => "IMG",
+            EffectAssetKind.Font => "FNT",
             EffectAssetKind.Reanim => "REA",
             EffectAssetKind.Particle => "PAR",
             EffectAssetKind.Trail => "TRL",

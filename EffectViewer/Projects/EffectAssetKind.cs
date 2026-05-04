@@ -5,6 +5,7 @@ namespace EffectViewer.Projects
         Project,
         Folder,
         Image,
+        Font,
         Reanim,
         Particle,
         Trail,

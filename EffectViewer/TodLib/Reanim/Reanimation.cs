@@ -356,8 +356,14 @@ namespace EffectViewer.TodLib.Reanim
             }
             else if (aTransform.mFont != null && !string.IsNullOrEmpty(aTransform.mText))  // 如果存在字体且文本不为空
             {
-                //int aWidth = aTransform.mFont.StringWidth(aTransform.mText);
-                //TodCommon.SexyMatrix3Translation(ref aMatrix, -aWidth * 0.5f, aTransform.mFont.mAscent);
+                Font aFont = ResourceHandler.GetFont(aTransform.mFont);
+                if (aFont == null)
+                {
+                    return false;
+                }
+
+                int aWidth = aFont.StringWidth(aTransform.mText);
+                TodCommon.SexyMatrix3Translation(ref aMatrix, -aWidth * 0.5f, aFont.mAscent);
             }
             else
             {
@@ -407,12 +413,13 @@ namespace EffectViewer.TodLib.Reanim
             }
             else if (aTransform.mFont != null && !string.IsNullOrEmpty(aTransform.mText))  // 如果不存在图像但存在文本
             {
-                TodCommon.TodDrawStringMatrix(g, ResourceHandler.GetFont(aTransform.mFont), aMatrix, aTransform.mText, aColor);
+                Font aFont = ResourceHandler.GetFont(aTransform.mFont);
+                TodCommon.TodDrawStringMatrix(g, aFont, aMatrix, aTransform.mText, aColor);
                 if (mEnableExtraAdditiveDraw)
                 {
                     DrawMode aOldMode = g.GetDrawMode();  // 备份绘制模式
                     g.SetDrawMode(DrawMode.Additive);
-                    TodCommon.TodDrawStringMatrix(g, ResourceHandler.GetFont(aTransform.mFont), aMatrix, aTransform.mText, aExtraAdditiveColor);
+                    TodCommon.TodDrawStringMatrix(g, aFont, aMatrix, aTransform.mText, aExtraAdditiveColor);
                     g.SetDrawMode(aOldMode);  // 还原绘制模式
                 }
             }
@@ -714,7 +721,11 @@ namespace EffectViewer.TodLib.Reanim
             }
             else if (aTransform.mFont != null && !string.IsNullOrEmpty(aTransform.mText))
             {
-                TodCommon.SexyMatrix3Translation(ref theMatrix, 0f, ResourceHandler.GetFont(aTransform.mFont).mAscent);
+                Font aFont = ResourceHandler.GetFont(aTransform.mFont);
+                if (aFont != null)
+                {
+                    TodCommon.SexyMatrix3Translation(ref theMatrix, 0f, aFont.mAscent);
+                }
             }
 
             MatrixFromTransform(aTransform, out Matrix4x4 aTransformMatrix);
