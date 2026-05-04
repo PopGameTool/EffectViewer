@@ -288,7 +288,9 @@ namespace EffectViewer.ViewModels
             StatusText = T("Status.NoProjectLoaded");
         }
 
+        public event EventHandler ImportResourceFileRequested;
         public event EventHandler ImportResourceFolderRequested;
+        public event EventHandler ExportFileRequested;
         public event EventHandler PreviewExportRequested;
 
         private static LocalizationManager Loc => LocalizationManager.Instance;
@@ -673,6 +675,18 @@ namespace EffectViewer.ViewModels
         }
 
         [RelayCommand]
+        private void RequestImportResourceFile()
+        {
+            if (!CanModifyCurrentProject)
+            {
+                StatusText = T("Status.CreateWritableProjectForImport");
+                return;
+            }
+
+            ImportResourceFileRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        [RelayCommand]
         private void RequestImportResourceFolder()
         {
             ImportResourceFolderRequested?.Invoke(this, EventArgs.Empty);
@@ -1038,6 +1052,12 @@ namespace EffectViewer.ViewModels
             {
                 StatusText = F("Status.CouldNotExport", editor.Title, ex.Message);
             }
+        }
+
+        [RelayCommand]
+        private void RequestExportFile()
+        {
+            ExportFileRequested?.Invoke(this, EventArgs.Empty);
         }
 
         [RelayCommand]

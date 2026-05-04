@@ -49,6 +49,7 @@
       "ExportCurrentFile": "_Export Current File...",
       "ExportPreview": "Export _Preview...",
       "ExportProjectZip": "Export Project _Zip...",
+      "File": "_File",
       "ImportProjectZip": "_Import Project Zip...",
       "ImportResourceFile": "Import Resource _File...",
       "ImportResourceFolder": "Import Resource _Folder...",
@@ -77,6 +78,7 @@
       "SaveCurrentFile": "_Save Current File",
       "SaveProject": "Save _Project",
       "ScriptPanel": "_Script Panel",
+      "Tabs": "_Tabs",
       "TogglePinTab": "_Pin / Unpin Tab",
       "Undo": "_Undo",
       "View": "_View"

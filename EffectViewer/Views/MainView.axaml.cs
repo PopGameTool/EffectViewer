@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using EffectViewer.Localization;
 using EffectViewer.ViewModels;
@@ -35,7 +36,105 @@ namespace EffectViewer.Views
         public MainView()
         {
             InitializeComponent();
+            ApplyPlatformKeyGestures();
             DataContextChanged += OnDataContextChanged;
+        }
+
+        private void ApplyPlatformKeyGestures()
+        {
+            if (!UseApplePrimaryModifier())
+            {
+                return;
+            }
+
+            foreach (KeyBinding keyBinding in KeyBindings)
+            {
+                keyBinding.Gesture = UseApplePrimaryModifier(keyBinding.Gesture);
+            }
+
+            foreach (MenuItem menuItem in EnumerateMenuItems(MainMenu))
+            {
+                menuItem.InputGesture = UseApplePrimaryModifier(menuItem.InputGesture);
+            }
+        }
+
+        private static bool UseApplePrimaryModifier()
+        {
+            return OperatingSystem.IsMacOS() || OperatingSystem.IsIOS() || OperatingSystem.IsMacCatalyst();
+        }
+
+        private static KeyGesture UseApplePrimaryModifier(KeyGesture gesture)
+        {
+            if (gesture is null || !gesture.KeyModifiers.HasFlag(KeyModifiers.Control))
+            {
+                return gesture;
+            }
+
+            KeyModifiers modifiers = (gesture.KeyModifiers & ~KeyModifiers.Control) | KeyModifiers.Meta;
+            return new KeyGesture(gesture.Key, modifiers);
+        }
+
+        private static IEnumerable<MenuItem> EnumerateMenuItems(ItemsControl itemsControl)
+        {
+            foreach (object item in itemsControl.Items)
+            {
+                if (item is not MenuItem menuItem)
+                {
+                    continue;
+                }
+
+                yield return menuItem;
+
+                foreach (MenuItem child in EnumerateMenuItems(menuItem))
+                {
+                    yield return child;
+                }
+            }
+        }
+
+        private async Task<T> RunStoragePickerAsync<T>(Func<Task<T>> picker)
+        {
+            IInputElement previousFocus = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+
+            try
+            {
+                return await picker();
+            }
+            finally
+            {
+                RestoreKeyboardFocus(previousFocus);
+            }
+        }
+
+        private void RestoreKeyboardFocus(IInputElement previousFocus)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (TryFocus(previousFocus))
+                {
+                    return;
+                }
+
+                TryFocus(this);
+            }, DispatcherPriority.Input);
+        }
+
+        private static bool TryFocus(IInputElement element)
+        {
+            if (element is not { IsEffectivelyEnabled: true, IsEffectivelyVisible: true })
+            {
+                return false;
+            }
+
+            try
+            {
+                element.Focus(NavigationMethod.Unspecified, KeyModifiers.None);
+                return element.IsFocused || element.IsKeyboardFocusWithin;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
         }
 
         private void OnDataContextChanged(object sender, System.EventArgs e)
@@ -43,7 +142,9 @@ namespace EffectViewer.Views
             if (_observedViewModel is not null)
             {
                 _observedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+                _observedViewModel.ImportResourceFileRequested -= OnImportResourceFileRequested;
                 _observedViewModel.ImportResourceFolderRequested -= OnImportResourceFolderRequested;
+                _observedViewModel.ExportFileRequested -= OnExportFileRequested;
                 _observedViewModel.PreviewExportRequested -= OnPreviewExportRequested;
                 _observedViewModel.RecentlyOpenedProjectItems.CollectionChanged -= OnRecentlyOpenedProjectItemsChanged;
             }
@@ -52,7 +153,9 @@ namespace EffectViewer.Views
             if (_observedViewModel is not null)
             {
                 _observedViewModel.PropertyChanged += OnViewModelPropertyChanged;
+                _observedViewModel.ImportResourceFileRequested += OnImportResourceFileRequested;
                 _observedViewModel.ImportResourceFolderRequested += OnImportResourceFolderRequested;
+                _observedViewModel.ExportFileRequested += OnExportFileRequested;
                 _observedViewModel.PreviewExportRequested += OnPreviewExportRequested;
                 _observedViewModel.RecentlyOpenedProjectItems.CollectionChanged += OnRecentlyOpenedProjectItemsChanged;
             }
@@ -74,6 +177,55 @@ namespace EffectViewer.Views
                 ResetProjectExplorerWidths();
                 UpdateProjectExplorerLayout(captureCurrentWidth: false);
             }
+            else if (IsDialogStateProperty(e.PropertyName))
+            {
+                RestoreKeyboardFocusIfNeeded();
+            }
+        }
+
+        private void RestoreKeyboardFocusIfNeeded()
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_observedViewModel is null || HasOpenDialog(_observedViewModel))
+                {
+                    return;
+                }
+
+                IInputElement focusedElement = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+                if (focusedElement is { IsEffectivelyEnabled: true, IsEffectivelyVisible: true })
+                {
+                    return;
+                }
+
+                TryFocus(this);
+            }, DispatcherPriority.Input);
+        }
+
+        private static bool IsDialogStateProperty(string propertyName)
+        {
+            return propertyName is nameof(MainViewModel.IsUnsavedChangesPromptOpen)
+                or nameof(MainViewModel.IsOpenProjectDialogOpen)
+                or nameof(MainViewModel.IsRenameProjectDialogOpen)
+                or nameof(MainViewModel.IsDeleteProjectDialogOpen)
+                or nameof(MainViewModel.IsDeleteResourceDialogOpen)
+                or nameof(MainViewModel.IsNewProjectDialogOpen)
+                or nameof(MainViewModel.IsNewResourceDialogOpen)
+                or nameof(MainViewModel.IsPreviewExportDialogOpen)
+                or nameof(MainViewModel.IsProjectTransferInProgress);
+        }
+
+        private static bool HasOpenDialog(MainViewModel viewModel)
+        {
+            return viewModel.IsUnsavedChangesPromptOpen
+                || viewModel.IsOpenProjectDialogOpen
+                || viewModel.IsRenameProjectDialogOpen
+                || viewModel.IsDeleteProjectDialogOpen
+                || viewModel.IsDeleteResourceDialogOpen
+                || viewModel.IsNewProjectDialogOpen
+                || viewModel.IsNewResourceDialogOpen
+                || viewModel.IsPreviewExportDialogOpen
+                || viewModel.IsProjectTransferInProgress;
         }
 
         private void OnRecentlyOpenedProjectItemsChanged(object sender, NotifyCollectionChangedEventArgs e)
@@ -652,12 +804,12 @@ namespace EffectViewer.Views
                 return;
             }
 
-            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new()
+            var files = await RunStoragePickerAsync(() => topLevel.StorageProvider.OpenFilePickerAsync(new()
             {
                 Title = Loc.Text("FilePicker.ImportProjectZip"),
                 AllowMultiple = false,
                 FileTypeFilter = [ZipFileType]
-            });
+            }));
 
             if (files.Count == 0)
             {
@@ -670,18 +822,28 @@ namespace EffectViewer.Views
 
         private async void ImportResourceFileMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
+            await ImportResourceFileFromPickerAsync();
+        }
+
+        private async void OnImportResourceFileRequested(object sender, System.EventArgs e)
+        {
+            await ImportResourceFileFromPickerAsync();
+        }
+
+        private async Task ImportResourceFileFromPickerAsync()
+        {
             TopLevel topLevel = TopLevel.GetTopLevel(this);
             if (topLevel?.StorageProvider is null || DataContext is not MainViewModel viewModel)
             {
                 return;
             }
 
-            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new()
+            var files = await RunStoragePickerAsync(() => topLevel.StorageProvider.OpenFilePickerAsync(new()
             {
                 Title = Loc.Text("FilePicker.ImportResourceFile"),
                 AllowMultiple = false,
                 FileTypeFilter = [ResourceFileType]
-            });
+            }));
 
             if (files.Count == 0)
             {
@@ -701,13 +863,13 @@ namespace EffectViewer.Views
             }
 
             string suggestedName = CreateExportFileName(viewModel.CurrentProject?.Manifest?.Name);
-            IStorageFile file = await topLevel.StorageProvider.SaveFilePickerAsync(new()
+            IStorageFile file = await RunStoragePickerAsync(() => topLevel.StorageProvider.SaveFilePickerAsync(new()
             {
                 Title = Loc.Text("FilePicker.ExportProjectZip"),
                 SuggestedFileName = suggestedName,
                 DefaultExtension = "zip",
                 FileTypeChoices = [ZipFileType]
-            });
+            }));
 
             if (file is null)
             {
@@ -719,6 +881,16 @@ namespace EffectViewer.Views
         }
 
         private async void ExportFileMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            await ExportSelectedFileFromPickerAsync();
+        }
+
+        private async void OnExportFileRequested(object sender, System.EventArgs e)
+        {
+            await ExportSelectedFileFromPickerAsync();
+        }
+
+        private async Task ExportSelectedFileFromPickerAsync()
         {
             TopLevel topLevel = TopLevel.GetTopLevel(this);
             if (topLevel?.StorageProvider is null || DataContext is not MainViewModel viewModel)
@@ -744,13 +916,13 @@ namespace EffectViewer.Views
                 [
                     new FilePickerFileType(Loc.Text("FilePicker.SupportedFormats")) { Patterns = [.. exportPatterns] }
                 ];
-            IStorageFile file = await topLevel.StorageProvider.SaveFilePickerAsync(new()
+            IStorageFile file = await RunStoragePickerAsync(() => topLevel.StorageProvider.SaveFilePickerAsync(new()
             {
                 Title = Loc.Text("FilePicker.ExportCurrentFile"),
                 SuggestedFileName = suggestedName,
                 DefaultExtension = defaultExtension,
                 FileTypeChoices = fileTypeChoices
-            });
+            }));
 
             if (file is null)
             {
@@ -775,7 +947,7 @@ namespace EffectViewer.Views
             }
 
             IReadOnlyList<string> exportPatterns = viewModel.GetPreviewExportPatterns();
-            IStorageFile file = await topLevel.StorageProvider.SaveFilePickerAsync(new()
+            IStorageFile file = await RunStoragePickerAsync(() => topLevel.StorageProvider.SaveFilePickerAsync(new()
             {
                 Title = Loc.Text("FilePicker.ExportPreview"),
                 SuggestedFileName = viewModel.GetPreviewExportFileName(),
@@ -787,7 +959,7 @@ namespace EffectViewer.Views
                         Patterns = [.. exportPatterns]
                     }
                 ]
-            });
+            }));
 
             if (file is null)
             {
@@ -806,12 +978,12 @@ namespace EffectViewer.Views
                 return;
             }
 
-            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new()
+            var files = await RunStoragePickerAsync(() => topLevel.StorageProvider.OpenFilePickerAsync(new()
             {
                 Title = Loc.Text("Menu.LoadLanguageFile"),
                 AllowMultiple = false,
                 FileTypeFilter = [LanguageFileType]
-            });
+            }));
 
             if (files.Count == 0)
             {
@@ -830,11 +1002,11 @@ namespace EffectViewer.Views
                 return null;
             }
 
-            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new()
+            var folders = await RunStoragePickerAsync(() => topLevel.StorageProvider.OpenFolderPickerAsync(new()
             {
                 Title = title,
                 AllowMultiple = false
-            });
+            }));
 
             return folders.Count > 0 ? folders[0] : null;
         }

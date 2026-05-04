@@ -49,6 +49,7 @@
       "ExportCurrentFile": "导出当前文件(_E)...",
       "ExportPreview": "导出预览(_P)...",
       "ExportProjectZip": "导出项目 Zip(_Z)...",
+      "File": "文件(_F)",
       "ImportProjectZip": "导入项目 Zip(_I)...",
       "ImportResourceFile": "导入资源文件(_F)...",
       "ImportResourceFolder": "导入资源文件夹(_F)...",
@@ -77,6 +78,7 @@
       "SaveCurrentFile": "保存当前文件(_S)",
       "SaveProject": "保存项目(_P)",
       "ScriptPanel": "脚本面板(_S)",
+      "Tabs": "标签页(_T)",
       "TogglePinTab": "固定/取消固定标签页(_P)",
       "Undo": "撤销(_U)",
       "View": "视图(_V)"
