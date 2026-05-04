@@ -21,6 +21,7 @@ namespace EffectViewer.Controls
         private const double FrameWidth = 28d;
         private const double CellWidth = 22d;
         private const double CellHeight = 18d;
+        private const double SelectionScrollPadding = FrameWidth;
         private const double VisibilityBoxSize = 14d;
 
         private static readonly TimelinePalette DarkPalette = new(
@@ -566,13 +567,89 @@ namespace EffectViewer.Controls
                 e.PropertyName == nameof(EffectEditorViewModel.SelectedReanimFrameIndex) ||
                 e.PropertyName == nameof(EffectEditorViewModel.SelectedReanimTrack))
             {
+                if (e.PropertyName == nameof(EffectEditorViewModel.SelectedReanimFrameIndex) ||
+                    e.PropertyName == nameof(EffectEditorViewModel.SelectedReanimTrack))
+                {
+                    EnsureSelectionVisible();
+                }
+
                 InvalidateVisual();
             }
             else if (e.PropertyName == nameof(EffectEditorViewModel.ReanimFrameCount) ||
                      e.PropertyName == nameof(EffectEditorViewModel.ReanimTrackCount))
             {
                 InvalidateMeasure();
+                EnsureSelectionVisible();
                 InvalidateVisual();
+            }
+        }
+
+        private void EnsureSelectionVisible()
+        {
+            if (_scrollViewer is null ||
+                Editor is null ||
+                Editor.ReanimFrameCount <= 0 ||
+                Editor.ReanimTracks.Count == 0)
+            {
+                return;
+            }
+
+            Size viewport = _scrollViewer.Viewport;
+            if (viewport.Width <= 0 || viewport.Height <= 0)
+            {
+                viewport = _scrollViewer.Bounds.Size;
+            }
+
+            if (viewport.Width <= 0 || viewport.Height <= 0)
+            {
+                return;
+            }
+
+            Vector offset = _scrollViewer.Offset;
+            double newX = offset.X;
+            double newY = offset.Y;
+
+            double frameLeft = TrackColumnWidth + Editor.SelectedReanimFrameIndex * FrameWidth;
+            double frameRight = frameLeft + FrameWidth;
+            double gridLeft = offset.X + TrackColumnWidth;
+            double gridRight = offset.X + viewport.Width;
+            if (frameLeft < gridLeft + SelectionScrollPadding)
+            {
+                newX = frameLeft - TrackColumnWidth - SelectionScrollPadding;
+            }
+            else if (frameRight > gridRight - SelectionScrollPadding)
+            {
+                newX = frameRight - viewport.Width + SelectionScrollPadding;
+            }
+
+            int selectedTrackIndex = Editor.SelectedReanimTrack?.Index ?? -1;
+            if (selectedTrackIndex >= 0)
+            {
+                double rowTop = HeaderHeight + selectedTrackIndex * RowHeight;
+                double rowBottom = rowTop + RowHeight;
+                double gridTop = offset.Y + HeaderHeight;
+                double gridBottom = offset.Y + viewport.Height;
+                if (rowTop < gridTop)
+                {
+                    newY = rowTop - HeaderHeight;
+                }
+                else if (rowBottom > gridBottom)
+                {
+                    newY = rowBottom - viewport.Height;
+                }
+            }
+
+            Size extent = _scrollViewer.Extent;
+            if (extent.Width <= 0 || extent.Height <= 0)
+            {
+                extent = Bounds.Size;
+            }
+
+            newX = Math.Clamp(newX, 0d, Math.Max(0d, extent.Width - viewport.Width));
+            newY = Math.Clamp(newY, 0d, Math.Max(0d, extent.Height - viewport.Height));
+            if (Math.Abs(newX - offset.X) > 0.1d || Math.Abs(newY - offset.Y) > 0.1d)
+            {
+                _scrollViewer.Offset = new Vector(newX, newY);
             }
         }
 

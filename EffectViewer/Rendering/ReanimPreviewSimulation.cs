@@ -27,10 +27,13 @@ namespace EffectViewer.Rendering
         private double? _pendingAttachmentSeekElapsedSeconds;
         private double _accumulator;
         private bool _disposed;
+        private int _currentFrameIndex = -1;
 
+        public event EventHandler<int> CurrentFrameIndexChanged;
         public IReadOnlyList<string> TrackNames { get; private set; }
         public IReadOnlyList<string> LayerTrackNames { get; private set; }
         public IReadOnlyList<string> LayerNames { get; private set; }
+        public int CurrentFrameIndex => _currentFrameIndex;
         public int MaxUpdateStepsPerFrame { get; set; } = 20;
 
         public ReanimPreviewSimulation(EffectProject project, string path, float x = 0f, float y = 0f)
@@ -76,6 +79,7 @@ namespace EffectViewer.Rendering
                 }
             }
 
+            UpdateCurrentFrameIndex();
             return BuildFrame();
         }
 
@@ -93,6 +97,7 @@ namespace EffectViewer.Rendering
             _effectSystem.ProcessDeleteQueue();
             _pendingAttachmentSeekElapsedSeconds = null;
             _needsAttachmentRefresh = false;
+            UpdateCurrentFrameIndex();
 
             return BuildFrame();
         }
@@ -165,6 +170,7 @@ namespace EffectViewer.Rendering
                 0f,
                 1f);
             _reanimation.mLastFrameTime = _reanimation.mAnimTime;
+            SetCurrentFrameIndex(clampedFrame);
             _pendingAttachmentSeekElapsedSeconds = GetElapsedSecondsForFrame(_reanimation, clampedFrame);
             _needsAttachmentRefresh = true;
         }
@@ -270,6 +276,36 @@ namespace EffectViewer.Rendering
             _effectSystem.ProcessDeleteQueue();
             _reanimation.mLastFrameTime = _reanimation.mAnimTime;
             _needsAttachmentRefresh = false;
+        }
+
+        private void UpdateCurrentFrameIndex()
+        {
+            if (_reanimation is null ||
+                _reanimation.mFrameCount <= 0 ||
+                _reanimation.mDefinition?.mTracks is null ||
+                _reanimation.mDefinition.mTrackCount <= 0)
+            {
+                SetCurrentFrameIndex(-1);
+                return;
+            }
+
+            _reanimation.GetFrameTime(out ReanimatorFrameTime frameTime);
+            int frameIndex = Math.Clamp(
+                frameTime.mAnimFrameBeforeInt,
+                _reanimation.mFrameStart,
+                _reanimation.mFrameStart + _reanimation.mFrameCount - 1);
+            SetCurrentFrameIndex(frameIndex);
+        }
+
+        private void SetCurrentFrameIndex(int frameIndex)
+        {
+            if (_currentFrameIndex == frameIndex)
+            {
+                return;
+            }
+
+            _currentFrameIndex = frameIndex;
+            CurrentFrameIndexChanged?.Invoke(this, frameIndex);
         }
 
         private void RefreshAttachmentsForPendingSeek()

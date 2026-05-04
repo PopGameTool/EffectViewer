@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EffectViewer.Assets;
@@ -69,6 +70,7 @@ namespace EffectViewer.ViewModels
         private string _particleDefinitionError;
         private bool _suppressReanimPropertyChanges;
         private bool _suppressReanimTweenSelection;
+        private bool _syncingReanimPlaybackFrame;
         private bool _suppressTrailPropertyChanges;
         private bool _suppressParticlePropertyChanges;
         private int _reanimTimelineRevision;
@@ -285,7 +287,11 @@ namespace EffectViewer.ViewModels
                 {
                     UpdateReanimTimelineSelection();
                     LoadSelectedReanimFrame();
-                    ApplyReanimPreviewState();
+                    if (!_syncingReanimPlaybackFrame)
+                    {
+                        ApplyReanimPreviewState();
+                    }
+
                     SelectReanimTweenForCurrentCell();
                 }
             }
@@ -466,6 +472,7 @@ namespace EffectViewer.ViewModels
             {
                 _project.Assets.Reanims.TryGetValue(assetId, out _reanimAsset);
                 _reanimPreview = new ReanimPreviewSimulation(project, path);
+                _reanimPreview.CurrentFrameIndexChanged += OnReanimPreviewCurrentFrameIndexChanged;
                 PreviewFrameProvider = _reanimPreview;
                 PreviewFrame = EffectPreviewFrameBuilder.BuildPlaceholder(kind, assetId);
                 InitializeReanimControls();
@@ -1930,6 +1937,41 @@ namespace EffectViewer.ViewModels
             if (markDirty)
             {
                 MarkDirty();
+            }
+        }
+
+        private void OnReanimPreviewCurrentFrameIndexChanged(object sender, int frameIndex)
+        {
+            if (Dispatcher.UIThread.CheckAccess())
+            {
+                SyncSelectedReanimFrameFromPlayback(frameIndex);
+                return;
+            }
+
+            Dispatcher.UIThread.Post(() => SyncSelectedReanimFrameFromPlayback(frameIndex));
+        }
+
+        private void SyncSelectedReanimFrameFromPlayback(int frameIndex)
+        {
+            if (!ReanimIsPlaying || _reanimDefinition is null || ReanimFrameCount <= 0)
+            {
+                return;
+            }
+
+            int clamped = System.Math.Clamp(frameIndex, 0, ReanimFrameCount - 1);
+            if (clamped == SelectedReanimFrameIndex)
+            {
+                return;
+            }
+
+            try
+            {
+                _syncingReanimPlaybackFrame = true;
+                SelectedReanimFrameIndex = clamped;
+            }
+            finally
+            {
+                _syncingReanimPlaybackFrame = false;
             }
         }
 
@@ -3781,6 +3823,11 @@ namespace EffectViewer.ViewModels
         public override void Dispose()
         {
             Loc.LanguageChanged -= OnLanguageChanged;
+            if (_reanimPreview is not null)
+            {
+                _reanimPreview.CurrentFrameIndexChanged -= OnReanimPreviewCurrentFrameIndexChanged;
+            }
+
             TrailWidthOverLength.Changed -= OnTrailTrackChanged;
             TrailAlphaOverLength.Changed -= OnTrailTrackChanged;
             TrailWidthOverTime.Changed -= OnTrailTrackChanged;
