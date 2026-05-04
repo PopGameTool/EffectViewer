@@ -56,3 +56,12 @@
     display: none;
     opacity: 0;
 }
+
+body.effect-viewer-dialog-open .avalonia-native-host {
+    /* Keep browser native controls from covering Avalonia-rendered modal overlays. */
+    z-index: 0;
+}
+
+body.effect-viewer-dialog-open .avalonia-canvas {
+    z-index: 1;
+}

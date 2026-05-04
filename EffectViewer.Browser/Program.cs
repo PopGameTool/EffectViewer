@@ -2,6 +2,7 @@
 using Avalonia.Browser;
 using EffectViewer;
 using EffectViewer.Controls;
+using EffectViewer.Views;
 using System.Threading.Tasks;
 
 internal sealed partial class Program
@@ -9,6 +10,7 @@ internal sealed partial class Program
     private static async Task Main(string[] args)
     {
         await EffectViewer.Browser.BrowserWebGlInterop.EnsureLoadedAsync();
+        MainView.BrowserDialogOverlayActiveChanged = EffectViewer.Browser.BrowserWebGlInterop.SetDialogOverlayActive;
 
         await BuildAvaloniaApp()
             .WithInterFont()

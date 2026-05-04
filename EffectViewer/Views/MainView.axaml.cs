@@ -18,6 +18,8 @@ namespace EffectViewer.Views
 {
     public partial class MainView : UserControl
     {
+        public static Action<bool> BrowserDialogOverlayActiveChanged { get; set; }
+
         private const double DefaultProjectExplorerWidth = 280d;
         private const double MinimumProjectExplorerWidth = 180d;
         private const double SplitterWidth = 5d;
@@ -32,6 +34,7 @@ namespace EffectViewer.Views
         private bool _documentTabDropAfter;
         private bool _isDocumentTabDragging;
         private MainViewModel _observedViewModel;
+        private bool _browserDialogOverlayActive;
 
         public MainView()
         {
@@ -162,6 +165,7 @@ namespace EffectViewer.Views
 
             RefreshRecentlyOpenedMenuItems();
             UpdateProjectExplorerLayout();
+            UpdateBrowserDialogOverlayState();
         }
 
         private void OnViewModelPropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -179,8 +183,36 @@ namespace EffectViewer.Views
             }
             else if (IsDialogStateProperty(e.PropertyName))
             {
+                UpdateBrowserDialogOverlayState();
                 RestoreKeyboardFocusIfNeeded();
             }
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            SetBrowserDialogOverlayActive(false);
+            base.OnDetachedFromVisualTree(e);
+        }
+
+        private void UpdateBrowserDialogOverlayState()
+        {
+            if (!OperatingSystem.IsBrowser())
+            {
+                return;
+            }
+
+            SetBrowserDialogOverlayActive(_observedViewModel is not null && HasOpenDialog(_observedViewModel));
+        }
+
+        private void SetBrowserDialogOverlayActive(bool isActive)
+        {
+            if (_browserDialogOverlayActive == isActive)
+            {
+                return;
+            }
+
+            _browserDialogOverlayActive = isActive;
+            BrowserDialogOverlayActiveChanged?.Invoke(isActive);
         }
 
         private void RestoreKeyboardFocusIfNeeded()

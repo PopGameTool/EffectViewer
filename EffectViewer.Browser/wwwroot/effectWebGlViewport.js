@@ -50,6 +50,10 @@ export function clearTextures(canvas) {
     state.textures.clear();
 }
 
+export function setDialogOverlayActive(active) {
+    document.body.classList.toggle("effect-viewer-dialog-open", !!active);
+}
+
 export function uploadTexture(canvas, id, width, height, rgbaPixels, byteCount) {
     const state = getState(canvas);
     const gl = state.gl;
