@@ -217,8 +217,6 @@ namespace EffectViewer.Runtime.Lua
                 for (int vertexIndex = 0; vertexIndex < 3; vertexIndex++)
                 {
                     TriVertex vertex = vertices[triangleIndex * 3 + vertexIndex].ToTriVertex();
-                    vertex.Position.X += _graphics.mTransX;
-                    vertex.Position.Y += _graphics.mTransY;
                     triangles[triangleIndex][vertexIndex] = vertex;
                 }
             }

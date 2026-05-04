@@ -321,7 +321,12 @@ namespace EffectViewer.TodLib.Common
 
         public static void TodBltMatrix(EffectViewer.TodLib.Graphics.Graphics g, Image theImage, in Matrix4x4 theTransform, in Rectangle theClipRect, in SexyColor theColor, DrawMode theDrawMode, in Rectangle theSrcRect)
         {
-            if (theImage == null || theSrcRect.Width <= 0 || theSrcRect.Height <= 0)
+            if (theImage == null ||
+                theSrcRect.Width <= 0 ||
+                theSrcRect.Height <= 0 ||
+                theClipRect.Width <= 0 ||
+                theClipRect.Height <= 0 ||
+                theColor.mAlpha <= 0)
             {
                 return;
             }
@@ -345,8 +350,6 @@ namespace EffectViewer.TodLib.Common
             float u1 = theSrcRect.Right / textureWidth;
             float v1 = theSrcRect.Bottom / textureHeight;
 
-            DrawMode oldMode = g.mDrawMode;
-            g.mDrawMode = theDrawMode;
             InlineArray3TriVertex first = new();
             first[0] = BuildTriVertex(topLeft, u0, v0, theColor);
             first[1] = BuildTriVertex(topRight, u1, v0, theColor);
@@ -360,8 +363,32 @@ namespace EffectViewer.TodLib.Common
             InlineArray2<InlineArray3TriVertex> triangles = new();
             triangles[0] = first;
             triangles[1] = second;
-            g.DrawTrianglesTex(theImage, triangles);
-            g.mDrawMode = oldMode;
+
+            float oldTransX = g.mTransX;
+            float oldTransY = g.mTransY;
+            Rectangle oldClipRect = g.mClipRect;
+            SexyColor oldColor = g.mColor;
+            bool oldColorizeImages = g.mColorizeImages;
+            DrawMode oldMode = g.mDrawMode;
+            try
+            {
+                g.mTransX = 0f;
+                g.mTransY = 0f;
+                g.mClipRect = theClipRect;
+                g.mColor = SexyColor.White;
+                g.mColorizeImages = false;
+                g.mDrawMode = theDrawMode;
+                g.DrawTrianglesTex(theImage, triangles);
+            }
+            finally
+            {
+                g.mTransX = oldTransX;
+                g.mTransY = oldTransY;
+                g.mClipRect = oldClipRect;
+                g.mColor = oldColor;
+                g.mColorizeImages = oldColorizeImages;
+                g.mDrawMode = oldMode;
+            }
         }
 
         public static void SexyMatrix3Translation(ref Matrix4x4 m, float x, float y)
