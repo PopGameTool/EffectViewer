@@ -192,8 +192,8 @@ namespace EffectViewer.TodLib.Graphics
             }
             else if (command.Equals("LayerSetCharWidths", StringComparison.OrdinalIgnoreCase) &&
                      args.Count >= 3 &&
-                     stringDefines.TryGetValue(args[1], out List<string> chars) &&
-                     intDefines.TryGetValue(args[2], out List<int> widths))
+                     TryResolveStringList(args[1], stringDefines, out List<string> chars) &&
+                     TryResolveIntList(args[2], intDefines, out List<int> widths))
             {
                 int count = Math.Min(chars.Count, widths.Count);
                 for (int i = 0; i < count; i++)
@@ -252,6 +252,48 @@ namespace EffectViewer.TodLib.Graphics
                     }
                 }
             }
+        }
+
+        private static bool TryResolveStringList(
+            string value,
+            IReadOnlyDictionary<string, List<string>> defines,
+            out List<string> values)
+        {
+            if (defines.TryGetValue(value, out values))
+            {
+                return true;
+            }
+
+            string trimmed = value?.Trim() ?? string.Empty;
+            if (trimmed.StartsWith("(", StringComparison.Ordinal))
+            {
+                values = ParseStringList(trimmed);
+                return values.Count > 0;
+            }
+
+            values = null;
+            return false;
+        }
+
+        private static bool TryResolveIntList(
+            string value,
+            IReadOnlyDictionary<string, List<int>> defines,
+            out List<int> values)
+        {
+            if (defines.TryGetValue(value, out values))
+            {
+                return true;
+            }
+
+            string trimmed = value?.Trim() ?? string.Empty;
+            if (trimmed.StartsWith("(", StringComparison.Ordinal))
+            {
+                values = ParseIntList(trimmed);
+                return values.Count > 0;
+            }
+
+            values = null;
+            return false;
         }
 
         private static List<string> ParseStringList(string body)

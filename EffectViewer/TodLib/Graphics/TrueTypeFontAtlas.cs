@@ -22,6 +22,7 @@ namespace EffectViewer.TodLib.Graphics
         private readonly SKBitmap _bitmap;
         private readonly SKCanvas _canvas;
         private readonly Dictionary<char, TrueTypeGlyphData> _glyphs = [];
+        private int _fallbackWhitespaceAdvance;
         private int _nextX;
         private int _nextY;
         private int _rowHeight;
@@ -154,9 +155,24 @@ namespace EffectViewer.TodLib.Graphics
 
         public int CharWidth(char c)
         {
-            return IsInitialized && !char.IsControl(c) && ContainsGlyph(c)
-                ? MeasureLayoutAdvance(c.ToString())
-                : 0;
+            if (!IsInitialized || char.IsControl(c))
+            {
+                return 0;
+            }
+
+            if (!ContainsGlyph(c))
+            {
+                return IsAdvanceOnlyWhitespace(c) ? GetFallbackWhitespaceAdvance() : 0;
+            }
+
+            float advance = _font.MeasureText(c.ToString(), _fillPaint);
+            int measuredAdvance = MeasureLayoutAdvance(advance);
+            if (IsAdvanceOnlyWhitespace(c) && advance <= 0f)
+            {
+                return Math.Max(measuredAdvance, GetFallbackWhitespaceAdvance());
+            }
+
+            return measuredAdvance;
         }
 
         public bool TryGetGlyph(char c, out TrueTypeGlyphData glyph)
@@ -250,7 +266,7 @@ namespace EffectViewer.TodLib.Graphics
                 new Rectangle(_nextX, _nextY, glyphWidth, glyphHeight),
                 (int)MathF.Floor(bounds.Left) - leftPadding,
                 (int)MathF.Floor(bounds.Top) - topPadding,
-                Math.Max(0, MeasureLayoutAdvance(advance)));
+                MeasureGlyphAdvance(c, advance));
 
             _nextX += glyphWidth;
             _rowHeight = Math.Max(_rowHeight, glyphHeight);
@@ -267,9 +283,57 @@ namespace EffectViewer.TodLib.Graphics
             return MeasureLayoutAdvance(_font.MeasureText(text, _fillPaint));
         }
 
+        private int MeasureGlyphAdvance(char c, float advance)
+        {
+            int measuredAdvance = MeasureLayoutAdvance(advance);
+            if (IsAdvanceOnlyWhitespace(c) && advance <= 0f)
+            {
+                return Math.Max(measuredAdvance, GetFallbackWhitespaceAdvance());
+            }
+
+            return Math.Max(0, measuredAdvance);
+        }
+
         private int MeasureLayoutAdvance(float advance)
         {
             return (int)MathF.Ceiling(advance) + BorderSize * 2;
+        }
+
+        private int GetFallbackWhitespaceAdvance()
+        {
+            if (_fallbackWhitespaceAdvance > 0)
+            {
+                return _fallbackWhitespaceAdvance;
+            }
+
+            int advance = 0;
+            foreach (char c in "nma0")
+            {
+                if (!ContainsGlyph(c))
+                {
+                    continue;
+                }
+
+                float measured = _font.MeasureText(c.ToString(), _fillPaint);
+                if (measured > 0f)
+                {
+                    advance = (int)MathF.Ceiling(measured * 0.5f);
+                    break;
+                }
+            }
+
+            if (advance <= 0)
+            {
+                advance = Math.Max(1, (int)MathF.Ceiling(FontSize * 0.33f));
+            }
+
+            _fallbackWhitespaceAdvance = advance + BorderSize * 2;
+            return _fallbackWhitespaceAdvance;
+        }
+
+        private static bool IsAdvanceOnlyWhitespace(char c)
+        {
+            return char.IsWhiteSpace(c) && !char.IsControl(c);
         }
 
         private void ClearActiveAtlas()
