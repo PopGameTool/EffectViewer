@@ -456,7 +456,7 @@ Functions:
 
 ## Matrix3x3
 
-Uses row-vector convention; translation is stored in `m31` and `m32`.
+Uses column-vector convention; translation is stored in `m13` and `m23`, and the `x`/`y` aliases point to those fields. Points are evaluated as `M * [x, y, 1]^T`, so `x' = m11 * x + m12 * y + m13` and `y' = m21 * x + m22 * y + m23`. When passed to drawing, reanimation, or attachment APIs that use the project's actual 4x4 matrix type, it is converted to the internal row-vector matrix form with translation in `M41` and `M42`.
 
 Fields: `m11`, `m12`, `m13`, `m21`, `m22`, `m23`, `m31`, `m32`, `m33`; all are numbers.
 
@@ -467,7 +467,7 @@ Fields: `m11`, `m12`, `m13`, `m21`, `m22`, `m23`, `m31`, `m32`, `m33`; all are n
 | `copy_from(other)` | Matrix3x3 | Matrix3x3 | Copies from another matrix. |
 | `clone()` | none | Matrix3x3 | Clones this matrix. |
 | `translation(x, y)` | numbers | Matrix3x3 | Adds translation. |
-| `multiply(left, right)` | Matrix3x3, Matrix3x3 | Matrix3x3 | Sets this matrix to `right * left`. |
+| `multiply(left, right)` | Matrix3x3, Matrix3x3 | Matrix3x3 | Sets this matrix to `left * right`. |
 | `transpose(source)` | Matrix3x3 | Matrix3x3 | Sets this matrix to source transpose. |
 | `inverse(source)` | Matrix3x3 | Matrix3x3 | Sets this matrix to inverse; identity on failure. |
 | `extract_scale()` | none | `sx, sy` | Extracts scale. |

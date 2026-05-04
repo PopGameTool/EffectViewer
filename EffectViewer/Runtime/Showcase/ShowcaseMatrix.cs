@@ -8,7 +8,7 @@ namespace EffectViewer.Runtime.Showcase
     public sealed class ShowcaseMatrix
     {
         public ShowcaseMatrix(double m11, double m12, double m21, double m22, double x, double y)
-            : this(m11, m12, 0, m21, m22, 0, x, y, 1)
+            : this(m11, m12, x, m21, m22, y, 0, 0, 1)
         {
         }
 
@@ -42,14 +42,14 @@ namespace EffectViewer.Runtime.Showcase
         public double m33 { get; set; }
         public double x
         {
-            get => m31;
-            set => m31 = value;
+            get => m13;
+            set => m13 = value;
         }
 
         public double y
         {
-            get => m32;
-            set => m32 = value;
+            get => m23;
+            set => m23 = value;
         }
 
         public static ShowcaseMatrix Identity()
@@ -102,8 +102,8 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseMatrix translation(double x, double y)
         {
-            m31 += x;
-            m32 += y;
+            m13 += x;
+            m23 += y;
             return this;
         }
 
@@ -119,7 +119,16 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseMatrix scale(double scaleX, double scaleY)
         {
-            return new ShowcaseMatrix(m11 * scaleX, m12 * scaleX, m13, m21 * scaleY, m22 * scaleY, m23, m31, m32, m33);
+            return new ShowcaseMatrix(
+                m11 * scaleX,
+                m12 * scaleY,
+                m13,
+                m21 * scaleX,
+                m22 * scaleY,
+                m23,
+                m31,
+                m32,
+                m33);
         }
 
         public ShowcaseMatrix multiply(ShowcaseMatrix left, ShowcaseMatrix right)
@@ -164,12 +173,12 @@ namespace EffectViewer.Runtime.Showcase
 
         public double transform_x(double pointX, double pointY)
         {
-            return pointX * m11 + pointY * m21 + m31;
+            return pointX * m11 + pointY * m12 + m13;
         }
 
         public double transform_y(double pointX, double pointY)
         {
-            return pointX * m12 + pointY * m22 + m32;
+            return pointX * m21 + pointY * m22 + m23;
         }
 
         public ShowcaseVector transform(double pointX, double pointY)
@@ -181,19 +190,19 @@ namespace EffectViewer.Runtime.Showcase
         {
             return new Matrix4x4(
                 (float)m11,
-                (float)m12,
-                (float)m13,
-                0f,
                 (float)m21,
-                (float)m22,
-                (float)m23,
                 0f,
+                (float)m31,
+                (float)m12,
+                (float)m22,
+                0f,
+                (float)m32,
                 0f,
                 0f,
                 1f,
                 0f,
-                (float)m31,
-                (float)m32,
+                (float)m13,
+                (float)m23,
                 0f,
                 (float)m33);
         }
@@ -201,13 +210,13 @@ namespace EffectViewer.Runtime.Showcase
         private void FromMatrix4x4(Matrix4x4 matrix)
         {
             m11 = matrix.M11;
-            m12 = matrix.M12;
-            m13 = matrix.M13;
-            m21 = matrix.M21;
+            m12 = matrix.M21;
+            m13 = matrix.M41;
+            m21 = matrix.M12;
             m22 = matrix.M22;
-            m23 = matrix.M23;
-            m31 = matrix.M41;
-            m32 = matrix.M42;
+            m23 = matrix.M42;
+            m31 = matrix.M14;
+            m32 = matrix.M24;
             m33 = matrix.M44;
         }
     }

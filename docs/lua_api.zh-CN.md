@@ -458,7 +458,7 @@ scene.regist(context)
 
 ## Matrix3x3
 
-行向量约定，平移位于 `m31`、`m32`。
+列向量约定，平移位于 `m13`、`m23`，`x`/`y` 别名也指向这两个字段。点按 `M * [x, y, 1]^T` 计算，即 `x' = m11 * x + m12 * y + m13`，`y' = m21 * x + m22 * y + m23`。传给绘图、reanim 或 attachment 等项目实际 4x4 矩阵接口时，会转换为内部行向量矩阵，平移写入 `M41`、`M42`。
 
 字段：`m11`, `m12`, `m13`, `m21`, `m22`, `m23`, `m31`, `m32`, `m33`，均为 number。
 
@@ -469,7 +469,7 @@ scene.regist(context)
 | `copy_from(other)` | Matrix3x3 | Matrix3x3 | 从另一个矩阵复制。 |
 | `clone()` | 无 | Matrix3x3 | 克隆矩阵。 |
 | `translation(x, y)` | number | Matrix3x3 | 累加平移量。 |
-| `multiply(left, right)` | Matrix3x3, Matrix3x3 | Matrix3x3 | 对自身赋值为 `right * left`。 |
+| `multiply(left, right)` | Matrix3x3, Matrix3x3 | Matrix3x3 | 对自身赋值为 `left * right`。 |
 | `transpose(source)` | Matrix3x3 | Matrix3x3 | 对自身赋值为转置矩阵。 |
 | `inverse(source)` | Matrix3x3 | Matrix3x3 | 对自身赋值为逆矩阵，失败时为单位矩阵。 |
 | `extract_scale()` | 无 | `sx, sy` | 提取缩放。 |
