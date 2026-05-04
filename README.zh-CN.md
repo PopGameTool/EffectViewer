@@ -63,7 +63,7 @@ Samples/QuickStartShowcase.zip
 4. 在项目资源管理器中打开 `quickstart_showcase`。
 5. 在 ShowCase 编辑器里点击 `运行`。
 
-示例源文件也保留在 `Samples/QuickStartShowcase/`，方便直接查看 manifest 和 Lua 脚本。
+如果想直接查看 manifest 和 Lua 脚本，可以先解压 `Samples/QuickStartShowcase.zip`。
 
 ## 项目结构
 

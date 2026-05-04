@@ -63,7 +63,7 @@ To try it in the app:
 4. Open `quickstart_showcase` from the project tree.
 5. Click `Run` in the ShowCase editor.
 
-The sample source is also kept unpacked at `Samples/QuickStartShowcase/` so the manifest and Lua script are easy to read.
+To inspect the manifest and Lua script directly, unzip `Samples/QuickStartShowcase.zip` first.
 
 ## Project Layout
 
