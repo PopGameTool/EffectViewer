@@ -58,13 +58,13 @@ namespace EffectViewer.Runtime.Lua
             }
             catch (ScriptRuntimeException ex)
             {
-                logs.Add(ex.DecoratedMessage);
+                logs.Add(ex.DecoratedMessage ?? ex.Message);
                 scene.Dispose();
                 return new LuaRunResult(false, logs.ToList(), _world.Objects.ToList(), null);
             }
             catch (SyntaxErrorException ex)
             {
-                logs.Add(ex.DecoratedMessage);
+                logs.Add(ex.DecoratedMessage ?? ex.Message);
                 scene.Dispose();
                 return new LuaRunResult(false, logs.ToList(), _world.Objects.ToList(), null);
             }

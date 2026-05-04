@@ -7,5 +7,6 @@
   <Project Path="EffectViewer.iOS/EffectViewer.iOS.csproj">
     <Deploy />
   </Project>
+  <Project Path="EffectViewer.Tests/EffectViewer.Tests.csproj" />
   <Project Path="EffectViewer/EffectViewer.csproj" />
 </Solution>

@@ -63,7 +63,7 @@ namespace EffectViewer.Runtime.Lua
             catch (ScriptRuntimeException ex)
             {
                 _updateFailed = true;
-                _logs.Add($"update failed: {ex.DecoratedMessage}");
+                _logs.Add($"update failed: {ex.DecoratedMessage ?? ex.Message}");
             }
             catch (Exception ex)
             {
@@ -95,7 +95,7 @@ namespace EffectViewer.Runtime.Lua
             catch (ScriptRuntimeException ex)
             {
                 _drawFailed = true;
-                _logs.Add($"draw failed: {ex.DecoratedMessage}");
+                _logs.Add($"draw failed: {ex.DecoratedMessage ?? ex.Message}");
             }
             catch (Exception ex)
             {
