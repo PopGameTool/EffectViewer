@@ -25,6 +25,7 @@ namespace EffectViewer.ViewModels
         private readonly EffectProject _project;
         private bool _canUndoScriptEdit;
         private bool _canRedoScriptEdit;
+        private bool _suppressLogNavigation;
         private const string UserScriptPath = "User script";
 
         public string AssetId { get; }
@@ -61,7 +62,11 @@ namespace EffectViewer.ViewModels
         [ObservableProperty]
         private ShowcaseResourceReference _selectedResourceReference;
 
+        [ObservableProperty]
+        private bool _isShowcaseOutputVisible;
+
         public string SelectedLogDetail => SelectedLog?.Detail ?? Loc.Text("Showcase.NoLogSelected");
+        public bool IsShowcaseCodeVisible => !IsShowcaseOutputVisible;
 
         public event EventHandler<ShowcaseScriptEditRequest> ScriptEditRequested;
         public event EventHandler<ShowcaseScriptNavigationRequest> ScriptNavigationRequested;
@@ -102,6 +107,11 @@ namespace EffectViewer.ViewModels
         partial void OnScriptTextChanged(string value)
         {
             MarkDirty();
+        }
+
+        partial void OnIsShowcaseOutputVisibleChanged(bool value)
+        {
+            OnPropertyChanged(nameof(IsShowcaseCodeVisible));
         }
 
         public override async Task SaveAsync(EffectProjectService projectService, EffectProject project)
@@ -167,46 +177,57 @@ namespace EffectViewer.ViewModels
         [RelayCommand]
         private void RunScript()
         {
-            Logs.Clear();
-            SceneObjects.Clear();
-            SelectedLog = null;
+            IsShowcaseOutputVisible = true;
+            _suppressLogNavigation = true;
 
-            LuaRunResult result = _luaHost.Run(ScriptText, AddRuntimeLog);
-
-            foreach (SceneObject sceneObject in result.SceneObjects)
+            try
             {
-                SceneObjects.Add(sceneObject);
+                Logs.Clear();
+                SceneObjects.Clear();
+                SelectedLog = null;
+
+                LuaRunResult result = _luaHost.Run(ScriptText, AddRuntimeLog);
+
+                foreach (SceneObject sceneObject in result.SceneObjects)
+                {
+                    SceneObjects.Add(sceneObject);
+                }
+
+                if (PreviewFrameProvider is System.IDisposable disposableProvider)
+                {
+                    disposableProvider.Dispose();
+                }
+
+                PreviewFrameProvider = result.Success
+                    ? result.FrameProvider
+                    : null;
+
+                Status = result.Success
+                    ? Loc.Format("Showcase.RanScript", result.SceneObjects.Count)
+                    : Loc.Text("Showcase.ScriptFailed");
+
+                if (!Logs.Any())
+                {
+                    AddRuntimeLog(Status);
+                }
+
+                if (!result.Success)
+                {
+                    SelectedLog = Logs.FirstOrDefault(log => log.HasLocation) ?? Logs.FirstOrDefault();
+                }
             }
-
-            if (PreviewFrameProvider is System.IDisposable disposableProvider)
+            finally
             {
-                disposableProvider.Dispose();
-            }
-
-            PreviewFrameProvider = result.Success
-                ? result.FrameProvider
-                : null;
-
-            Status = result.Success
-                ? Loc.Format("Showcase.RanScript", result.SceneObjects.Count)
-                : Loc.Text("Showcase.ScriptFailed");
-
-            if (!Logs.Any())
-            {
-                AddRuntimeLog(Status);
-            }
-
-            if (!result.Success)
-            {
-                SelectedLog = Logs.FirstOrDefault(log => log.HasLocation) ?? Logs.FirstOrDefault();
+                _suppressLogNavigation = false;
             }
         }
 
         partial void OnSelectedLogChanged(ShowcaseLogEntry value)
         {
             OnPropertyChanged(nameof(SelectedLogDetail));
-            if (value?.HasLocation == true)
+            if (!_suppressLogNavigation && value?.HasLocation == true)
             {
+                IsShowcaseOutputVisible = false;
                 ScriptNavigationRequested?.Invoke(
                     this,
                     new ShowcaseScriptNavigationRequest(value.LineNumber, value.ColumnNumber));

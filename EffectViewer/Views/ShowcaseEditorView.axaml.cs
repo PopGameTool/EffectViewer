@@ -94,9 +94,18 @@ namespace EffectViewer.Views
         {
             SyncScriptTextFromEditor(ScriptEditor.Text);
             UpdateScriptUndoRedoState();
-            if (!_isSyncingEditorText && !_isAcceptingCompletion && HasJustTypedMemberSeparator())
+            if (_isSyncingEditorText || _isAcceptingCompletion)
+            {
+                return;
+            }
+
+            if (HasJustTypedMemberSeparator())
             {
                 ShowCompletion(membersOnly: true);
+            }
+            else if (InlineCompletionHost.IsVisible)
+            {
+                RefreshInlineCompletion();
             }
         }
 
@@ -167,6 +176,11 @@ namespace EffectViewer.Views
                 return;
             }
 
+            if (_viewModel is not null)
+            {
+                _viewModel.IsShowcaseOutputVisible = false;
+            }
+
             InsertScriptText(request.Text, request.ReplaceDocument);
         }
 
@@ -197,6 +211,11 @@ namespace EffectViewer.Views
             if (request is null)
             {
                 return;
+            }
+
+            if (_viewModel is not null)
+            {
+                _viewModel.IsShowcaseOutputVisible = false;
             }
 
             string text = GetScriptEditorText();
@@ -242,6 +261,11 @@ namespace EffectViewer.Views
 
         private void CompletionButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_viewModel is not null)
+            {
+                _viewModel.IsShowcaseOutputVisible = false;
+            }
+
             ShowCompletion(membersOnly: false);
             FocusScriptEditor();
         }
@@ -293,6 +317,7 @@ namespace EffectViewer.Views
             List<ShowcaseCompletionItem> items = _viewModel.CompletionItems
                 .Where(item => request.AllMembers ? item.IsMember : item.Matches(request.Scope))
                 .DistinctBy(item => $"{item.DisplayText}\n{item.InsertText}")
+                .Where(item => MatchesCompletionPrefix(item, request.StartOffset))
                 .OrderBy(item => item.DisplayText, StringComparer.OrdinalIgnoreCase)
                 .ToList();
             if (items.Count == 0)
@@ -302,6 +327,61 @@ namespace EffectViewer.Views
             }
 
             ShowInlineCompletion(items, request.StartOffset, ScriptEditor.CaretIndex);
+        }
+
+        private void RefreshInlineCompletion()
+        {
+            if (_viewModel?.CompletionItems is null)
+            {
+                return;
+            }
+
+            int caretOffset = Math.Clamp(ScriptEditor.CaretIndex, 0, GetScriptEditorText().Length);
+            if (caretOffset < _inlineCompletionStartOffset)
+            {
+                HideInlineCompletion();
+                return;
+            }
+
+            CompletionRequest request = CreateCompletionRequest(membersOnly: false);
+            if (request.Suppress || request.StartOffset != _inlineCompletionStartOffset)
+            {
+                HideInlineCompletion();
+                return;
+            }
+
+            List<ShowcaseCompletionItem> items = _viewModel.CompletionItems
+                .Where(item => request.AllMembers ? item.IsMember : item.Matches(request.Scope))
+                .DistinctBy(item => $"{item.DisplayText}\n{item.InsertText}")
+                .Where(item => MatchesCompletionPrefix(item, request.StartOffset))
+                .OrderBy(item => item.DisplayText, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (items.Count == 0)
+            {
+                HideInlineCompletion();
+                return;
+            }
+
+            _inlineCompletionEndOffset = caretOffset;
+            InlineCompletionList.ItemsSource = items;
+            InlineCompletionList.SelectedIndex = 0;
+            UpdateInlineCompletionPlacement();
+        }
+
+        private bool MatchesCompletionPrefix(ShowcaseCompletionItem item, int startOffset)
+        {
+            string prefix = GetCompletionPrefix(startOffset);
+            return string.IsNullOrEmpty(prefix) ||
+                item.DisplayText.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+                (item.InsertText?.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ?? false);
+        }
+
+        private string GetCompletionPrefix(int startOffset)
+        {
+            string text = GetScriptEditorText();
+            int start = Math.Clamp(startOffset, 0, text.Length);
+            int caretOffset = Math.Clamp(ScriptEditor.CaretIndex, start, text.Length);
+            return text[start..caretOffset];
         }
 
         private void ShowInlineCompletion(IEnumerable<ShowcaseCompletionItem> items, int startOffset, int endOffset)

@@ -61,86 +61,95 @@
                 BorderThickness="1"
                 CornerRadius="6"
                 Padding="14">
-        <Grid RowDefinitions="Auto,*,5,140" RowSpacing="10">
-          <StackPanel Orientation="Horizontal"
-                      HorizontalAlignment="Right"
-                      Spacing="8">
-            <Button x:Name="CompletionButton"
-                    Content="{DynamicResource Loc.Common.Complete}"
-                    Focusable="False"
-                    Click="CompletionButton_Click"
-                    MinWidth="92"/>
-            <Button Content="{DynamicResource Loc.Common.Run}"
-                    Command="{Binding RunScriptCommand}"
-                    MinWidth="92"/>
-          </StackPanel>
+          <Grid RowDefinitions="Auto,*" RowSpacing="10">
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="8">
+              <CheckBox Content="{DynamicResource Loc.Label.Output}"
+                        IsChecked="{Binding IsShowcaseOutputVisible, Mode=TwoWay}"
+                        FontSize="13"
+                        VerticalAlignment="Center"/>
+              <Button x:Name="CompletionButton"
+                      Content="{DynamicResource Loc.Common.Complete}"
+                      Focusable="False"
+                      Click="CompletionButton_Click"
+                      FontSize="13"
+                      MinWidth="72"/>
+              <Button Content="{DynamicResource Loc.Common.Run}"
+                      Command="{Binding RunScriptCommand}"
+                      FontSize="13"
+                      MinWidth="72"/>
+            </StackPanel>
 
-          <Border Grid.Row="1"
-                  MinHeight="160"
-                  Background="{DynamicResource TextControlBackground}"
-                  BorderBrush="{DynamicResource TextControlBorderBrush}"
-                  BorderThickness="1"
-                  CornerRadius="4">
-            <Grid>
-              <TextBox x:Name="ScriptEditor"
-                       Padding="8"
-                       FontFamily="{StaticResource CodeFontFamily}"
-                       FontSize="14"
-                       AcceptsReturn="True"
-                       AcceptsTab="True"
-                       TextWrapping="NoWrap"
-                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                       ScrollViewer.VerticalScrollBarVisibility="Auto"/>
-              <Border x:Name="InlineCompletionHost"
-                      ZIndex="10"
-                      IsVisible="False"
-                      Margin="8"
-                      MaxHeight="220"
-                      HorizontalAlignment="Stretch"
-                      VerticalAlignment="Top"
-                      Background="{DynamicResource TextControlBackground}"
+            <Grid Grid.Row="1">
+              <Border Background="{DynamicResource TextControlBackground}"
                       BorderBrush="{DynamicResource TextControlBorderBrush}"
                       BorderThickness="1"
-                      CornerRadius="4">
-                <ListBox x:Name="InlineCompletionList"
-                         Focusable="False"
-                         MaxHeight="220">
-                  <ListBox.Styles>
-                    <Style Selector="ListBoxItem">
-                      <Setter Property="MinHeight" Value="0"/>
-                      <Setter Property="Padding" Value="0"/>
-                      <Setter Property="Focusable" Value="False"/>
-                    </Style>
-                  </ListBox.Styles>
+                      CornerRadius="4"
+                      IsVisible="{Binding IsShowcaseCodeVisible}">
+                <Grid>
+                  <TextBox x:Name="ScriptEditor"
+                           Padding="8"
+                           FontFamily="{StaticResource AppFontFamily}"
+                           FontSize="14"
+                           AcceptsReturn="True"
+                           AcceptsTab="True"
+                           TextWrapping="NoWrap"
+                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                           ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                  <Border x:Name="InlineCompletionHost"
+                          ZIndex="10"
+                          IsVisible="False"
+                          Margin="8"
+                          MaxHeight="220"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Top"
+                          Background="{DynamicResource TextControlBackground}"
+                          BorderBrush="{DynamicResource TextControlBorderBrush}"
+                          BorderThickness="1"
+                          CornerRadius="4">
+                    <ListBox x:Name="InlineCompletionList"
+                             Focusable="False"
+                             MaxHeight="220">
+                      <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                          <Setter Property="MinHeight" Value="0"/>
+                          <Setter Property="Padding" Value="0"/>
+                          <Setter Property="Focusable" Value="False"/>
+                        </Style>
+                      </ListBox.Styles>
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ShowcaseCompletionItem">
+                          <TextBlock Text="{Binding DisplayText}"
+                                     Padding="10,0"
+                                     TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                  </Border>
+                </Grid>
+              </Border>
+
+              <Grid RowDefinitions="Auto,*"
+                    RowSpacing="8"
+                    IsVisible="{Binding IsShowcaseOutputVisible}">
+                <TextBlock Text="{Binding Status}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding Logs}"
+                         SelectedItem="{Binding SelectedLog}">
                   <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:ShowcaseCompletionItem">
-                      <TextBlock Text="{Binding DisplayText}"
-                                 Padding="10,0"
+                    <DataTemplate x:DataType="vm:ShowcaseLogEntry">
+                      <TextBlock Text="{Binding Summary}"
                                  TextTrimming="CharacterEllipsis"/>
                     </DataTemplate>
                   </ListBox.ItemTemplate>
                 </ListBox>
-              </Border>
+              </Grid>
             </Grid>
-          </Border>
-
-          <GridSplitter Grid.Row="2"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Stretch"
-                        ResizeDirection="Rows"
-                        Classes="layout-splitter horizontal-splitter"/>
-          <ListBox Grid.Row="3"
-                   ItemsSource="{Binding Logs}"
-                   SelectedItem="{Binding SelectedLog}">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:ShowcaseLogEntry">
-                <TextBlock Text="{Binding Summary}"
-                           TextTrimming="CharacterEllipsis"/>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </Grid>
-      </Border>
+          </Grid>
+        </Border>
       </controls:DockablePanelView.SideContent>
     </controls:DockablePanelView>
   </Grid>

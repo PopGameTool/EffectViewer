@@ -13,7 +13,6 @@
 
     <Application.Resources>
         <media:FontFamily x:Key="AppFontFamily">avares://EffectViewer/Assets/Fonts#MiSans</media:FontFamily>
-        <media:FontFamily x:Key="CodeFontFamily">Consolas,avares://EffectViewer/Assets/Fonts#MiSans</media:FontFamily>
     </Application.Resources>
 
     <Application.Styles>
@@ -25,6 +24,9 @@
             <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         </Style>
         <Style Selector="Button">
+            <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+        </Style>
+        <Style Selector="CheckBox">
             <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         </Style>
         <Style Selector="ComboBox">
