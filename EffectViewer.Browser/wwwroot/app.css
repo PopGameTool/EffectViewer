@@ -1,9 +1,21 @@
 ﻿/* HTML styles for the splash screen */
+:root {
+    --splash-background: #FFFFFF;
+}
+
+html,
+body,
+#out {
+    width: 100%;
+    height: 100%;
+    background: var(--splash-background);
+}
+
 .avalonia-splash {
     position: absolute;
     height: 100%;
     width: 100%;
-    background: white;
+    background: var(--splash-background);
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     justify-content: center;
     align-items: center;
@@ -13,15 +25,14 @@
 
 /* Light theme styles */
 @media (prefers-color-scheme: light) {
-    .avalonia-splash {
-        background: white;
+    :root {
+        --splash-background: #FFFFFF;
     }
-
 }
 
 @media (prefers-color-scheme: dark) {
-    .avalonia-splash {
-        background: #212121;
+    :root {
+        --splash-background: #212121;
     }
 }
 
