@@ -98,10 +98,16 @@
                       CornerRadius="4">
                 <ListBox x:Name="InlineCompletionList"
                          MaxHeight="220">
+                  <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                      <Setter Property="MinHeight" Value="0"/>
+                      <Setter Property="Padding" Value="0"/>
+                    </Style>
+                  </ListBox.Styles>
                   <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="cc:ICompletionData">
                       <TextBlock Text="{Binding Text}"
-                                 Padding="10,8"
+                                 Padding="10,0"
                                  TextTrimming="CharacterEllipsis"/>
                     </DataTemplate>
                   </ListBox.ItemTemplate>
