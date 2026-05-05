@@ -3,6 +3,7 @@
              xmlns:controls="using:EffectViewer.Controls"
              xmlns:vm="using:EffectViewer.ViewModels"
              xmlns:ae="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+             xmlns:cc="clr-namespace:AvaloniaEdit.CodeCompletion;assembly=AvaloniaEdit"
              x:Class="EffectViewer.Views.ShowcaseEditorView"
              x:DataType="vm:ShowcaseEditorViewModel">
   <Grid RowDefinitions="Auto,*" Margin="24" RowSpacing="16">
@@ -74,17 +75,39 @@
                   BorderBrush="{DynamicResource TextControlBorderBrush}"
                   BorderThickness="1"
                   CornerRadius="4">
-            <ae:TextEditor x:Name="ScriptEditor"
-                           Padding="8"
-                           FontFamily="{StaticResource CodeFontFamily}"
-                           FontSize="14"
-                           Focusable="True"
-                           IsReadOnly="False"
-                           IsTabStop="True"
-                           ShowLineNumbers="True"
-                           WordWrap="False"
-                           HorizontalScrollBarVisibility="Auto"
-                           VerticalScrollBarVisibility="Auto"/>
+            <Grid>
+              <ae:TextEditor x:Name="ScriptEditor"
+                             Padding="8"
+                             FontFamily="{StaticResource CodeFontFamily}"
+                             FontSize="14"
+                             IsReadOnly="False"
+                             ShowLineNumbers="True"
+                             WordWrap="False"
+                             HorizontalScrollBarVisibility="Auto"
+                             VerticalScrollBarVisibility="Auto"/>
+              <Border x:Name="InlineCompletionHost"
+                      ZIndex="10"
+                      IsVisible="False"
+                      Margin="8"
+                      MaxHeight="220"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Top"
+                      Background="{DynamicResource TextControlBackground}"
+                      BorderBrush="{DynamicResource TextControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4">
+                <ListBox x:Name="InlineCompletionList"
+                         MaxHeight="220">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="cc:ICompletionData">
+                      <TextBlock Text="{Binding Text}"
+                                 Padding="10,8"
+                                 TextTrimming="CharacterEllipsis"/>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </Border>
+            </Grid>
           </Border>
 
           <GridSplitter Grid.Row="2"

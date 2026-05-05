@@ -2,13 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.VisualTree;
+using AvaloniaEdit;
 using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
+using AvaloniaEdit.Rendering;
 using AvaloniaEdit.Search;
 using EffectViewer.Localization;
 using EffectViewer.ViewModels;
@@ -18,10 +22,17 @@ namespace EffectViewer.Views
     public partial class ShowcaseEditorView : UserControl
     {
         private ShowcaseEditorViewModel _viewModel;
-        private CompletionWindow _completionWindow;
         private bool _isSyncingEditorText;
         private TypingUndoGroupKind? _typingUndoGroupKind;
         private bool _typingUndoGroupHasChanges;
+        private bool _isAcceptingCompletion;
+        private int _inlineCompletionStartOffset;
+        private int _inlineCompletionEndOffset;
+
+        private const double InlineCompletionMargin = 8;
+        private const double InlineCompletionVerticalGap = 2;
+        private const double InlineCompletionMaxHeight = 220;
+        private const double InlineCompletionMinimumHeight = 72;
 
         public ShowcaseEditorView()
         {
@@ -46,11 +57,15 @@ namespace EffectViewer.Views
             ScriptEditor.TextChanged += ScriptEditor_TextChanged;
             ScriptEditor.TextArea.TextEntering += ScriptEditor_TextEntering;
             ScriptEditor.TextArea.TextEntered += ScriptEditor_TextEntered;
+            ScriptEditor.TextArea.TextView.ScrollOffsetChanged += ScriptEditor_TextViewChanged;
+            ScriptEditor.TextArea.TextView.VisualLinesChanged += ScriptEditor_TextViewChanged;
             ScriptEditor.TextArea.AddHandler(InputElement.KeyDownEvent, ScriptEditor_KeyDown, RoutingStrategies.Tunnel);
             ScriptEditor.TextArea.AddHandler(InputElement.PointerPressedEvent, ScriptEditor_PointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
             ScriptEditor.KeyDown += ScriptEditor_KeyDown;
             ScriptEditor.AddHandler(InputElement.PointerPressedEvent, ScriptEditor_PointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+            ScriptEditor.SizeChanged += ScriptEditor_SizeChanged;
             ScriptEditor.LostFocus += ScriptEditor_LostFocus;
+            InlineCompletionList.AddHandler(InputElement.TappedEvent, InlineCompletionList_Tapped, RoutingStrategies.Bubble, handledEventsToo: true);
             SearchPanel.Install(ScriptEditor);
             ScriptEditor.Watermark = LocalizationManager.Instance.Text("Placeholder.ShowcaseScript");
             LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
@@ -145,7 +160,7 @@ namespace EffectViewer.Views
 
         private void OnScriptUndoRequested(object sender, EventArgs e)
         {
-            _completionWindow?.Close();
+            HideInlineCompletion();
             EndTypingUndoGroup();
             if (ScriptEditor.CanUndo)
             {
@@ -157,7 +172,7 @@ namespace EffectViewer.Views
 
         private void OnScriptRedoRequested(object sender, EventArgs e)
         {
-            _completionWindow?.Close();
+            HideInlineCompletion();
             EndTypingUndoGroup();
             if (ScriptEditor.CanRedo)
             {
@@ -196,6 +211,12 @@ namespace EffectViewer.Views
                 EndTypingUndoGroup();
             }
 
+            if (InlineCompletionHost.IsVisible && HandleInlineCompletionKey(e))
+            {
+                e.Handled = true;
+                return;
+            }
+
             bool wantsCompletion = e.Key == Key.Space &&
                 (e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta));
             if (!wantsCompletion)
@@ -210,12 +231,12 @@ namespace EffectViewer.Views
 
         private void ScriptEditor_PointerPressed(object sender, PointerPressedEventArgs e)
         {
+            HideInlineCompletion();
             FocusScriptEditor();
         }
 
         private void FocusScriptEditor()
         {
-            ScriptEditor.Focus();
             ScriptEditor.TextArea.Focus();
         }
 
@@ -249,6 +270,16 @@ namespace EffectViewer.Views
         private void ScriptEditor_LostFocus(object sender, RoutedEventArgs e)
         {
             EndTypingUndoGroup();
+        }
+
+        private void ScriptEditor_TextViewChanged(object sender, EventArgs e)
+        {
+            UpdateInlineCompletionPlacement();
+        }
+
+        private void ScriptEditor_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            UpdateInlineCompletionPlacement();
         }
 
         private void StartOrContinueTypingUndoGroup(TypingUndoGroupKind kind)
@@ -334,24 +365,208 @@ namespace EffectViewer.Views
                 .ToList();
             if (items.Count == 0)
             {
+                HideInlineCompletion();
                 return;
             }
 
-            _completionWindow?.Close();
-            _completionWindow = new CompletionWindow(ScriptEditor.TextArea)
-            {
-                StartOffset = request.StartOffset,
-                EndOffset = ScriptEditor.CaretOffset,
-                CloseWhenCaretAtBeginning = false
-            };
+            ShowInlineCompletion(items, request.StartOffset, ScriptEditor.CaretOffset);
+        }
 
-            foreach (ShowcaseCompletionItem item in items)
+        private void ShowInlineCompletion(IEnumerable<ShowcaseCompletionItem> items, int startOffset, int endOffset)
+        {
+            List<ShowcaseCompletionData> completionData = items
+                .Select(item => new ShowcaseCompletionData(item))
+                .ToList();
+            InlineCompletionList.ItemsSource = completionData;
+            InlineCompletionList.SelectedIndex = completionData.Count > 0 ? 0 : -1;
+            _inlineCompletionStartOffset = startOffset;
+            _inlineCompletionEndOffset = endOffset;
+            InlineCompletionHost.IsVisible = completionData.Count > 0;
+            UpdateInlineCompletionPlacement();
+        }
+
+        private void HideInlineCompletion()
+        {
+            InlineCompletionHost.IsVisible = false;
+            InlineCompletionList.ItemsSource = null;
+            InlineCompletionList.SelectedIndex = -1;
+        }
+
+        private void InlineCompletionList_Tapped(object sender, TappedEventArgs e)
+        {
+            if (TryGetInlineCompletionData(e, out ICompletionData completionData))
             {
-                _completionWindow.CompletionList.CompletionData.Add(new ShowcaseCompletionData(item));
+                AcceptInlineCompletion(completionData, e);
+                e.Handled = true;
+            }
+        }
+
+        private bool TryGetInlineCompletionData(TappedEventArgs e, out ICompletionData completionData)
+        {
+            Point position = e.GetPosition(InlineCompletionList);
+            foreach (Visual visual in InlineCompletionList.GetVisualsAt(position))
+            {
+                if (TryGetCompletionDataFromVisual(visual, out completionData))
+                {
+                    return true;
+                }
             }
 
-            _completionWindow.Closed += (_, _) => _completionWindow = null;
-            _completionWindow.Show();
+            completionData = null;
+            return false;
+        }
+
+        private static bool TryGetCompletionDataFromVisual(Visual visual, out ICompletionData completionData)
+        {
+            for (; visual is not null; visual = visual.GetVisualParent())
+            {
+                if (visual is Control { DataContext: ICompletionData item })
+                {
+                    completionData = item;
+                    return true;
+                }
+            }
+
+            completionData = null;
+            return false;
+        }
+
+        private void AcceptInlineCompletion(ICompletionData completionData, EventArgs e)
+        {
+            if (_isAcceptingCompletion || completionData is null || ScriptEditor.Document is null)
+            {
+                return;
+            }
+
+            _isAcceptingCompletion = true;
+            try
+            {
+                int endOffset = Math.Clamp(ScriptEditor.CaretOffset, _inlineCompletionStartOffset, ScriptEditor.Document.TextLength);
+                _inlineCompletionEndOffset = Math.Max(_inlineCompletionEndOffset, endOffset);
+                ISegment segment = new AnchorSegment(
+                    ScriptEditor.Document,
+                    _inlineCompletionStartOffset,
+                    Math.Max(0, _inlineCompletionEndOffset - _inlineCompletionStartOffset));
+                HideInlineCompletion();
+                completionData.Complete(ScriptEditor.TextArea, segment, e);
+                FocusScriptEditor();
+                UpdateScriptUndoRedoState();
+            }
+            finally
+            {
+                _isAcceptingCompletion = false;
+            }
+        }
+
+        private bool HandleInlineCompletionKey(KeyEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case Key.Escape:
+                    HideInlineCompletion();
+                    return true;
+                case Key.Up:
+                    MoveInlineCompletionSelection(-1);
+                    return true;
+                case Key.Down:
+                    MoveInlineCompletionSelection(1);
+                    return true;
+                case Key.Enter:
+                case Key.Tab:
+                    if (InlineCompletionList.SelectedItem is ICompletionData completionData)
+                    {
+                        AcceptInlineCompletion(completionData, e);
+                    }
+
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private void MoveInlineCompletionSelection(int direction)
+        {
+            if (InlineCompletionList.ItemsSource is not ICollection<ShowcaseCompletionData> items || items.Count == 0)
+            {
+                return;
+            }
+
+            int selectedIndex = InlineCompletionList.SelectedIndex >= 0 ? InlineCompletionList.SelectedIndex : 0;
+            InlineCompletionList.SelectedIndex = Math.Clamp(selectedIndex + direction, 0, items.Count - 1);
+        }
+
+        private void UpdateInlineCompletionPlacement()
+        {
+            if (!InlineCompletionHost.IsVisible ||
+                ScriptEditor.Document is null ||
+                InlineCompletionHost.GetVisualParent() is not Control parent)
+            {
+                return;
+            }
+
+            TextView textView = ScriptEditor.TextArea.TextView;
+            textView.EnsureVisualLines();
+
+            int caretOffset = Math.Clamp(ScriptEditor.CaretOffset, 0, ScriptEditor.Document.TextLength);
+            TextLocation location = ScriptEditor.Document.GetLocation(caretOffset);
+            if (TryGetInlineCompletionTop(textView, location, parent, out double top, out double parentHeight))
+            {
+                double availableHeight = parentHeight - top - InlineCompletionMargin;
+                if (availableHeight < InlineCompletionMinimumHeight && TryScrollInlineCompletionLineIntoRoom(location))
+                {
+                    textView.EnsureVisualLines();
+                    TryGetInlineCompletionTop(textView, location, parent, out top, out parentHeight);
+                    availableHeight = parentHeight - top - InlineCompletionMargin;
+                }
+
+                InlineCompletionHost.Margin = new Thickness(
+                    InlineCompletionMargin,
+                    Math.Max(InlineCompletionMargin, top),
+                    InlineCompletionMargin,
+                    InlineCompletionMargin);
+                InlineCompletionHost.MaxHeight = Math.Min(
+                    InlineCompletionMaxHeight,
+                    Math.Max(InlineCompletionMinimumHeight, availableHeight));
+            }
+        }
+
+        private bool TryGetInlineCompletionTop(
+            TextView textView,
+            TextLocation location,
+            Control parent,
+            out double top,
+            out double parentHeight)
+        {
+            TextViewPosition position = new(location);
+            Point lineBottom = textView.GetVisualPosition(position, VisualYPosition.LineBottom);
+            Point? parentPoint = textView.TranslatePoint(lineBottom, parent);
+
+            parentHeight = parent.Bounds.Height;
+            if (parentPoint is null || double.IsNaN(parentHeight) || parentHeight <= 0)
+            {
+                top = InlineCompletionMargin;
+                return false;
+            }
+
+            top = parentPoint.Value.Y + InlineCompletionVerticalGap;
+            return true;
+        }
+
+        private bool TryScrollInlineCompletionLineIntoRoom(TextLocation location)
+        {
+            if (ScriptEditor.ViewportHeight <= InlineCompletionMinimumHeight + InlineCompletionMargin * 2)
+            {
+                return false;
+            }
+
+            double lineBottomOffset = ScriptEditor.ViewportHeight - InlineCompletionMinimumHeight - InlineCompletionMargin;
+            ScriptEditor.ScrollTo(
+                location.Line,
+                location.Column,
+                VisualYPosition.LineBottom,
+                lineBottomOffset,
+                minimumScrollFraction: 0);
+            return true;
         }
 
         private CompletionRequest CreateCompletionRequest(bool membersOnly)
