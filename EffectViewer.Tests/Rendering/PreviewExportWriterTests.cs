@@ -99,6 +99,34 @@ public sealed class PreviewExportWriterTests
     }
 
     [Fact]
+    public void WriteWebpCapturesAnimationFrames()
+    {
+        TestTextureSource textures = new TestTextureSource()
+            .Add("red", 1, 1, [255, 0, 0, 255]);
+        PreviewExportOptions options = new()
+        {
+            Format = PreviewExportFormat.Webp,
+            ReferenceWidth = 8,
+            ReferenceHeight = 6,
+            Fps = 4,
+            DurationSeconds = 0.5
+        };
+
+        using MemoryStream stream = new();
+        PreviewExportWriter.WriteWebp(
+            stream,
+            _ => CreateSpriteFrame("red", new Vector2(4, 3), new Vector2(2, 2)),
+            textures,
+            options);
+
+        byte[] bytes = stream.ToArray();
+        Assert.Equal("RIFF", System.Text.Encoding.ASCII.GetString(bytes, 0, 4));
+        Assert.Equal("WEBP", System.Text.Encoding.ASCII.GetString(bytes, 8, 4));
+        using Image<Rgba32> image = Image.Load<Rgba32>(bytes);
+        Assert.Equal(2, image.Frames.Count);
+    }
+
+    [Fact]
     public void PreviewExportOptionsClampUnsafeValuesAndFrameRanges()
     {
         PreviewExportOptions options = new()
