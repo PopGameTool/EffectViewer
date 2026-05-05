@@ -16,6 +16,7 @@
       "Export": "Export",
       "Keyframe": "Keyframe",
       "Open": "Open",
+      "Ok": "OK",
       "Insert": "Insert",
       "Rename": "Rename",
       "Remove": "Remove",
@@ -300,6 +301,14 @@
       "ImportResourcePakAction": "Import Resource Pak",
       "OpenProjectAction": "Open Project",
       "Title": "EffectViewer"
+    },
+    "About": {
+      "Author": "Author: {0} and {1}",
+      "Description": "Cross-platform editor for inspecting and staging effect assets.",
+      "MenuItem": "About EffectViewer...",
+      "ShowMainWindow": "Show Main Window",
+      "Title": "About EffectViewer",
+      "Version": "Version {0}"
     },
     "EffectEditor": {
       "AssetIdEmpty": "Asset ID cannot be empty.",

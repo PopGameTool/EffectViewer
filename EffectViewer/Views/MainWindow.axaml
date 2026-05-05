@@ -6,11 +6,167 @@
         xmlns:views="using:EffectViewer.Views"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="EffectViewer.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
         Icon="/Assets/effectviewer-icon.ico"
         Title="EffectViewer"
         Width="1200"
         Height="760"
         MinWidth="960"
         MinHeight="620">
+        <NativeMenu.Menu>
+                <NativeMenu>
+                        <NativeMenuItem Header="{DynamicResource Loc.Menu.Project}">
+                                <NativeMenu>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.NewProject}"
+                                                        Command="{Binding ShowNewProjectDialogCommand}"
+                                                        Gesture="Meta+Shift+N"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.OpenProject}"
+                                                        Command="{Binding ShowOpenProjectDialogCommand}"
+                                                        Gesture="Meta+O"/>
+                                        <NativeMenuItemSeparator/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.SaveProject}"
+                                                        Command="{Binding SaveProjectCommand}"
+                                                        Gesture="Meta+Alt+S"
+                                                        IsEnabled="{Binding CanSaveCurrentProject}"/>
+                                        <NativeMenuItemSeparator/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.ImportProjectZip}"
+                                                        Command="{Binding RequestImportProjectZipCommand}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.ExportProjectZip}"
+                                                        Command="{Binding RequestExportProjectZipCommand}"
+                                                        IsEnabled="{Binding CanSaveCurrentProject}"/>
+                                </NativeMenu>
+                        </NativeMenuItem>
+                        <NativeMenuItem Header="{DynamicResource Loc.Menu.Resource}">
+                                <NativeMenu>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.NewResource}"
+                                                        Command="{Binding ShowNewResourceDialogCommand}"
+                                                        Gesture="Meta+N"
+                                                        IsEnabled="{Binding CanModifyCurrentProject}"/>
+                                        <NativeMenuItemSeparator/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.ImportResourceFile}"
+                                                        Command="{Binding RequestImportResourceFileCommand}"
+                                                        Gesture="Meta+I"
+                                                        IsEnabled="{Binding CanModifyCurrentProject}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.ImportResourceFolder}"
+                                                        Command="{Binding RequestImportResourceFolderCommand}"
+                                                        Gesture="Meta+Shift+I"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.ImportResourcePak}"
+                                                        Command="{Binding RequestImportResourcePakCommand}"/>
+                                        <NativeMenuItemSeparator/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.DeleteResource}"
+                                                        Command="{Binding ShowDeleteSelectedResourceDialogCommand}"
+                                                        Gesture="Meta+Delete"
+                                                        IsEnabled="{Binding CanDeleteSelectedResource}"/>
+                                </NativeMenu>
+                        </NativeMenuItem>
+                        <NativeMenuItem Header="{DynamicResource Loc.Menu.Edit}">
+                                <NativeMenu>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.Undo}"
+                                                        Command="{Binding UndoSelectedEditorCommand}"
+                                                        Gesture="Meta+Z"
+                                                        IsEnabled="{Binding CanUndoSelectedEditor}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.Redo}"
+                                                        Command="{Binding RedoSelectedEditorCommand}"
+                                                        Gesture="Meta+Y"
+                                                        IsEnabled="{Binding CanRedoSelectedEditor}"/>
+                                </NativeMenu>
+                        </NativeMenuItem>
+                        <NativeMenuItem Header="{DynamicResource Loc.Menu.File}">
+                                <NativeMenu>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.SaveCurrentFile}"
+                                                        Command="{Binding SaveFileCommand}"
+                                                        Gesture="Meta+S"
+                                                        IsEnabled="{Binding CanSaveSelectedFile}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.SaveAllFiles}"
+                                                        Command="{Binding SaveAllEditorsCommand}"
+                                                        Gesture="Meta+Shift+S"
+                                                        IsEnabled="{Binding CanSaveAnyEditor}"/>
+                                        <NativeMenuItemSeparator/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.ExportCurrentFile}"
+                                                        Command="{Binding RequestExportFileCommand}"
+                                                        Gesture="Meta+Shift+E"
+                                                        IsEnabled="{Binding CanExportSelectedFile}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.ExportPreview}"
+                                                        Command="{Binding ShowPreviewExportDialogCommand}"
+                                                        Gesture="Meta+E"
+                                                        IsEnabled="{Binding CanExportSelectedPreview}"/>
+                                </NativeMenu>
+                        </NativeMenuItem>
+                        <NativeMenuItem Header="{DynamicResource Loc.Menu.Tabs}">
+                                <NativeMenu>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.PreviousTab}"
+                                                        Command="{Binding SelectPreviousEditorCommand}"
+                                                        Gesture="Meta+Shift+Tab"
+                                                        IsEnabled="{Binding CanSelectPreviousEditor}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.NextTab}"
+                                                        Command="{Binding SelectNextEditorCommand}"
+                                                        Gesture="Meta+Tab"
+                                                        IsEnabled="{Binding CanSelectNextEditor}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.MoveTabLeft}"
+                                                        Command="{Binding MoveEditorLeftCommand}"
+                                                        CommandParameter="{Binding SelectedEditor}"
+                                                        Gesture="Meta+Alt+Left"
+                                                        IsEnabled="{Binding CanMoveSelectedEditorLeft}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.MoveTabRight}"
+                                                        Command="{Binding MoveEditorRightCommand}"
+                                                        CommandParameter="{Binding SelectedEditor}"
+                                                        Gesture="Meta+Alt+Right"
+                                                        IsEnabled="{Binding CanMoveSelectedEditorRight}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.TogglePinTab}"
+                                                        Command="{Binding ToggleEditorPinnedCommand}"
+                                                        CommandParameter="{Binding SelectedEditor}"
+                                                        IsEnabled="{Binding HasOpenEditors}"/>
+                                        <NativeMenuItemSeparator/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.CloseCurrentTab}"
+                                                        Command="{Binding CloseCurrentEditorCommand}"
+                                                        Gesture="Meta+W"
+                                                        IsEnabled="{Binding CanCloseSelectedEditor}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.CloseOtherTabs}"
+                                                        Command="{Binding CloseOtherEditorsCommand}"
+                                                        CommandParameter="{Binding SelectedEditor}"
+                                                        IsEnabled="{Binding CanCloseOtherEditors}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.CloseTabsToLeft}"
+                                                        Command="{Binding CloseEditorsToLeftCommand}"
+                                                        CommandParameter="{Binding SelectedEditor}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.CloseTabsToRight}"
+                                                        Command="{Binding CloseEditorsToRightCommand}"
+                                                        CommandParameter="{Binding SelectedEditor}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.CloseSavedTabs}"
+                                                        Command="{Binding CloseSavedEditorsCommand}"
+                                                        IsEnabled="{Binding CanCloseSavedEditors}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.CloseAllTabs}"
+                                                        Command="{Binding CloseAllEditorTabsCommand}"
+                                                        Gesture="Meta+Shift+W"
+                                                        IsEnabled="{Binding HasClosableEditors}"/>
+                                </NativeMenu>
+                        </NativeMenuItem>
+                        <NativeMenuItem Header="{DynamicResource Loc.Menu.View}">
+                                <NativeMenu>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.ProjectExplorer}"
+                                                        Command="{Binding ToggleProjectExplorerCommand}"
+                                                        Gesture="Meta+B"/>
+                                        <NativeMenuItemSeparator/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.DockExplorerLeft}"
+                                                        Command="{Binding DockProjectExplorerLeftCommand}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.DockExplorerRight}"
+                                                        Command="{Binding DockProjectExplorerRightCommand}"/>
+                                        <NativeMenuItemSeparator/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.ResetLayout}"
+                                                        Command="{Binding ResetLayoutCommand}"/>
+                                </NativeMenu>
+                        </NativeMenuItem>
+                        <NativeMenuItem Header="{DynamicResource Loc.Menu.Language}">
+                                <NativeMenu>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Language.English}"
+                                                        Command="{Binding SetEnglishLanguageCommand}"/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Language.ChineseSimplified}"
+                                                        Command="{Binding SetChineseLanguageCommand}"/>
+                                        <NativeMenuItemSeparator/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.LoadLanguageFile}"
+                                                        Command="{Binding RequestLoadLanguageFileCommand}"/>
+                                </NativeMenu>
+                        </NativeMenuItem>
+                </NativeMenu>
+        </NativeMenu.Menu>
         <views:MainView />
 </Window>

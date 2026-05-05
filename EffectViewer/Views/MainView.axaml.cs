@@ -148,8 +148,11 @@ namespace EffectViewer.Views
                 _observedViewModel.ImportResourceFileRequested -= OnImportResourceFileRequested;
                 _observedViewModel.ImportResourceFolderRequested -= OnImportResourceFolderRequested;
                 _observedViewModel.ImportResourcePakRequested -= OnImportResourcePakRequested;
+                _observedViewModel.ImportProjectZipRequested -= OnImportProjectZipRequested;
+                _observedViewModel.ExportProjectZipRequested -= OnExportProjectZipRequested;
                 _observedViewModel.ExportFileRequested -= OnExportFileRequested;
                 _observedViewModel.PreviewExportRequested -= OnPreviewExportRequested;
+                _observedViewModel.LoadLanguageFileRequested -= OnLoadLanguageFileRequested;
                 _observedViewModel.RecentlyOpenedProjectItems.CollectionChanged -= OnRecentlyOpenedProjectItemsChanged;
             }
 
@@ -160,8 +163,11 @@ namespace EffectViewer.Views
                 _observedViewModel.ImportResourceFileRequested += OnImportResourceFileRequested;
                 _observedViewModel.ImportResourceFolderRequested += OnImportResourceFolderRequested;
                 _observedViewModel.ImportResourcePakRequested += OnImportResourcePakRequested;
+                _observedViewModel.ImportProjectZipRequested += OnImportProjectZipRequested;
+                _observedViewModel.ExportProjectZipRequested += OnExportProjectZipRequested;
                 _observedViewModel.ExportFileRequested += OnExportFileRequested;
                 _observedViewModel.PreviewExportRequested += OnPreviewExportRequested;
+                _observedViewModel.LoadLanguageFileRequested += OnLoadLanguageFileRequested;
                 _observedViewModel.RecentlyOpenedProjectItems.CollectionChanged += OnRecentlyOpenedProjectItemsChanged;
             }
 
@@ -883,6 +889,16 @@ namespace EffectViewer.Views
 
         private async void ImportProjectMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
+            await ImportProjectZipFromPickerAsync();
+        }
+
+        private async void OnImportProjectZipRequested(object sender, System.EventArgs e)
+        {
+            await ImportProjectZipFromPickerAsync();
+        }
+
+        private async Task ImportProjectZipFromPickerAsync()
+        {
             TopLevel topLevel = TopLevel.GetTopLevel(this);
             if (topLevel?.StorageProvider is null || DataContext is not MainViewModel viewModel)
             {
@@ -940,6 +956,16 @@ namespace EffectViewer.Views
         }
 
         private async void ExportProjectMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            await ExportProjectZipFromPickerAsync();
+        }
+
+        private async void OnExportProjectZipRequested(object sender, System.EventArgs e)
+        {
+            await ExportProjectZipFromPickerAsync();
+        }
+
+        private async Task ExportProjectZipFromPickerAsync()
         {
             TopLevel topLevel = TopLevel.GetTopLevel(this);
             if (topLevel?.StorageProvider is null || DataContext is not MainViewModel viewModel)
@@ -1056,6 +1082,16 @@ namespace EffectViewer.Views
         }
 
         private async void LoadLanguageFileMenuItem_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            await LoadLanguageFileFromPickerAsync();
+        }
+
+        private async void OnLoadLanguageFileRequested(object sender, System.EventArgs e)
+        {
+            await LoadLanguageFileFromPickerAsync();
+        }
+
+        private async Task LoadLanguageFileFromPickerAsync()
         {
             TopLevel topLevel = TopLevel.GetTopLevel(this);
             if (topLevel?.StorageProvider is null || DataContext is not MainViewModel viewModel)

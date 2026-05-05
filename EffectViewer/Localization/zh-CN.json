@@ -16,6 +16,7 @@
       "Export": "导出",
       "Keyframe": "关键帧",
       "Open": "打开",
+      "Ok": "确定",
       "Insert": "插入",
       "Rename": "重命名",
       "Remove": "移除",
@@ -285,7 +286,7 @@
     "Welcome": {
       "AuthorGpt": "GPT5.5",
       "AuthorTitle": "作者",
-      "AuthorYingFengTingYu": "YingFengTingYu",
+      "AuthorYingFengTingYu": "萌新迎风听雨",
       "CreateProjectAction": "创建项目",
       "CreatePrompt": "还没有加载项目。请先创建一个新项目，或打开已有项目继续编辑。",
       "Description": "用于浏览、编辑和预览效果资源的桌面工具。",
@@ -300,6 +301,14 @@
       "ImportResourcePakAction": "导入资源 Pak",
       "OpenProjectAction": "打开项目",
       "Title": "EffectViewer"
+    },
+    "About": {
+      "Author": "作者：{0} 和 {1}",
+      "Description": "跨平台特效资源查看和编辑工具。",
+      "MenuItem": "关于 EffectViewer...",
+      "ShowMainWindow": "显示主窗口",
+      "Title": "关于 EffectViewer",
+      "Version": "版本 {0}"
     },
     "EffectEditor": {
       "AssetIdEmpty": "资源 ID 不能为空。",

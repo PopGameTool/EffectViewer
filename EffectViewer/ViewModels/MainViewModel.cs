@@ -291,8 +291,11 @@ namespace EffectViewer.ViewModels
         public event EventHandler ImportResourceFileRequested;
         public event EventHandler ImportResourceFolderRequested;
         public event EventHandler ImportResourcePakRequested;
+        public event EventHandler ImportProjectZipRequested;
+        public event EventHandler ExportProjectZipRequested;
         public event EventHandler ExportFileRequested;
         public event EventHandler PreviewExportRequested;
+        public event EventHandler LoadLanguageFileRequested;
 
         private static LocalizationManager Loc => LocalizationManager.Instance;
         private static string T(string key) => Loc.Text(key);
@@ -705,6 +708,24 @@ namespace EffectViewer.ViewModels
             {
                 EndProjectTransfer();
             }
+        }
+
+        [RelayCommand]
+        private void RequestImportProjectZip()
+        {
+            ImportProjectZipRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        [RelayCommand]
+        private void RequestExportProjectZip()
+        {
+            if (!CanSaveCurrentProject)
+            {
+                StatusText = T("Status.NoWritableProjectLoaded");
+                return;
+            }
+
+            ExportProjectZipRequested?.Invoke(this, EventArgs.Empty);
         }
 
         [RelayCommand]
@@ -1126,6 +1147,12 @@ namespace EffectViewer.ViewModels
 
             IsPreviewExportDialogOpen = false;
             PreviewExportRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        [RelayCommand]
+        private void RequestLoadLanguageFile()
+        {
+            LoadLanguageFileRequested?.Invoke(this, EventArgs.Empty);
         }
 
         [RelayCommand]
