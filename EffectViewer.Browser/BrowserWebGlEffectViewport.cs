@@ -32,7 +32,7 @@ namespace EffectViewer.Browser
         private readonly List<int> _batchVertexCounts = [];
         private readonly List<int> _batchBlendModes = [];
         private readonly List<string> _batchTextureIds = [];
-        private readonly HashSet<string> _uploadedTextureIds = [];
+        private readonly Dictionary<string, UploadedTexture> _uploadedTextures = new(StringComparer.Ordinal);
 
         private JSObject? _canvas;
         private RenderFrame _frame = new();
@@ -44,6 +44,7 @@ namespace EffectViewer.Browser
         private ViewportBackgroundMode _backgroundMode;
         private bool _isAttached;
         private bool _frameQueued;
+        private int _maxTextureSize;
 
         public RenderFrame Frame
         {
@@ -67,7 +68,7 @@ namespace EffectViewer.Browser
                 }
 
                 _textureSource = next;
-                _uploadedTextureIds.Clear();
+                _uploadedTextures.Clear();
                 if (_canvas is not null)
                 {
                     BrowserWebGlInterop.ClearTextures(_canvas);
@@ -123,7 +124,8 @@ namespace EffectViewer.Browser
                 _canvas = null;
             }
 
-            _uploadedTextureIds.Clear();
+            _uploadedTextures.Clear();
+            _maxTextureSize = 0;
             base.DestroyNativeControlCore(control);
         }
 
@@ -282,47 +284,88 @@ namespace EffectViewer.Browser
             _batchBlendModes.Clear();
             _batchTextureIds.Clear();
 
-            if (checkerboardColor.HasValue && EnsureTexture(WhiteTexture))
+            if (checkerboardColor.HasValue && EnsureTexture(WhiteTexture, out TextureTileLayout whiteLayout))
             {
                 int firstVertex = _vertices.Count / FloatsPerVertex;
                 int vertexCount = AppendCheckerboard(width, height, checkerboardColor.Value, checkerboardCellSizePixels);
                 if (vertexCount > 0)
                 {
-                    AddBatch(firstVertex, vertexCount, RenderBlendMode.Normal, WhiteTexture);
+                    AddBatch(
+                        firstVertex,
+                        vertexCount,
+                        RenderBlendMode.Normal,
+                        TextureTileLayout.GetTileTextureId(WhiteTexture.Id, whiteLayout.Tiles[0]));
                 }
             }
 
             foreach (RenderSpriteCommand sprite in frame.Sprites)
             {
-                if (!EnsureTexture(sprite.Texture))
+                if (!EnsureTexture(sprite.Texture, out TextureTileLayout layout))
                 {
                     continue;
                 }
 
-                int firstVertex = _vertices.Count / FloatsPerVertex;
-                AppendSprite(sprite, width, height);
-                AddBatch(firstVertex, 6, sprite.BlendMode, sprite.Texture);
+                if (layout.IsTiled)
+                {
+                    AppendTiledTriangles(
+                        CreateSpriteVertices(sprite, width, height),
+                        layout,
+                        sprite.BlendMode,
+                        sprite.Texture);
+                }
+                else
+                {
+                    int firstVertex = _vertices.Count / FloatsPerVertex;
+                    AppendSprite(sprite, width, height);
+                    AddBatch(
+                        firstVertex,
+                        6,
+                        sprite.BlendMode,
+                        TextureTileLayout.GetTileTextureId(sprite.Texture.Id, layout.Tiles[0]));
+                }
             }
 
             foreach (RenderMeshCommand mesh in frame.Meshes)
             {
-                if (mesh.Vertices.Count == 0 || !EnsureTexture(mesh.Texture))
+                if (mesh.Vertices.Count == 0 || !EnsureTexture(mesh.Texture, out TextureTileLayout layout))
                 {
                     continue;
                 }
 
-                int firstVertex = _vertices.Count / FloatsPerVertex;
-                foreach (RenderVertex vertex in mesh.Vertices)
+                if (layout.IsTiled)
                 {
-                    AppendVertex(
-                        ToClipX(ApplyViewX(vertex.Position.X), width),
-                        ToClipY(ApplyViewY(vertex.Position.Y), height),
-                        vertex.Uv.X,
-                        vertex.Uv.Y,
-                        vertex.Color);
-                }
+                    List<RenderVertex> vertices = new(mesh.Vertices.Count);
+                    foreach (RenderVertex vertex in mesh.Vertices)
+                    {
+                        vertices.Add(new RenderVertex(
+                            new Vector2(
+                                ToClipX(ApplyViewX(vertex.Position.X), width),
+                                ToClipY(ApplyViewY(vertex.Position.Y), height)),
+                            vertex.Uv,
+                            vertex.Color));
+                    }
 
-                AddBatch(firstVertex, mesh.Vertices.Count, mesh.BlendMode, mesh.Texture);
+                    AppendTiledTriangles(vertices, layout, mesh.BlendMode, mesh.Texture);
+                }
+                else
+                {
+                    int firstVertex = _vertices.Count / FloatsPerVertex;
+                    foreach (RenderVertex vertex in mesh.Vertices)
+                    {
+                        AppendVertex(
+                            ToClipX(ApplyViewX(vertex.Position.X), width),
+                            ToClipY(ApplyViewY(vertex.Position.Y), height),
+                            vertex.Uv.X,
+                            vertex.Uv.Y,
+                            vertex.Color);
+                    }
+
+                    AddBatch(
+                        firstVertex,
+                        mesh.Vertices.Count,
+                        mesh.BlendMode,
+                        TextureTileLayout.GetTileTextureId(mesh.Texture.Id, layout.Tiles[0]));
+                }
             }
         }
 
@@ -353,58 +396,153 @@ namespace EffectViewer.Browser
             return _vertices.Count / FloatsPerVertex - startVertexCount;
         }
 
-        private bool EnsureTexture(RenderTextureRef texture)
+        private bool EnsureTexture(RenderTextureRef texture, out TextureTileLayout layout)
         {
+            layout = null!;
             if (_canvas is null)
             {
                 return false;
             }
 
             string id = texture.Id ?? string.Empty;
-            if (_uploadedTextureIds.Contains(id))
+            int revision = GetTextureRevision(texture);
+            if (_uploadedTextures.TryGetValue(id, out UploadedTexture? uploaded) && uploaded.Revision == revision)
             {
+                layout = uploaded.Layout;
                 return true;
             }
 
             if (!_textureSource.TryLoad(texture, out TextureUploadData data) ||
                 data is null ||
                 data.Width <= 0 ||
-                data.Height <= 0)
+                data.Height <= 0 ||
+                data.RgbaPixels is null ||
+                !TryGetRgbaByteCount(data.Width, data.Height, out int sourceByteCount) ||
+                data.RgbaPixels.Length < sourceByteCount)
             {
                 return false;
             }
 
-            int byteCount = data.Width * data.Height * 4;
-            if (data.RgbaPixels is null || data.RgbaPixels.Length < byteCount)
+            layout = TextureTileLayout.Create(data.Width, data.Height, GetMaxTextureSize());
+            foreach (TextureTile tile in layout.Tiles)
             {
-                return false;
+                byte[] sourcePixels = layout.IsTiled
+                    ? TextureTileLayout.CopyTilePixels(data, tile)
+                    : data.RgbaPixels;
+                if (!TryGetRgbaByteCount(tile.UploadWidth, tile.UploadHeight, out int byteCount) ||
+                    sourcePixels.Length < byteCount)
+                {
+                    layout = null!;
+                    return false;
+                }
+
+                bool tileUploaded = BrowserWebGlInterop.UploadTexture(
+                    _canvas,
+                    TextureTileLayout.GetTileTextureId(id, tile),
+                    tile.UploadWidth,
+                    tile.UploadHeight,
+                    new ArraySegment<byte>(sourcePixels, 0, byteCount),
+                    byteCount);
+
+                if (!tileUploaded)
+                {
+                    layout = null!;
+                    return false;
+                }
             }
 
-            bool uploaded = BrowserWebGlInterop.UploadTexture(
-                _canvas,
-                id,
-                data.Width,
-                data.Height,
-                new ArraySegment<byte>(data.RgbaPixels, 0, byteCount),
-                byteCount);
-
-            if (uploaded)
-            {
-                _uploadedTextureIds.Add(id);
-            }
-
-            return uploaded;
+            _uploadedTextures[id] = new UploadedTexture(layout, revision);
+            return true;
         }
 
-        private void AddBatch(int firstVertex, int vertexCount, RenderBlendMode blendMode, RenderTextureRef texture)
+        private int GetTextureRevision(RenderTextureRef texture)
+        {
+            return _textureSource is ITextureRevisionSource revisionSource
+                ? revisionSource.GetTextureRevision(texture)
+                : 0;
+        }
+
+        private int GetMaxTextureSize()
+        {
+            if (_maxTextureSize > 0)
+            {
+                return _maxTextureSize;
+            }
+
+            int maxTextureSize = _canvas is null ? 0 : BrowserWebGlInterop.GetMaxTextureSize(_canvas);
+            _maxTextureSize = maxTextureSize > 0 ? maxTextureSize : 4096;
+            return _maxTextureSize;
+        }
+
+        private static bool TryGetRgbaByteCount(int width, int height, out int byteCount)
+        {
+            try
+            {
+                byteCount = checked(width * height * 4);
+                return true;
+            }
+            catch (OverflowException)
+            {
+                byteCount = 0;
+                return false;
+            }
+        }
+
+        private void AddBatch(int firstVertex, int vertexCount, RenderBlendMode blendMode, string textureId)
         {
             _batchFirstVertices.Add(firstVertex);
             _batchVertexCounts.Add(vertexCount);
             _batchBlendModes.Add(blendMode == RenderBlendMode.Additive ? 1 : 0);
-            _batchTextureIds.Add(texture.Id ?? string.Empty);
+            _batchTextureIds.Add(textureId ?? string.Empty);
+        }
+
+        private void AppendTiledTriangles(
+            IReadOnlyList<RenderVertex> vertices,
+            TextureTileLayout layout,
+            RenderBlendMode blendMode,
+            RenderTextureRef texture)
+        {
+            string id = texture.Id ?? string.Empty;
+            foreach (TextureTileDrawBatch batch in TextureTileClipper.CreateBatches(layout, vertices))
+            {
+                if (batch.Vertices.Count == 0)
+                {
+                    continue;
+                }
+
+                int firstVertex = _vertices.Count / FloatsPerVertex;
+                foreach (RenderVertex vertex in batch.Vertices)
+                {
+                    AppendVertex(
+                        vertex.Position.X,
+                        vertex.Position.Y,
+                        vertex.Uv.X,
+                        vertex.Uv.Y,
+                        vertex.Color);
+                }
+
+                AddBatch(
+                    firstVertex,
+                    batch.Vertices.Count,
+                    blendMode,
+                    TextureTileLayout.GetTileTextureId(id, batch.Tile));
+            }
         }
 
         private void AppendSprite(RenderSpriteCommand sprite, int width, int height)
+        {
+            foreach (RenderVertex vertex in CreateSpriteVertices(sprite, width, height))
+            {
+                AppendVertex(
+                    vertex.Position.X,
+                    vertex.Position.Y,
+                    vertex.Uv.X,
+                    vertex.Uv.Y,
+                    vertex.Color);
+            }
+        }
+
+        private RenderVertex[] CreateSpriteVertices(RenderSpriteCommand sprite, int width, int height)
         {
             float pixelX = sprite.Position.X <= 1f ? sprite.Position.X * width : sprite.Position.X;
             float pixelY = sprite.Position.Y <= 1f ? sprite.Position.Y * height : sprite.Position.Y;
@@ -418,12 +556,15 @@ namespace EffectViewer.Browser
             Vector4 uv = sprite.UvRect;
             Vector4 color = sprite.Color;
 
-            AppendVertex(left, top, uv.X, uv.Y, color);
-            AppendVertex(right, top, uv.Z, uv.Y, color);
-            AppendVertex(right, bottom, uv.Z, uv.W, color);
-            AppendVertex(left, top, uv.X, uv.Y, color);
-            AppendVertex(right, bottom, uv.Z, uv.W, color);
-            AppendVertex(left, bottom, uv.X, uv.W, color);
+            return
+            [
+                new RenderVertex(new Vector2(left, top), new Vector2(uv.X, uv.Y), color),
+                new RenderVertex(new Vector2(right, top), new Vector2(uv.Z, uv.Y), color),
+                new RenderVertex(new Vector2(right, bottom), new Vector2(uv.Z, uv.W), color),
+                new RenderVertex(new Vector2(left, top), new Vector2(uv.X, uv.Y), color),
+                new RenderVertex(new Vector2(right, bottom), new Vector2(uv.Z, uv.W), color),
+                new RenderVertex(new Vector2(left, bottom), new Vector2(uv.X, uv.W), color)
+            ];
         }
 
         private void AppendVertex(float x, float y, float u, float v, Vector4 color)
@@ -471,6 +612,18 @@ namespace EffectViewer.Browser
         private static float ToClipY(float y, int height)
         {
             return height <= 0 ? 0f : 1f - y / height * 2f;
+        }
+
+        private sealed class UploadedTexture
+        {
+            public UploadedTexture(TextureTileLayout layout, int revision)
+            {
+                Layout = layout;
+                Revision = revision;
+            }
+
+            public TextureTileLayout Layout { get; }
+            public int Revision { get; }
         }
     }
 }

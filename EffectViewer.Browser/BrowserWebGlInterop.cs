@@ -25,6 +25,9 @@ namespace EffectViewer.Browser
         [JSImport("clearTextures", ModuleName)]
         public static partial void ClearTextures(JSObject canvas);
 
+        [JSImport("getMaxTextureSize", ModuleName)]
+        public static partial int GetMaxTextureSize(JSObject canvas);
+
         [JSImport("setDialogOverlayActive", ModuleName)]
         public static partial void SetDialogOverlayActive(bool active);
 

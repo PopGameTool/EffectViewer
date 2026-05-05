@@ -48,6 +48,7 @@ namespace EffectViewer.Rendering.Gl
         void TexParameteri(uint target, uint parameterName, int parameter);
         void PixelStorei(uint parameterName, int parameter);
         void TexImage2D(uint target, int level, int internalFormat, int width, int height, int border, uint format, uint type, IntPtr pixels);
+        void GetIntegerv(uint parameterName, out int value);
         int GetUniformLocation(uint program, string name);
         void Uniform1i(int location, int value);
         uint GetError();

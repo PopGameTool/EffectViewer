@@ -28,6 +28,7 @@ namespace EffectViewer.Rendering.OpenGl
         private bool _canDrawSprites;
         private readonly OpenGlTextureCache _textureCache = new();
         private ITextureSource _textureSource = new GeneratedTextureSource();
+        private int _maxTextureSize;
 
         private IEffectGlInterface _gl;
 
@@ -146,6 +147,7 @@ namespace EffectViewer.Rendering.OpenGl
             _colorLocation = -1;
             _textureLocation = -1;
             _canDrawSprites = false;
+            _maxTextureSize = 0;
             _textureCache.Clear();
 
             _gl = null;
@@ -178,25 +180,17 @@ namespace EffectViewer.Rendering.OpenGl
                 return;
             }
 
-            float[] vertices = new float[sprites.Count * 6 * FloatsPerVertex];
-            int offset = 0;
             foreach (RenderSpriteCommand sprite in sprites)
             {
-                AppendSprite(vertices, ref offset, sprite, width, height, ViewZoom, ViewPan);
-            }
-
-            UploadVertices(vertices);
-
-            int firstVertex = 0;
-            foreach (RenderSpriteCommand sprite in sprites)
-            {
-                SetBlendMode(sprite.BlendMode);
-                if (BindTexture(sprite.Texture))
+                if (!TryGetTextureSet(sprite.Texture, out OpenGlTextureSet textureSet))
                 {
-                    _gl.DrawArrays(OpenGlConstants.Triangles, firstVertex, 6);
+                    continue;
                 }
 
-                firstVertex += 6;
+                SetBlendMode(sprite.BlendMode);
+                DrawTexturedTriangles(
+                    CreateSpriteVertices(sprite, width, height, ViewZoom, ViewPan),
+                    textureSet);
             }
         }
 
@@ -214,25 +208,56 @@ namespace EffectViewer.Rendering.OpenGl
                     continue;
                 }
 
-                float[] vertices = new float[mesh.Vertices.Count * FloatsPerVertex];
-                int offset = 0;
-                foreach (RenderVertex vertex in mesh.Vertices)
+                if (!TryGetTextureSet(mesh.Texture, out OpenGlTextureSet textureSet))
                 {
-                    AppendVertex(
-                        vertices,
-                        ref offset,
-                        ToClipX(ApplyViewX(vertex.Position.X, ViewZoom, ViewPan), width),
-                        ToClipY(ApplyViewY(vertex.Position.Y, ViewZoom, ViewPan), height),
-                        vertex.Uv.X,
-                        vertex.Uv.Y,
-                        vertex.Color);
+                    continue;
                 }
 
-                UploadVertices(vertices);
-                SetBlendMode(mesh.BlendMode);
-                if (BindTexture(mesh.Texture))
+                List<RenderVertex> vertices = new(mesh.Vertices.Count);
+                foreach (RenderVertex vertex in mesh.Vertices)
                 {
-                    _gl.DrawArrays(OpenGlConstants.Triangles, 0, mesh.Vertices.Count);
+                    vertices.Add(new RenderVertex(
+                        new Vector2(
+                            ToClipX(ApplyViewX(vertex.Position.X, ViewZoom, ViewPan), width),
+                            ToClipY(ApplyViewY(vertex.Position.Y, ViewZoom, ViewPan), height)),
+                        vertex.Uv,
+                        vertex.Color));
+                }
+
+                SetBlendMode(mesh.BlendMode);
+                DrawTexturedTriangles(vertices, textureSet);
+            }
+        }
+
+        private void DrawTexturedTriangles(IReadOnlyList<RenderVertex> vertices, OpenGlTextureSet textureSet)
+        {
+            if (vertices.Count == 0 || textureSet.Handles.Count == 0)
+            {
+                return;
+            }
+
+            if (!textureSet.Layout.IsTiled)
+            {
+                UploadVertices(vertices);
+                if (BindTextureHandle(textureSet.Handles[0]))
+                {
+                    _gl.DrawArrays(OpenGlConstants.Triangles, 0, vertices.Count);
+                }
+
+                return;
+            }
+
+            foreach (TextureTileDrawBatch batch in TextureTileClipper.CreateBatches(textureSet.Layout, vertices))
+            {
+                if (batch.Vertices.Count == 0)
+                {
+                    continue;
+                }
+
+                UploadVertices(batch.Vertices);
+                if (BindTextureHandle(textureSet.GetHandle(batch.Tile)))
+                {
+                    _gl.DrawArrays(OpenGlConstants.Triangles, 0, batch.Vertices.Count);
                 }
             }
         }
@@ -334,6 +359,25 @@ namespace EffectViewer.Rendering.OpenGl
             _gl.VertexAttribPointer((uint)_colorLocation, 4, OpenGlConstants.Float, false, stride, new IntPtr(4 * sizeof(float)));
         }
 
+        private void UploadVertices(IReadOnlyList<RenderVertex> vertices)
+        {
+            float[] packed = new float[vertices.Count * FloatsPerVertex];
+            int offset = 0;
+            foreach (RenderVertex vertex in vertices)
+            {
+                AppendVertex(
+                    packed,
+                    ref offset,
+                    vertex.Position.X,
+                    vertex.Position.Y,
+                    vertex.Uv.X,
+                    vertex.Uv.Y,
+                    vertex.Color);
+            }
+
+            UploadVertices(packed);
+        }
+
         private void BindVertexArray()
         {
             if (_vertexArray != 0)
@@ -344,17 +388,16 @@ namespace EffectViewer.Rendering.OpenGl
 
         private bool BindTexture(RenderTextureRef texture)
         {
-            int revision = GetTextureRevision(texture);
-            if (!_textureCache.TryGetTexture(texture, revision, out int handle))
-            {
-                DeleteCachedTexture(texture);
-                handle = CreateTexture(texture, out int loadedRevision);
-                if (handle == 0)
-                {
-                    return false;
-                }
+            return TryGetTextureSet(texture, out OpenGlTextureSet textureSet) &&
+                   textureSet.Handles.Count > 0 &&
+                   BindTextureHandle(textureSet.Handles[0]);
+        }
 
-                _textureCache.SetTexture(texture, handle, loadedRevision);
+        private bool BindTextureHandle(int handle)
+        {
+            if (handle == 0)
+            {
+                return false;
             }
 
             _gl.ActiveTexture(OpenGlConstants.Texture0);
@@ -362,18 +405,68 @@ namespace EffectViewer.Rendering.OpenGl
             return true;
         }
 
-        private int CreateTexture(RenderTextureRef texture, out int revision)
+        private bool TryGetTextureSet(RenderTextureRef texture, out OpenGlTextureSet textureSet)
+        {
+            int revision = GetTextureRevision(texture);
+            if (!_textureCache.TryGetTextureSet(texture, revision, out textureSet))
+            {
+                DeleteCachedTexture(texture);
+                textureSet = CreateTextureSet(texture, out int loadedRevision);
+                if (textureSet is null)
+                {
+                    return false;
+                }
+
+                _textureCache.SetTextureSet(texture, textureSet, loadedRevision);
+            }
+
+            return true;
+        }
+
+        private OpenGlTextureSet CreateTextureSet(RenderTextureRef texture, out int revision)
         {
             revision = 0;
+            int sourceByteCount;
             if (!_textureSource.TryLoad(texture, out TextureUploadData data) ||
                 data.Width <= 0 ||
                 data.Height <= 0 ||
-                data.RgbaPixels.Length < data.Width * data.Height * 4)
+                data.RgbaPixels is null ||
+                !TryGetRgbaByteCount(data.Width, data.Height, out sourceByteCount) ||
+                data.RgbaPixels.Length < sourceByteCount)
+            {
+                return null;
+            }
+
+            revision = data.Revision;
+            TextureTileLayout layout = TextureTileLayout.Create(data.Width, data.Height, GetMaxTextureSize());
+            List<int> handles = new(layout.Tiles.Count);
+            foreach (TextureTile tile in layout.Tiles)
+            {
+                byte[] sourcePixels = layout.IsTiled
+                    ? TextureTileLayout.CopyTilePixels(data, tile)
+                    : data.RgbaPixels;
+                int handle = CreateTexture(tile.UploadWidth, tile.UploadHeight, sourcePixels);
+                if (handle == 0)
+                {
+                    DeleteTextureHandles(handles);
+                    return null;
+                }
+
+                handles.Add(handle);
+            }
+
+            return new OpenGlTextureSet(layout, handles);
+        }
+
+        private int CreateTexture(int width, int height, byte[] rgbaPixels)
+        {
+            if (!TryGetRgbaByteCount(width, height, out int byteCount) ||
+                rgbaPixels is null ||
+                rgbaPixels.Length < byteCount)
             {
                 return 0;
             }
 
-            revision = data.Revision;
             uint[] handles = new uint[1];
             _gl.GenTextures(1, handles);
             uint handle = handles[0];
@@ -388,16 +481,17 @@ namespace EffectViewer.Rendering.OpenGl
             _gl.TexParameteri(OpenGlConstants.Texture2D, OpenGlConstants.TextureWrapS, OpenGlConstants.ClampToEdge);
             _gl.TexParameteri(OpenGlConstants.Texture2D, OpenGlConstants.TextureWrapT, OpenGlConstants.ClampToEdge);
             _gl.PixelStorei(OpenGlConstants.UnpackAlignment, 1);
-            byte[] pixels = CreatePremultipliedPixels(data.RgbaPixels, data.Width * data.Height * 4);
+            byte[] pixels = CreatePremultipliedPixels(rgbaPixels, byteCount);
             GCHandle pixelsHandle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
             try
             {
+                ClearTextureErrors();
                 _gl.TexImage2D(
                     OpenGlConstants.Texture2D,
                     0,
                     (int)OpenGlConstants.Rgba,
-                    data.Width,
-                    data.Height,
+                    width,
+                    height,
                     0,
                     OpenGlConstants.Rgba,
                     OpenGlConstants.UnsignedByte,
@@ -406,6 +500,12 @@ namespace EffectViewer.Rendering.OpenGl
             finally
             {
                 pixelsHandle.Free();
+            }
+
+            if (_gl.GetError() != OpenGlConstants.NoError)
+            {
+                _gl.DeleteTextures(1, [handle]);
+                return 0;
             }
 
             return (int)handle;
@@ -418,12 +518,42 @@ namespace EffectViewer.Rendering.OpenGl
                 : 0;
         }
 
+        private int GetMaxTextureSize()
+        {
+            if (_maxTextureSize > 0)
+            {
+                return _maxTextureSize;
+            }
+
+            _gl.GetIntegerv(OpenGlConstants.MaxTextureSize, out int maxTextureSize);
+            _maxTextureSize = maxTextureSize > 0 ? maxTextureSize : 4096;
+            return _maxTextureSize;
+        }
+
         private void DeleteCachedTexture(RenderTextureRef texture)
         {
-            int oldHandle = _textureCache.Remove(texture);
-            if (oldHandle != 0)
+            DeleteTextureHandles(_textureCache.RemoveTextureSet(texture));
+        }
+
+        private void DeleteTextureHandles(IEnumerable<int> handles)
+        {
+            foreach (int handle in handles)
             {
-                _gl.DeleteTextures(1, [(uint)oldHandle]);
+                if (handle != 0)
+                {
+                    _gl.DeleteTextures(1, [(uint)handle]);
+                }
+            }
+        }
+
+        private void ClearTextureErrors()
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                if (_gl.GetError() == OpenGlConstants.NoError)
+                {
+                    return;
+                }
             }
         }
 
@@ -453,7 +583,21 @@ namespace EffectViewer.Rendering.OpenGl
             return (byte)((color * alpha + 127) / 255);
         }
 
-        private static void AppendSprite(float[] vertices, ref int offset, RenderSpriteCommand sprite, int width, int height, float zoom, Vector2 pan)
+        private static bool TryGetRgbaByteCount(int width, int height, out int byteCount)
+        {
+            try
+            {
+                byteCount = checked(width * height * 4);
+                return true;
+            }
+            catch (OverflowException)
+            {
+                byteCount = 0;
+                return false;
+            }
+        }
+
+        private static RenderVertex[] CreateSpriteVertices(RenderSpriteCommand sprite, int width, int height, float zoom, Vector2 pan)
         {
             float pixelX = sprite.Position.X <= 1f ? sprite.Position.X * width : sprite.Position.X;
             float pixelY = sprite.Position.Y <= 1f ? sprite.Position.Y * height : sprite.Position.Y;
@@ -468,12 +612,15 @@ namespace EffectViewer.Rendering.OpenGl
             Vector4 uv = sprite.UvRect;
             Vector4 color = sprite.Color;
 
-            AppendVertex(vertices, ref offset, left, top, uv.X, uv.Y, color);
-            AppendVertex(vertices, ref offset, right, top, uv.Z, uv.Y, color);
-            AppendVertex(vertices, ref offset, right, bottom, uv.Z, uv.W, color);
-            AppendVertex(vertices, ref offset, left, top, uv.X, uv.Y, color);
-            AppendVertex(vertices, ref offset, right, bottom, uv.Z, uv.W, color);
-            AppendVertex(vertices, ref offset, left, bottom, uv.X, uv.W, color);
+            return
+            [
+                new RenderVertex(new Vector2(left, top), new Vector2(uv.X, uv.Y), color),
+                new RenderVertex(new Vector2(right, top), new Vector2(uv.Z, uv.Y), color),
+                new RenderVertex(new Vector2(right, bottom), new Vector2(uv.Z, uv.W), color),
+                new RenderVertex(new Vector2(left, top), new Vector2(uv.X, uv.Y), color),
+                new RenderVertex(new Vector2(right, bottom), new Vector2(uv.Z, uv.W), color),
+                new RenderVertex(new Vector2(left, bottom), new Vector2(uv.X, uv.W), color)
+            ];
         }
 
         private static void AppendVertex(float[] vertices, ref int offset, float x, float y, float u, float v, Vector4 color)

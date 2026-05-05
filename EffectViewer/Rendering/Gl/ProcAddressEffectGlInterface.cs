@@ -42,6 +42,7 @@ namespace EffectViewer.Rendering.Gl
         private readonly delegate* unmanaged<uint, uint, int, void> _texParameteri;
         private readonly delegate* unmanaged<uint, int, void> _pixelStorei;
         private readonly delegate* unmanaged<uint, int, int, int, int, int, uint, uint, IntPtr, void> _texImage2D;
+        private readonly delegate* unmanaged<uint, IntPtr, void> _getIntegerv;
         private readonly delegate* unmanaged<uint, IntPtr, int> _getUniformLocation;
         private readonly delegate* unmanaged<int, int, void> _uniform1i;
         private readonly delegate* unmanaged<uint> _getError;
@@ -94,6 +95,7 @@ namespace EffectViewer.Rendering.Gl
             _texParameteri = (delegate* unmanaged<uint, uint, int, void>)Load(getProcAddress, "glTexParameteri");
             _pixelStorei = (delegate* unmanaged<uint, int, void>)Load(getProcAddress, "glPixelStorei");
             _texImage2D = (delegate* unmanaged<uint, int, int, int, int, int, uint, uint, IntPtr, void>)Load(getProcAddress, "glTexImage2D");
+            _getIntegerv = (delegate* unmanaged<uint, IntPtr, void>)Load(getProcAddress, "glGetIntegerv");
             _getUniformLocation = (delegate* unmanaged<uint, IntPtr, int>)Load(getProcAddress, "glGetUniformLocation");
             _uniform1i = (delegate* unmanaged<int, int, void>)Load(getProcAddress, "glUniform1i");
             _getError = (delegate* unmanaged<uint>)Load(getProcAddress, "glGetError");
@@ -266,6 +268,19 @@ namespace EffectViewer.Rendering.Gl
 
         public void TexImage2D(uint target, int level, int internalFormat, int width, int height, int border, uint format, uint type, IntPtr pixels) =>
             _texImage2D(target, level, internalFormat, width, height, border, format, type, pixels);
+
+        public void GetIntegerv(uint parameterName, out int value)
+        {
+            value = 0;
+            if (_getIntegerv == null)
+            {
+                return;
+            }
+
+            int localValue = 0;
+            _getIntegerv(parameterName, new IntPtr(&localValue));
+            value = localValue;
+        }
 
         public int GetUniformLocation(uint program, string name) => InvokeWithUtf8Name(_getUniformLocation, program, name);
         public void Uniform1i(int location, int value) => _uniform1i(location, value);

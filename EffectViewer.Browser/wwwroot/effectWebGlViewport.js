@@ -50,6 +50,12 @@ export function clearTextures(canvas) {
     state.textures.clear();
 }
 
+export function getMaxTextureSize(canvas) {
+    const state = getState(canvas);
+    const value = state.gl.getParameter(state.gl.MAX_TEXTURE_SIZE) | 0;
+    return value > 0 ? value : 4096;
+}
+
 export function setDialogOverlayActive(active) {
     document.body.classList.toggle("effect-viewer-dialog-open", !!active);
 }
@@ -81,6 +87,7 @@ export function uploadTexture(canvas, id, width, height, rgbaPixels, byteCount) 
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     const uploadPixels = createPremultipliedPixels(pixels.subarray(0, width * height * 4));
+    clearGlErrors(gl);
     gl.texImage2D(
         gl.TEXTURE_2D,
         0,
@@ -91,7 +98,7 @@ export function uploadTexture(canvas, id, width, height, rgbaPixels, byteCount) 
         gl.RGBA,
         gl.UNSIGNED_BYTE,
         uploadPixels);
-    return true;
+    return gl.getError() === gl.NO_ERROR;
 }
 
 export function renderFrame(
@@ -175,6 +182,14 @@ function createPremultipliedPixels(source) {
     }
 
     return pixels;
+}
+
+function clearGlErrors(gl) {
+    for (let i = 0; i < 8; i++) {
+        if (gl.getError() === gl.NO_ERROR) {
+            return;
+        }
+    }
 }
 
 function contextOptions() {

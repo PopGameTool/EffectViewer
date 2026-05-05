@@ -25,6 +25,8 @@ namespace EffectViewer.Rendering.OpenGl
         public const uint TextureWrapS = 0x2802;
         public const uint TextureWrapT = 0x2803;
         public const uint UnpackAlignment = 0x0CF5;
+        public const uint MaxTextureSize = 0x0D33;
+        public const uint NoError = 0;
         public const int Linear = 0x2601;
         public const int ClampToEdge = 0x812F;
     }
