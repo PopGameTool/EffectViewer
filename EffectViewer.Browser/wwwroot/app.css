@@ -4,7 +4,7 @@
     height: 100%;
     width: 100%;
     background: white;
-    font-family: 'Outfit', sans-serif;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     justify-content: center;
     align-items: center;
     display: flex;
@@ -17,38 +17,20 @@
         background: white;
     }
 
-    .avalonia-splash h2 {
-        color: #1b2a4e;
-    }
-
-    .avalonia-splash a {
-        color: #0D6EFD;
-    }
 }
 
 @media (prefers-color-scheme: dark) {
     .avalonia-splash {
-        background: #1b2a4e;
-    }
-
-    .avalonia-splash h2 {
-        color: white;
-    }
-
-    .avalonia-splash a {
-        color: white;
+        background: #212121;
     }
 }
 
-.avalonia-splash h2 {
-    font-weight: 400;
-    font-size: 1.5rem;
-}
-
-.avalonia-splash a {
-    text-decoration: none;
-    font-size: 2.5rem;
-    display: block;   
+.avalonia-splash .splash-icon {
+    width: 128px;
+    height: 128px;
+    max-width: 28vw;
+    max-height: 28vw;
+    object-fit: contain;
 }
 
 .avalonia-splash.splash-close {
