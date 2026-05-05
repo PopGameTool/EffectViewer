@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Platform;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -37,6 +38,7 @@ namespace EffectViewer.Views
         private EditorViewModelBase _documentTabDropTarget;
         private Point _documentTabDragStartPoint;
         private Point _documentTabDragPreviewOffset;
+        private IInputPane _inputPane;
         private bool _documentTabDropAfter;
         private bool _isDocumentTabDragging;
         private MainViewModel _observedViewModel;
@@ -156,14 +158,88 @@ namespace EffectViewer.Views
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
+            DetachInputPane();
             SetBrowserDialogOverlayActive(false);
             base.OnDetachedFromVisualTree(e);
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+            AttachInputPane();
         }
 
         protected override void OnSizeChanged(SizeChangedEventArgs e)
         {
             base.OnSizeChanged(e);
+            AttachInputPane();
             UpdateProjectExplorerLayout();
+            UpdateInputPaneMargin();
+        }
+
+        private void AttachInputPane()
+        {
+            if (!UsesInputPaneAvoidance())
+            {
+                return;
+            }
+
+            IInputPane inputPane = TopLevel.GetTopLevel(this)?.InputPane;
+            if (ReferenceEquals(_inputPane, inputPane))
+            {
+                return;
+            }
+
+            DetachInputPane();
+            _inputPane = inputPane;
+            if (_inputPane is null)
+            {
+                return;
+            }
+
+            _inputPane.StateChanged += InputPane_StateChanged;
+            UpdateInputPaneMargin();
+        }
+
+        private void DetachInputPane()
+        {
+            if (_inputPane is not null)
+            {
+                _inputPane.StateChanged -= InputPane_StateChanged;
+                _inputPane = null;
+            }
+
+            Margin = default;
+        }
+
+        private void InputPane_StateChanged(object sender, InputPaneStateEventArgs e)
+        {
+            UpdateInputPaneMargin();
+        }
+
+        private void UpdateInputPaneMargin()
+        {
+            if (_inputPane is null || !UsesInputPaneAvoidance())
+            {
+                return;
+            }
+
+            double bottomInset = 0d;
+            if (_inputPane.State == InputPaneState.Open &&
+                TopLevel.GetTopLevel(this)?.ClientSize is { Height: > 0 } clientSize)
+            {
+                Rect occludedRect = _inputPane.OccludedRect;
+                bottomInset = Math.Max(0d, clientSize.Height - occludedRect.Top);
+            }
+
+            Margin = bottomInset > 0d
+                ? new Thickness(0d, 0d, 0d, bottomInset)
+                : default;
+        }
+
+        private static bool UsesInputPaneAvoidance()
+        {
+            return OperatingSystem.IsAndroid() || OperatingSystem.IsIOS();
         }
 
         private void UpdateBrowserDialogOverlayState()
