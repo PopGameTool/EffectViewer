@@ -11,6 +11,7 @@
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
         <ApplicationVersion>1</ApplicationVersion>
         <AppIcon>AppIcon</AppIcon>
+        <_AppBundleName>EffectViewer.macOS</_AppBundleName>
     </PropertyGroup>
 
     <ItemGroup>
