@@ -1,27 +1,58 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:EffectViewer.Controls"
              x:Class="EffectViewer.Controls.DockablePanelView">
-  <Grid x:Name="LayoutRoot">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="*" MinHeight="0"/>
-      <RowDefinition Height="0" MinHeight="0"/>
-      <RowDefinition Height="0" MinHeight="0"/>
-    </Grid.RowDefinitions>
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="*" MinWidth="260"/>
-      <ColumnDefinition Width="5" MinWidth="5"/>
-      <ColumnDefinition Width="320" MinWidth="180"/>
-    </Grid.ColumnDefinitions>
+  <UserControl.Styles>
+    <Style Selector="controls|DockablePanelView.compact-layout TextBox">
+      <Setter Property="MinHeight" Value="40"/>
+    </Style>
+    <Style Selector="controls|DockablePanelView.compact-layout NumericUpDown">
+      <Setter Property="MinHeight" Value="40"/>
+    </Style>
+    <Style Selector="controls|DockablePanelView.compact-layout ComboBox">
+      <Setter Property="MinHeight" Value="40"/>
+    </Style>
+    <Style Selector="controls|DockablePanelView.compact-layout Button">
+      <Setter Property="MinHeight" Value="38"/>
+    </Style>
+    <Style Selector="controls|DockablePanelView.compact-layout CheckBox">
+      <Setter Property="MinHeight" Value="36"/>
+    </Style>
+  </UserControl.Styles>
 
-    <ContentControl x:Name="PrimaryContentHost"
-                    Grid.Column="0"/>
-    <GridSplitter x:Name="SideSplitter"
-                  Grid.Column="1"
-                  HorizontalAlignment="Stretch"
-                  VerticalAlignment="Stretch"
-                  ResizeDirection="Columns"
-                  Classes="layout-splitter vertical-splitter"/>
-    <ContentControl x:Name="SideContentHost"
-                    Grid.Column="2"/>
+  <Grid>
+    <Grid x:Name="LayoutRoot">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="*" MinHeight="0"/>
+        <RowDefinition Height="0" MinHeight="0"/>
+        <RowDefinition Height="0" MinHeight="0"/>
+      </Grid.RowDefinitions>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" MinWidth="260"/>
+        <ColumnDefinition Width="5" MinWidth="5"/>
+        <ColumnDefinition Width="320" MinWidth="180"/>
+      </Grid.ColumnDefinitions>
+
+      <ContentControl x:Name="PrimaryContentHost"
+                      Grid.Column="0"/>
+      <GridSplitter x:Name="SideSplitter"
+                    Grid.Column="1"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    ResizeDirection="Columns"
+                    Classes="layout-splitter vertical-splitter"/>
+      <ContentControl x:Name="SideContentHost"
+                      Grid.Column="2"/>
+    </Grid>
+
+    <ScrollViewer x:Name="CompactScrollViewer"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto"
+                  IsVisible="False">
+      <StackPanel x:Name="CompactLayoutRoot"
+                  Spacing="12"
+                  Margin="0,0,0,12"
+                  HorizontalAlignment="Stretch"/>
+    </ScrollViewer>
   </Grid>
 </UserControl>

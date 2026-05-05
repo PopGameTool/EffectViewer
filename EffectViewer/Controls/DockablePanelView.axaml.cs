@@ -8,12 +8,13 @@ namespace EffectViewer.Controls
     {
         private const double SplitterWidth = 5d;
         private const double CompactLayoutWidth = 680d;
-        private const double CompactSplitterHeight = 5d;
-        private const double CompactMinimumPrimaryHeight = 150d;
-        private const double CompactMinimumSidePanelHeight = 150d;
-        private const double CompactMaximumSidePanelHeight = 320d;
+        private const double CompactMinimumPrimaryHeight = 280d;
+        private const double CompactDefaultPrimaryHeight = 360d;
+        private const double CompactMinimumSidePanelHeight = 420d;
+        private const double CompactDefaultSidePanelHeight = 520d;
         private double _lastSidePanelWidth = double.NaN;
         private double _lastCompactSidePanelHeight = double.NaN;
+        private bool _isCompactLayoutActive;
 
         public static readonly StyledProperty<object> PrimaryContentProperty =
             AvaloniaProperty.Register<DockablePanelView, object>(nameof(PrimaryContent));
@@ -163,10 +164,7 @@ namespace EffectViewer.Controls
             else if (change.Property == LayoutResetRevisionProperty)
             {
                 _lastSidePanelWidth = DefaultSidePanelWidth;
-                _lastCompactSidePanelHeight = System.Math.Clamp(
-                    DefaultSidePanelWidth,
-                    CompactMinimumSidePanelHeight,
-                    CompactMaximumSidePanelHeight);
+                _lastCompactSidePanelHeight = CompactDefaultSidePanelHeight;
                 PublishSidePanelWidth();
                 PublishCompactSidePanelHeight();
                 UpdateLayoutColumns(captureCurrentWidth: false);
@@ -182,12 +180,6 @@ namespace EffectViewer.Controls
 
             if (compactLayout)
             {
-                if (SideContentHost.Bounds.Height > 0)
-                {
-                    _lastCompactSidePanelHeight = SideContentHost.Bounds.Height;
-                    PublishCompactSidePanelHeight();
-                }
-
                 return;
             }
 
@@ -214,10 +206,7 @@ namespace EffectViewer.Controls
 
             if (double.IsNaN(_lastCompactSidePanelHeight) || _lastCompactSidePanelHeight <= 0)
             {
-                _lastCompactSidePanelHeight = System.Math.Clamp(
-                    DefaultSidePanelWidth,
-                    CompactMinimumSidePanelHeight,
-                    CompactMaximumSidePanelHeight);
+                _lastCompactSidePanelHeight = CompactDefaultSidePanelHeight;
             }
 
             if (compactLayout)
@@ -231,6 +220,20 @@ namespace EffectViewer.Controls
 
         private void UpdateDockedLayout()
         {
+            if (_isCompactLayoutActive ||
+                PrimaryContentHost.Parent != LayoutRoot ||
+                SideContentHost.Parent != LayoutRoot ||
+                SideSplitter.Parent != LayoutRoot)
+            {
+                AttachDockedLayout();
+            }
+
+            _isCompactLayoutActive = false;
+            SetClass(this, "compact-layout", false);
+            LayoutRoot.IsVisible = true;
+            CompactScrollViewer.IsVisible = false;
+            ResetCompactChildSizing();
+
             _lastSidePanelWidth = System.Math.Max(MinimumSidePanelWidth, _lastSidePanelWidth);
             double sideWidth = IsSidePanelVisible ? _lastSidePanelWidth : 0d;
             double sideMinWidth = IsSidePanelVisible ? MinimumSidePanelWidth : 0d;
@@ -280,25 +283,26 @@ namespace EffectViewer.Controls
 
         private void UpdateCompactLayout()
         {
-            double availableHeight = Bounds.Height > 0 ? Bounds.Height : 0d;
-            double sideHeight = IsSidePanelVisible
-                ? System.Math.Max(CompactMinimumSidePanelHeight, _lastCompactSidePanelHeight)
-                : 0d;
-            if (availableHeight > 0)
+            bool sideContentIsAttached = SideContentHost.Parent == CompactLayoutRoot;
+            if (!_isCompactLayoutActive ||
+                PrimaryContentHost.Parent != CompactLayoutRoot ||
+                sideContentIsAttached != IsSidePanelVisible)
             {
-                double maximumHeight = System.Math.Max(CompactMinimumSidePanelHeight, availableHeight * 0.45d);
-                sideHeight = System.Math.Min(sideHeight, maximumHeight);
+                AttachCompactLayout();
             }
 
-            double sideMinHeight = IsSidePanelVisible ? CompactMinimumSidePanelHeight : 0d;
-            double splitterHeight = IsSidePanelVisible ? CompactSplitterHeight : 0d;
+            _isCompactLayoutActive = true;
+            SetClass(this, "compact-layout", true);
+            LayoutRoot.IsVisible = false;
+            CompactScrollViewer.IsVisible = true;
+            UpdateCompactChildSizing();
 
             ConfigureColumn(LayoutRoot.ColumnDefinitions[0], 1d, 0d, GridUnitType.Star);
             ConfigureColumn(LayoutRoot.ColumnDefinitions[1], 0d, 0d);
             ConfigureColumn(LayoutRoot.ColumnDefinitions[2], 0d, 0d);
-            ConfigureRow(LayoutRoot.RowDefinitions[0], 1d, CompactMinimumPrimaryHeight, GridUnitType.Star);
-            ConfigureRow(LayoutRoot.RowDefinitions[1], splitterHeight, splitterHeight);
-            ConfigureRow(LayoutRoot.RowDefinitions[2], sideHeight, sideMinHeight);
+            ConfigureRow(LayoutRoot.RowDefinitions[0], 0d, 0d);
+            ConfigureRow(LayoutRoot.RowDefinitions[1], 0d, 0d);
+            ConfigureRow(LayoutRoot.RowDefinitions[2], 0d, 0d);
 
             Grid.SetColumn(PrimaryContentHost, 0);
             Grid.SetColumn(SideSplitter, 0);
@@ -315,8 +319,70 @@ namespace EffectViewer.Controls
 
             SideSplitter.ResizeDirection = GridResizeDirection.Rows;
             SetSplitterOrientationClasses(SideSplitter, horizontal: true);
-            SideSplitter.IsVisible = IsSidePanelVisible;
+            SideSplitter.IsVisible = false;
             SideContentHost.IsVisible = IsSidePanelVisible;
+        }
+
+        private void AttachDockedLayout()
+        {
+            LayoutRoot.Children.Clear();
+            RemoveFromParent(PrimaryContentHost);
+            RemoveFromParent(SideContentHost);
+            RemoveFromParent(SideSplitter);
+            LayoutRoot.Children.Add(PrimaryContentHost);
+            LayoutRoot.Children.Add(SideContentHost);
+            LayoutRoot.Children.Add(SideSplitter);
+        }
+
+        private void AttachCompactLayout()
+        {
+            RemoveFromParent(PrimaryContentHost);
+            RemoveFromParent(SideContentHost);
+            CompactLayoutRoot.Children.Clear();
+            CompactLayoutRoot.Children.Add(PrimaryContentHost);
+            if (IsSidePanelVisible)
+            {
+                CompactLayoutRoot.Children.Add(SideContentHost);
+            }
+        }
+
+        private void UpdateCompactChildSizing()
+        {
+            double availableHeight = Bounds.Height > 0 ? Bounds.Height : 0d;
+            double primaryHeight = availableHeight > 0
+                ? System.Math.Clamp(availableHeight * 0.52d, CompactMinimumPrimaryHeight, CompactDefaultPrimaryHeight)
+                : CompactDefaultPrimaryHeight;
+
+            PrimaryContentHost.Height = primaryHeight;
+            PrimaryContentHost.MinHeight = CompactMinimumPrimaryHeight;
+            PrimaryContentHost.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+            PrimaryContentHost.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+
+            SideContentHost.Height = double.NaN;
+            SideContentHost.MinHeight = IsSidePanelVisible ? CompactMinimumSidePanelHeight : 0d;
+            SideContentHost.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+            SideContentHost.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+        }
+
+        private void ResetCompactChildSizing()
+        {
+            PrimaryContentHost.Height = double.NaN;
+            PrimaryContentHost.MinHeight = 0d;
+            PrimaryContentHost.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+            PrimaryContentHost.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
+
+            SideContentHost.Height = double.NaN;
+            SideContentHost.MinHeight = 0d;
+            SideContentHost.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+            SideContentHost.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
+        }
+
+        private static void RemoveFromParent(Control control)
+        {
+            if (control.Parent is Panel parent)
+            {
+                parent.Children.Remove(control);
+            }
         }
 
         private static void ConfigureColumn(
