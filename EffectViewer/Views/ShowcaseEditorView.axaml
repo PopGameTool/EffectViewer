@@ -62,10 +62,18 @@
                 CornerRadius="6"
                 Padding="14">
         <Grid RowDefinitions="Auto,*,5,140" RowSpacing="10">
-          <Button Content="{DynamicResource Loc.Common.Run}"
-                  Command="{Binding RunScriptCommand}"
-                  HorizontalAlignment="Right"
-                  MinWidth="92"/>
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="8">
+            <Button x:Name="CompletionButton"
+                    Content="{DynamicResource Loc.Common.Complete}"
+                    Focusable="False"
+                    Click="CompletionButton_Click"
+                    MinWidth="92"/>
+            <Button Content="{DynamicResource Loc.Common.Run}"
+                    Command="{Binding RunScriptCommand}"
+                    MinWidth="92"/>
+          </StackPanel>
 
           <Border Grid.Row="1"
                   MinHeight="160"
@@ -95,11 +103,13 @@
                       BorderThickness="1"
                       CornerRadius="4">
                 <ListBox x:Name="InlineCompletionList"
+                         Focusable="False"
                          MaxHeight="220">
                   <ListBox.Styles>
                     <Style Selector="ListBoxItem">
                       <Setter Property="MinHeight" Value="0"/>
                       <Setter Property="Padding" Value="0"/>
+                      <Setter Property="Focusable" Value="False"/>
                     </Style>
                   </ListBox.Styles>
                   <ListBox.ItemTemplate>

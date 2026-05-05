@@ -19,6 +19,7 @@ namespace EffectViewer.Views
         private ShowcaseEditorViewModel _viewModel;
         private bool _isSyncingEditorText;
         private bool _isAcceptingCompletion;
+        private bool _isPointerInteractingWithInlineCompletion;
         private int _inlineCompletionStartOffset;
         private int _inlineCompletionEndOffset;
 
@@ -37,12 +38,13 @@ namespace EffectViewer.Views
 
         private void ConfigureScriptEditor()
         {
-            ScriptEditor.TextChanging += ScriptEditor_TextChanging;
             ScriptEditor.TextChanged += ScriptEditor_TextChanged;
             ScriptEditor.SizeChanged += ScriptEditor_SizeChanged;
             ScriptEditor.LostFocus += ScriptEditor_LostFocus;
             ScriptEditor.AddHandler(InputElement.KeyDownEvent, ScriptEditor_KeyDown, RoutingStrategies.Tunnel);
             ScriptEditor.AddHandler(InputElement.PointerPressedEvent, ScriptEditor_PointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+            InlineCompletionList.AddHandler(InputElement.PointerPressedEvent, InlineCompletionList_PointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+            InlineCompletionList.AddHandler(InputElement.PointerReleasedEvent, InlineCompletionList_PointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
             InlineCompletionList.AddHandler(InputElement.TappedEvent, InlineCompletionList_Tapped, RoutingStrategies.Bubble, handledEventsToo: true);
             ScriptEditor.PlaceholderText = LocalizationManager.Instance.Text("Placeholder.ShowcaseScript");
             LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
@@ -88,13 +90,9 @@ namespace EffectViewer.Views
             }
         }
 
-        private void ScriptEditor_TextChanging(object sender, TextChangingEventArgs e)
-        {
-            SyncScriptTextFromEditor(ScriptEditor.Text);
-        }
-
         private void ScriptEditor_TextChanged(object sender, TextChangedEventArgs e)
         {
+            SyncScriptTextFromEditor(ScriptEditor.Text);
             UpdateScriptUndoRedoState();
             if (!_isSyncingEditorText && !_isAcceptingCompletion && HasJustTypedMemberSeparator())
             {
@@ -242,6 +240,12 @@ namespace EffectViewer.Views
             e.Handled = true;
         }
 
+        private void CompletionButton_Click(object sender, RoutedEventArgs e)
+        {
+            ShowCompletion(membersOnly: false);
+            FocusScriptEditor();
+        }
+
         private void ScriptEditor_PointerPressed(object sender, PointerPressedEventArgs e)
         {
             HideInlineCompletion();
@@ -260,6 +264,11 @@ namespace EffectViewer.Views
 
         private void ScriptEditor_LostFocus(object sender, RoutedEventArgs e)
         {
+            if (_isPointerInteractingWithInlineCompletion)
+            {
+                return;
+            }
+
             HideInlineCompletion();
         }
 
@@ -311,20 +320,30 @@ namespace EffectViewer.Views
             InlineCompletionHost.IsVisible = false;
             InlineCompletionList.ItemsSource = null;
             InlineCompletionList.SelectedIndex = -1;
+            _isPointerInteractingWithInlineCompletion = false;
+        }
+
+        private void InlineCompletionList_PointerPressed(object sender, PointerPressedEventArgs e)
+        {
+            _isPointerInteractingWithInlineCompletion = true;
+        }
+
+        private void InlineCompletionList_PointerReleased(object sender, PointerReleasedEventArgs e)
+        {
+            _isPointerInteractingWithInlineCompletion = false;
         }
 
         private void InlineCompletionList_Tapped(object sender, TappedEventArgs e)
         {
-            if (TryGetInlineCompletionData(e, out ShowcaseCompletionItem completionData))
+            if (TryGetInlineCompletionData(e.GetPosition(InlineCompletionList), out ShowcaseCompletionItem completionData))
             {
                 AcceptInlineCompletion(completionData);
                 e.Handled = true;
             }
         }
 
-        private bool TryGetInlineCompletionData(TappedEventArgs e, out ShowcaseCompletionItem completionData)
+        private bool TryGetInlineCompletionData(Point position, out ShowcaseCompletionItem completionData)
         {
-            Point position = e.GetPosition(InlineCompletionList);
             foreach (Visual visual in InlineCompletionList.GetVisualsAt(position))
             {
                 if (TryGetCompletionDataFromVisual(visual, out completionData))

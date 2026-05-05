@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -528,38 +529,112 @@ namespace EffectViewer.ViewModels
                 yield return item;
             }
 
-            foreach ((ShowcaseCompletionScope scope, Type type, string label) in new[]
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<SceneObject>(ShowcaseCompletionScope.SceneObject, "Scene object"))
             {
-                (ShowcaseCompletionScope.SceneObject, typeof(SceneObject), "Scene object"),
-                (ShowcaseCompletionScope.Reanimation, typeof(ShowcaseReanimation), "Reanimation"),
-                (ShowcaseCompletionScope.ReanimationTrack, typeof(ShowcaseReanimationTrack), "Reanimation track"),
-                (ShowcaseCompletionScope.ReanimationTransform, typeof(ShowcaseReanimationTransform), "Reanimation transform"),
-                (ShowcaseCompletionScope.ReanimationFrameRange, typeof(ShowcaseReanimationFrameRange), "Reanimation frame range"),
-                (ShowcaseCompletionScope.FrameTime, typeof(ShowcaseFrameTime), "Frame time"),
-                (ShowcaseCompletionScope.Particle, typeof(ShowcaseParticle), "Particle system"),
-                (ShowcaseCompletionScope.ParticleEmitter, typeof(ShowcaseParticleEmitter), "Particle emitter"),
-                (ShowcaseCompletionScope.ParticleInstance, typeof(ShowcaseParticleInstance), "Particle instance"),
-                (ShowcaseCompletionScope.ParticleRenderParams, typeof(ShowcaseParticleRenderParams), "Particle render params"),
-                (ShowcaseCompletionScope.Trail, typeof(ShowcaseTrail), "Trail"),
-                (ShowcaseCompletionScope.TrailPoint, typeof(ShowcaseTrailPoint), "Trail point"),
-                (ShowcaseCompletionScope.Attachment, typeof(ShowcaseAttachment), "Attachment"),
-                (ShowcaseCompletionScope.AttachmentEffect, typeof(ShowcaseAttachmentEffect), "Attachment effect"),
-                (ShowcaseCompletionScope.Font, typeof(ShowcaseFont), "Font"),
-                (ShowcaseCompletionScope.Image, typeof(ShowcaseImage), "Image"),
-                (ShowcaseCompletionScope.Matrix, typeof(ShowcaseMatrix), "Matrix"),
-                (ShowcaseCompletionScope.Vector, typeof(ShowcaseVector), "Vector"),
-                (ShowcaseCompletionScope.Vector3, typeof(ShowcaseVector3), "Vector3"),
-                (ShowcaseCompletionScope.TriVertex, typeof(ShowcaseTriVertex), "Triangle vertex")
-            })
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseReanimation>(ShowcaseCompletionScope.Reanimation, "Reanimation"))
             {
-                foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems(type, scope, label))
-                {
-                    yield return item;
-                }
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseReanimationTrack>(ShowcaseCompletionScope.ReanimationTrack, "Reanimation track"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseReanimationTransform>(ShowcaseCompletionScope.ReanimationTransform, "Reanimation transform"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseReanimationFrameRange>(ShowcaseCompletionScope.ReanimationFrameRange, "Reanimation frame range"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseFrameTime>(ShowcaseCompletionScope.FrameTime, "Frame time"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseParticle>(ShowcaseCompletionScope.Particle, "Particle system"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseParticleEmitter>(ShowcaseCompletionScope.ParticleEmitter, "Particle emitter"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseParticleInstance>(ShowcaseCompletionScope.ParticleInstance, "Particle instance"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseParticleRenderParams>(ShowcaseCompletionScope.ParticleRenderParams, "Particle render params"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseTrail>(ShowcaseCompletionScope.Trail, "Trail"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseTrailPoint>(ShowcaseCompletionScope.TrailPoint, "Trail point"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseAttachment>(ShowcaseCompletionScope.Attachment, "Attachment"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseAttachmentEffect>(ShowcaseCompletionScope.AttachmentEffect, "Attachment effect"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseFont>(ShowcaseCompletionScope.Font, "Font"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseImage>(ShowcaseCompletionScope.Image, "Image"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseMatrix>(ShowcaseCompletionScope.Matrix, "Matrix"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseVector>(ShowcaseCompletionScope.Vector, "Vector"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseVector3>(ShowcaseCompletionScope.Vector3, "Vector3"))
+            {
+                yield return item;
+            }
+
+            foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems<ShowcaseTriVertex>(ShowcaseCompletionScope.TriVertex, "Triangle vertex"))
+            {
+                yield return item;
             }
         }
 
-        private static IEnumerable<ShowcaseCompletionItem> CreateGlobalTypeCompletionItems(string receiver, Type type, string label)
+        private static IEnumerable<ShowcaseCompletionItem> CreateGlobalTypeCompletionItems(
+            string receiver,
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicMethods)]
+            Type type,
+            string label)
         {
             foreach (ShowcaseCompletionItem item in CreateTypeCompletionItems(type, ShowcaseCompletionScope.Global, label, receiver))
             {
@@ -568,6 +643,7 @@ namespace EffectViewer.ViewModels
         }
 
         private static IEnumerable<ShowcaseCompletionItem> CreateTypeCompletionItems(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicMethods)]
             Type type,
             ShowcaseCompletionScope scope,
             string label,
@@ -595,6 +671,15 @@ namespace EffectViewer.ViewModels
                 string insert = $"{prefix}{method.Name}({(method.GetParameters().Length == 0 ? string.Empty : "$0")})";
                 yield return new ShowcaseCompletionItem(display, insert, $"{label} method.", scope);
             }
+        }
+
+        private static IEnumerable<ShowcaseCompletionItem> CreateTypeCompletionItems<
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicMethods)]
+            T>(
+            ShowcaseCompletionScope scope,
+            string label)
+        {
+            return CreateTypeCompletionItems(typeof(T), scope, label);
         }
 
         private static string FormatMethodSignature(MethodInfo method)
