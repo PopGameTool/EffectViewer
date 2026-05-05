@@ -2237,12 +2237,13 @@ namespace EffectViewer.ViewModels
 
             if (openedResource)
             {
-                ProjectExplorerResourceOpened?.Invoke(this, EventArgs.Empty);
+                NotifyResourceOpened();
             }
         }
 
         private void OpenResourceEditor(EffectAssetKind kind, string assetId)
         {
+            bool openedResource = false;
             EffectAsset asset = kind switch
             {
                 EffectAssetKind.Reanim when CurrentProject.Assets.Reanims.TryGetValue(assetId, out ReanimAsset reanim) => reanim,
@@ -2256,30 +2257,38 @@ namespace EffectViewer.ViewModels
             {
                 AddRecentlyOpenedResource(kind, image.Id, image.Path);
                 OpenOrSelectEditor(kind, assetId, () => new ImageEditorViewModel(image, CurrentProject));
-                return;
+                openedResource = true;
             }
-
-            if (kind == EffectAssetKind.Font &&
+            else if (kind == EffectAssetKind.Font &&
                 CurrentProject.Assets.Fonts.TryGetValue(assetId, out FontAsset font))
             {
                 AddRecentlyOpenedResource(kind, font.Id, font.Path);
                 OpenOrSelectEditor(kind, assetId, () => new FontEditorViewModel(font, CurrentProject));
-                return;
+                openedResource = true;
             }
-
-            if (kind == EffectAssetKind.Showcase &&
+            else if (kind == EffectAssetKind.Showcase &&
                 CurrentProject.Assets.Showcases.TryGetValue(assetId, out ShowcaseAsset showcase))
             {
                 AddRecentlyOpenedResource(kind, showcase.Id, showcase.Path);
                 OpenOrSelectEditor(kind, assetId, () => new ShowcaseEditorViewModel(showcase, _luaHost, CurrentProject));
-                return;
+                openedResource = true;
             }
-
-            if (asset is not null)
+            else if (asset is not null)
             {
                 AddRecentlyOpenedResource(kind, asset.Id, asset.Path);
                 OpenOrSelectEditor(kind, assetId, () => new EffectEditorViewModel(kind, assetId, asset.Path, CurrentProject));
+                openedResource = true;
             }
+
+            if (openedResource)
+            {
+                NotifyResourceOpened();
+            }
+        }
+
+        private void NotifyResourceOpened()
+        {
+            ProjectExplorerResourceOpened?.Invoke(this, EventArgs.Empty);
         }
 
         [RelayCommand]
