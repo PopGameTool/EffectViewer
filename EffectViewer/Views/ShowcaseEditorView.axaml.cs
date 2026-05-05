@@ -20,6 +20,12 @@ namespace EffectViewer.Views
         private bool _isSyncingEditorText;
         private bool _isAcceptingCompletion;
         private bool _isPointerInteractingWithInlineCompletion;
+        private bool _isApplyingScriptUndoRedo;
+        private readonly Stack<ScriptEditSnapshot> _scriptUndoStack = new();
+        private readonly Stack<ScriptEditSnapshot> _scriptRedoStack = new();
+        private ScriptEditSnapshot _currentScriptEditSnapshot;
+        private ScriptEditSnapshot _pendingScriptEditBeforeChange;
+        private TypingUndoGroupKind? _typingUndoGroupKind;
         private int _inlineCompletionStartOffset;
         private int _inlineCompletionEndOffset;
 
@@ -38,7 +44,10 @@ namespace EffectViewer.Views
 
         private void ConfigureScriptEditor()
         {
+            ScriptEditor.IsUndoEnabled = false;
+            ScriptEditor.TextChanging += ScriptEditor_TextChanging;
             ScriptEditor.TextChanged += ScriptEditor_TextChanged;
+            ScriptEditor.PropertyChanged += ScriptEditor_PropertyChanged;
             ScriptEditor.SizeChanged += ScriptEditor_SizeChanged;
             ScriptEditor.LostFocus += ScriptEditor_LostFocus;
             ScriptEditor.AddHandler(InputElement.KeyDownEvent, ScriptEditor_KeyDown, RoutingStrategies.Tunnel);
@@ -90,11 +99,22 @@ namespace EffectViewer.Views
             }
         }
 
+        private void ScriptEditor_TextChanging(object sender, TextChangingEventArgs e)
+        {
+            if (_isSyncingEditorText || _isApplyingScriptUndoRedo)
+            {
+                return;
+            }
+
+            _pendingScriptEditBeforeChange = CreateScriptEditSnapshot();
+        }
+
         private void ScriptEditor_TextChanged(object sender, TextChangedEventArgs e)
         {
+            RecordScriptEditForUndo();
             SyncScriptTextFromEditor(ScriptEditor.Text);
             UpdateScriptUndoRedoState();
-            if (_isSyncingEditorText || _isAcceptingCompletion)
+            if (_isSyncingEditorText || _isAcceptingCompletion || _isApplyingScriptUndoRedo)
             {
                 return;
             }
@@ -106,6 +126,25 @@ namespace EffectViewer.Views
             else if (InlineCompletionHost.IsVisible)
             {
                 RefreshInlineCompletion();
+            }
+        }
+
+        private void ScriptEditor_PropertyChanged(object sender, AvaloniaPropertyChangedEventArgs e)
+        {
+            if (_typingUndoGroupKind.HasValue ||
+                _isSyncingEditorText ||
+                _isApplyingScriptUndoRedo ||
+                e.Property != TextBox.CaretIndexProperty &&
+                e.Property != TextBox.SelectionStartProperty &&
+                e.Property != TextBox.SelectionEndProperty)
+            {
+                return;
+            }
+
+            if (_currentScriptEditSnapshot is null ||
+                string.Equals(_currentScriptEditSnapshot.Text, GetScriptEditorText(), StringComparison.Ordinal))
+            {
+                _currentScriptEditSnapshot = CreateScriptEditSnapshot();
             }
         }
 
@@ -135,6 +174,7 @@ namespace EffectViewer.Views
             string normalizedText = text ?? string.Empty;
             if (string.Equals(GetScriptEditorText(), normalizedText, StringComparison.Ordinal))
             {
+                ClearScriptUndoHistory();
                 UpdateScriptUndoRedoState();
                 return;
             }
@@ -149,6 +189,7 @@ namespace EffectViewer.Views
                 _isSyncingEditorText = false;
             }
 
+            ClearScriptUndoHistory();
             UpdateScriptUndoRedoState();
         }
 
@@ -187,23 +228,13 @@ namespace EffectViewer.Views
         private void OnScriptUndoRequested(object sender, EventArgs e)
         {
             HideInlineCompletion();
-            if (ScriptEditor.CanUndo)
-            {
-                ScriptEditor.Undo();
-            }
-
-            UpdateScriptUndoRedoState();
+            UndoScriptEdit();
         }
 
         private void OnScriptRedoRequested(object sender, EventArgs e)
         {
             HideInlineCompletion();
-            if (ScriptEditor.CanRedo)
-            {
-                ScriptEditor.Redo();
-            }
-
-            UpdateScriptUndoRedoState();
+            RedoScriptEdit();
         }
 
         private void OnScriptNavigationRequested(object sender, ShowcaseScriptNavigationRequest request)
@@ -242,6 +273,17 @@ namespace EffectViewer.Views
                 return;
             }
 
+            if (ShouldEndTypingUndoGroup(e))
+            {
+                EndTypingUndoGroup();
+            }
+
+            if (HandleScriptUndoRedoKey(e))
+            {
+                e.Handled = true;
+                return;
+            }
+
             if (InlineCompletionHost.IsVisible && HandleInlineCompletionKey(e))
             {
                 e.Handled = true;
@@ -272,6 +314,7 @@ namespace EffectViewer.Views
 
         private void ScriptEditor_PointerPressed(object sender, PointerPressedEventArgs e)
         {
+            EndTypingUndoGroup();
             HideInlineCompletion();
             FocusScriptEditor();
         }
@@ -283,11 +326,262 @@ namespace EffectViewer.Views
 
         private void UpdateScriptUndoRedoState()
         {
-            _viewModel?.SetScriptUndoRedoState(ScriptEditor.CanUndo, ScriptEditor.CanRedo);
+            _viewModel?.SetScriptUndoRedoState(_scriptUndoStack.Count > 0, _scriptRedoStack.Count > 0);
+        }
+
+        private void RecordScriptEditForUndo()
+        {
+            ScriptEditSnapshot after = CreateScriptEditSnapshot();
+            if (_isSyncingEditorText || _isApplyingScriptUndoRedo)
+            {
+                _pendingScriptEditBeforeChange = null;
+                _currentScriptEditSnapshot = after;
+                return;
+            }
+
+            ScriptEditSnapshot before = _pendingScriptEditBeforeChange ?? _currentScriptEditSnapshot ?? after;
+            _pendingScriptEditBeforeChange = null;
+            if (string.Equals(before.Text, after.Text, StringComparison.Ordinal))
+            {
+                _currentScriptEditSnapshot = after;
+                return;
+            }
+
+            TypingUndoGroupKind? editKind = GetTypingUndoGroupKind(before, after);
+            bool continuesTypingGroup =
+                editKind.HasValue &&
+                _typingUndoGroupKind == editKind &&
+                before.HasSameState(_currentScriptEditSnapshot);
+
+            if (!continuesTypingGroup)
+            {
+                PushUndoSnapshot(before);
+                _typingUndoGroupKind = editKind;
+            }
+
+            if (!editKind.HasValue)
+            {
+                EndTypingUndoGroup();
+            }
+
+            _scriptRedoStack.Clear();
+            _currentScriptEditSnapshot = after;
+        }
+
+        private void PushUndoSnapshot(ScriptEditSnapshot snapshot)
+        {
+            if (snapshot is null ||
+                _scriptUndoStack.TryPeek(out ScriptEditSnapshot previous) &&
+                previous.HasSameState(snapshot))
+            {
+                return;
+            }
+
+            _scriptUndoStack.Push(snapshot);
+        }
+
+        private void UndoScriptEdit()
+        {
+            EndTypingUndoGroup();
+            if (_scriptUndoStack.Count == 0)
+            {
+                UpdateScriptUndoRedoState();
+                return;
+            }
+
+            ScriptEditSnapshot current = CreateScriptEditSnapshot();
+            ScriptEditSnapshot previous = _scriptUndoStack.Pop();
+            _scriptRedoStack.Push(current);
+            ApplyScriptEditSnapshot(previous);
+            UpdateScriptUndoRedoState();
+        }
+
+        private void RedoScriptEdit()
+        {
+            EndTypingUndoGroup();
+            if (_scriptRedoStack.Count == 0)
+            {
+                UpdateScriptUndoRedoState();
+                return;
+            }
+
+            ScriptEditSnapshot current = CreateScriptEditSnapshot();
+            ScriptEditSnapshot next = _scriptRedoStack.Pop();
+            _scriptUndoStack.Push(current);
+            ApplyScriptEditSnapshot(next);
+            UpdateScriptUndoRedoState();
+        }
+
+        private void ApplyScriptEditSnapshot(ScriptEditSnapshot snapshot)
+        {
+            if (snapshot is null)
+            {
+                return;
+            }
+
+            _isApplyingScriptUndoRedo = true;
+            try
+            {
+                SetScriptEditorTextWithoutUndo(snapshot.Text);
+                int textLength = GetScriptEditorText().Length;
+                int selectionStart = Math.Clamp(snapshot.SelectionStart, 0, textLength);
+                int selectionEnd = Math.Clamp(snapshot.SelectionEnd, 0, textLength);
+                int caretIndex = Math.Clamp(snapshot.CaretIndex, 0, textLength);
+                ScriptEditor.SelectionStart = selectionStart;
+                ScriptEditor.SelectionEnd = selectionEnd;
+                ScriptEditor.CaretIndex = caretIndex;
+            }
+            finally
+            {
+                _isApplyingScriptUndoRedo = false;
+                _pendingScriptEditBeforeChange = null;
+                _currentScriptEditSnapshot = CreateScriptEditSnapshot();
+            }
+
+            FocusScriptEditor();
+        }
+
+        private void ClearScriptUndoHistory()
+        {
+            EndTypingUndoGroup();
+            _scriptUndoStack.Clear();
+            _scriptRedoStack.Clear();
+            _pendingScriptEditBeforeChange = null;
+            _currentScriptEditSnapshot = CreateScriptEditSnapshot();
+        }
+
+        private void EndTypingUndoGroup()
+        {
+            _typingUndoGroupKind = null;
+        }
+
+        private ScriptEditSnapshot CreateScriptEditSnapshot()
+        {
+            string text = GetScriptEditorText();
+            int textLength = text.Length;
+            return new ScriptEditSnapshot(
+                text,
+                Math.Clamp(ScriptEditor.CaretIndex, 0, textLength),
+                Math.Clamp(ScriptEditor.SelectionStart, 0, textLength),
+                Math.Clamp(ScriptEditor.SelectionEnd, 0, textLength));
+        }
+
+        private bool HandleScriptUndoRedoKey(KeyEventArgs e)
+        {
+            bool hasCommandModifier =
+                e.KeyModifiers.HasFlag(KeyModifiers.Control) ||
+                e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+            if (!hasCommandModifier)
+            {
+                return false;
+            }
+
+            if (e.Key == Key.Z)
+            {
+                if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+                {
+                    RedoScriptEdit();
+                }
+                else
+                {
+                    UndoScriptEdit();
+                }
+
+                return true;
+            }
+
+            if (e.Key == Key.Y)
+            {
+                RedoScriptEdit();
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool ShouldEndTypingUndoGroup(KeyEventArgs e)
+        {
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta))
+            {
+                return true;
+            }
+
+            return e.Key is Key.Back
+                or Key.Delete
+                or Key.Enter
+                or Key.Tab
+                or Key.Escape
+                or Key.Left
+                or Key.Right
+                or Key.Up
+                or Key.Down
+                or Key.Home
+                or Key.End
+                or Key.PageUp
+                or Key.PageDown;
+        }
+
+        private static TypingUndoGroupKind? GetTypingUndoGroupKind(
+            ScriptEditSnapshot before,
+            ScriptEditSnapshot after)
+        {
+            if (!TryGetPureInsertedText(before.Text, after.Text, out string insertedText) ||
+                string.IsNullOrEmpty(insertedText))
+            {
+                return null;
+            }
+
+            if (insertedText.All(IsIdentifierPart))
+            {
+                return TypingUndoGroupKind.Word;
+            }
+
+            if (insertedText.All(char.IsWhiteSpace))
+            {
+                return TypingUndoGroupKind.Whitespace;
+            }
+
+            return insertedText.Length == 1 ? TypingUndoGroupKind.Symbol : null;
+        }
+
+        private static bool TryGetPureInsertedText(string before, string after, out string insertedText)
+        {
+            before ??= string.Empty;
+            after ??= string.Empty;
+            insertedText = string.Empty;
+            if (after.Length <= before.Length)
+            {
+                return false;
+            }
+
+            int prefixLength = 0;
+            while (prefixLength < before.Length &&
+                prefixLength < after.Length &&
+                before[prefixLength] == after[prefixLength])
+            {
+                prefixLength++;
+            }
+
+            int suffixLength = 0;
+            while (suffixLength < before.Length - prefixLength &&
+                suffixLength < after.Length - prefixLength &&
+                before[before.Length - suffixLength - 1] == after[after.Length - suffixLength - 1])
+            {
+                suffixLength++;
+            }
+
+            if (before.Length - prefixLength - suffixLength != 0)
+            {
+                return false;
+            }
+
+            insertedText = after.Substring(prefixLength, after.Length - before.Length);
+            return true;
         }
 
         private void ScriptEditor_LostFocus(object sender, RoutedEventArgs e)
         {
+            EndTypingUndoGroup();
             if (_isPointerInteractingWithInlineCompletion)
             {
                 return;
@@ -879,6 +1173,38 @@ namespace EffectViewer.Views
             public ShowcaseCompletionScope Scope { get; }
             public bool AllMembers { get; }
             public bool Suppress { get; }
+        }
+
+        private sealed class ScriptEditSnapshot
+        {
+            public ScriptEditSnapshot(string text, int caretIndex, int selectionStart, int selectionEnd)
+            {
+                Text = text ?? string.Empty;
+                CaretIndex = caretIndex;
+                SelectionStart = selectionStart;
+                SelectionEnd = selectionEnd;
+            }
+
+            public string Text { get; }
+            public int CaretIndex { get; }
+            public int SelectionStart { get; }
+            public int SelectionEnd { get; }
+
+            public bool HasSameState(ScriptEditSnapshot other)
+            {
+                return other is not null &&
+                    CaretIndex == other.CaretIndex &&
+                    SelectionStart == other.SelectionStart &&
+                    SelectionEnd == other.SelectionEnd &&
+                    string.Equals(Text, other.Text, StringComparison.Ordinal);
+            }
+        }
+
+        private enum TypingUndoGroupKind
+        {
+            Word,
+            Whitespace,
+            Symbol
         }
     }
 }
