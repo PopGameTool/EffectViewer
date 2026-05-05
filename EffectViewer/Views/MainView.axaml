@@ -145,49 +145,49 @@
     </UserControl.Styles>
 
     <UserControl.KeyBindings>
-      <KeyBinding Gesture="Ctrl+Shift+N"
+      <KeyBinding Gesture="Meta+Shift+N"
                   Command="{Binding ShowNewProjectDialogCommand}"/>
-      <KeyBinding Gesture="Ctrl+O"
+      <KeyBinding Gesture="Meta+O"
                   Command="{Binding ShowOpenProjectDialogCommand}"/>
-      <KeyBinding Gesture="Ctrl+S"
+      <KeyBinding Gesture="Meta+S"
                   Command="{Binding SaveFileCommand}"/>
-      <KeyBinding Gesture="Ctrl+Alt+S"
+      <KeyBinding Gesture="Meta+Alt+S"
                   Command="{Binding SaveProjectCommand}"/>
-      <KeyBinding Gesture="Ctrl+Shift+S"
+      <KeyBinding Gesture="Meta+Shift+S"
                   Command="{Binding SaveAllEditorsCommand}"/>
-      <KeyBinding Gesture="Ctrl+N"
+      <KeyBinding Gesture="Meta+N"
                   Command="{Binding ShowNewResourceDialogCommand}"/>
-      <KeyBinding Gesture="Ctrl+I"
+      <KeyBinding Gesture="Meta+I"
                   Command="{Binding RequestImportResourceFileCommand}"/>
-      <KeyBinding Gesture="Ctrl+Shift+I"
+      <KeyBinding Gesture="Meta+Shift+I"
                   Command="{Binding RequestImportResourceFolderCommand}"/>
-      <KeyBinding Gesture="Ctrl+Delete"
+      <KeyBinding Gesture="Meta+Delete"
                   Command="{Binding ShowDeleteSelectedResourceDialogCommand}"/>
-      <KeyBinding Gesture="Ctrl+E"
+      <KeyBinding Gesture="Meta+E"
                   Command="{Binding ShowPreviewExportDialogCommand}"/>
-      <KeyBinding Gesture="Ctrl+Shift+E"
+      <KeyBinding Gesture="Meta+Shift+E"
                   Command="{Binding RequestExportFileCommand}"/>
-      <KeyBinding Gesture="Ctrl+B"
+      <KeyBinding Gesture="Meta+B"
                   Command="{Binding ToggleProjectExplorerCommand}"/>
-      <KeyBinding Gesture="Ctrl+W"
+      <KeyBinding Gesture="Meta+W"
                   Command="{Binding CloseCurrentEditorCommand}"/>
-      <KeyBinding Gesture="Ctrl+Shift+W"
+      <KeyBinding Gesture="Meta+Shift+W"
                   Command="{Binding CloseAllEditorTabsCommand}"/>
-      <KeyBinding Gesture="Ctrl+Tab"
+      <KeyBinding Gesture="Meta+Tab"
                   Command="{Binding SelectNextEditorCommand}"/>
-      <KeyBinding Gesture="Ctrl+Shift+Tab"
+      <KeyBinding Gesture="Meta+Shift+Tab"
                   Command="{Binding SelectPreviousEditorCommand}"/>
-      <KeyBinding Gesture="Ctrl+Alt+Left"
+      <KeyBinding Gesture="Meta+Alt+Left"
                   Command="{Binding MoveEditorLeftCommand}"
                   CommandParameter="{Binding SelectedEditor}"/>
-      <KeyBinding Gesture="Ctrl+Alt+Right"
+      <KeyBinding Gesture="Meta+Alt+Right"
                   Command="{Binding MoveEditorRightCommand}"
                   CommandParameter="{Binding SelectedEditor}"/>
-      <KeyBinding Gesture="Ctrl+Z"
+      <KeyBinding Gesture="Meta+Z"
                   Command="{Binding UndoSelectedEditorCommand}"/>
-      <KeyBinding Gesture="Ctrl+Y"
+      <KeyBinding Gesture="Meta+Y"
                   Command="{Binding RedoSelectedEditorCommand}"/>
-      <KeyBinding Gesture="Ctrl+Shift+Z"
+      <KeyBinding Gesture="Meta+Shift+Z"
                   Command="{Binding RedoSelectedEditorCommand}"/>
     </UserControl.KeyBindings>
 
@@ -197,20 +197,19 @@
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
               BorderThickness="0,0,0,1">
         <DockPanel Margin="12,0">
-          <Menu x:Name="MainMenu"
-                DockPanel.Dock="Left"
+          <Menu DockPanel.Dock="Left"
                 Background="Transparent">
             <MenuItem Header="{DynamicResource Loc.Menu.Project}">
               <MenuItem Header="{DynamicResource Loc.Menu.NewProject}"
                         Command="{Binding ShowNewProjectDialogCommand}"
-                        InputGesture="Ctrl+Shift+N"/>
+                        InputGesture="Meta+Shift+N"/>
               <MenuItem Header="{DynamicResource Loc.Menu.OpenProject}"
                         Command="{Binding ShowOpenProjectDialogCommand}"
-                        InputGesture="Ctrl+O"/>
+                        InputGesture="Meta+O"/>
               <Separator/>
               <MenuItem Header="{DynamicResource Loc.Menu.SaveProject}"
                         Command="{Binding SaveProjectCommand}"
-                        InputGesture="Ctrl+Alt+S"
+                        InputGesture="Meta+Alt+S"
                         IsEnabled="{Binding CanSaveCurrentProject}"/>
               <Separator/>
               <MenuItem Header="{DynamicResource Loc.Menu.ImportProjectZip}"
@@ -222,16 +221,16 @@
             <MenuItem Header="{DynamicResource Loc.Menu.Resource}">
               <MenuItem Header="{DynamicResource Loc.Menu.NewResource}"
                         Command="{Binding ShowNewResourceDialogCommand}"
-                        InputGesture="Ctrl+N"
+                        InputGesture="Meta+N"
                         IsEnabled="{Binding CanModifyCurrentProject}"/>
               <Separator/>
               <MenuItem Header="{DynamicResource Loc.Menu.ImportResourceFile}"
                         Click="ImportResourceFileMenuItem_Click"
-                        InputGesture="Ctrl+I"
+                        InputGesture="Meta+I"
                         IsEnabled="{Binding CanModifyCurrentProject}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.ImportResourceFolder}"
                         Click="ImportFolderMenuItem_Click"
-                        InputGesture="Ctrl+Shift+I"/>
+                        InputGesture="Meta+Shift+I"/>
               <MenuItem Header="{DynamicResource Loc.Menu.ImportResourcePak}"
                         Click="ImportPakMenuItem_Click"/>
               <MenuItem x:Name="RecentlyOpenedMenuItem"
@@ -240,56 +239,56 @@
               <Separator/>
               <MenuItem Header="{DynamicResource Loc.Menu.DeleteResource}"
                         Command="{Binding ShowDeleteSelectedResourceDialogCommand}"
-                        InputGesture="Ctrl+Delete"
+                        InputGesture="Meta+Delete"
                         IsEnabled="{Binding CanDeleteSelectedResource}"/>
             </MenuItem>
             <MenuItem Header="{DynamicResource Loc.Menu.Edit}">
               <MenuItem Header="{DynamicResource Loc.Menu.Undo}"
                         Command="{Binding UndoSelectedEditorCommand}"
-                        InputGesture="Ctrl+Z"
+                        InputGesture="Meta+Z"
                         IsEnabled="{Binding CanUndoSelectedEditor}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.Redo}"
                         Command="{Binding RedoSelectedEditorCommand}"
-                        InputGesture="Ctrl+Y"
+                        InputGesture="Meta+Y"
                         IsEnabled="{Binding CanRedoSelectedEditor}"/>
             </MenuItem>
             <MenuItem Header="{DynamicResource Loc.Menu.File}">
               <MenuItem Header="{DynamicResource Loc.Menu.SaveCurrentFile}"
                         Command="{Binding SaveFileCommand}"
-                        InputGesture="Ctrl+S"
+                        InputGesture="Meta+S"
                         IsEnabled="{Binding CanSaveSelectedFile}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.SaveAllFiles}"
                         Command="{Binding SaveAllEditorsCommand}"
-                        InputGesture="Ctrl+Shift+S"
+                        InputGesture="Meta+Shift+S"
                         IsEnabled="{Binding CanSaveAnyEditor}"/>
               <Separator/>
               <MenuItem Header="{DynamicResource Loc.Menu.ExportCurrentFile}"
                         Click="ExportFileMenuItem_Click"
-                        InputGesture="Ctrl+Shift+E"
+                        InputGesture="Meta+Shift+E"
                         IsEnabled="{Binding CanExportSelectedFile}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.ExportPreview}"
                         Command="{Binding ShowPreviewExportDialogCommand}"
-                        InputGesture="Ctrl+E"
+                        InputGesture="Meta+E"
                         IsEnabled="{Binding CanExportSelectedPreview}"/>
             </MenuItem>
             <MenuItem Header="{DynamicResource Loc.Menu.Tabs}">
               <MenuItem Header="{DynamicResource Loc.Menu.PreviousTab}"
                         Command="{Binding SelectPreviousEditorCommand}"
-                        InputGesture="Ctrl+Shift+Tab"
+                        InputGesture="Meta+Shift+Tab"
                         IsEnabled="{Binding CanSelectPreviousEditor}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.NextTab}"
                         Command="{Binding SelectNextEditorCommand}"
-                        InputGesture="Ctrl+Tab"
+                        InputGesture="Meta+Tab"
                         IsEnabled="{Binding CanSelectNextEditor}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.MoveTabLeft}"
                         Command="{Binding MoveEditorLeftCommand}"
                         CommandParameter="{Binding SelectedEditor}"
-                        InputGesture="Ctrl+Alt+Left"
+                        InputGesture="Meta+Alt+Left"
                         IsEnabled="{Binding CanMoveSelectedEditorLeft}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.MoveTabRight}"
                         Command="{Binding MoveEditorRightCommand}"
                         CommandParameter="{Binding SelectedEditor}"
-                        InputGesture="Ctrl+Alt+Right"
+                        InputGesture="Meta+Alt+Right"
                         IsEnabled="{Binding CanMoveSelectedEditorRight}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.TogglePinTab}"
                         Command="{Binding ToggleEditorPinnedCommand}"
@@ -298,7 +297,7 @@
               <Separator/>
               <MenuItem Header="{DynamicResource Loc.Menu.CloseCurrentTab}"
                         Command="{Binding CloseCurrentEditorCommand}"
-                        InputGesture="Ctrl+W"
+                        InputGesture="Meta+W"
                         IsEnabled="{Binding CanCloseSelectedEditor}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.CloseOtherTabs}"
                         Command="{Binding CloseOtherEditorsCommand}"
@@ -315,13 +314,13 @@
                         IsEnabled="{Binding CanCloseSavedEditors}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.CloseAllTabs}"
                         Command="{Binding CloseAllEditorTabsCommand}"
-                        InputGesture="Ctrl+Shift+W"
+                        InputGesture="Meta+Shift+W"
                         IsEnabled="{Binding HasClosableEditors}"/>
             </MenuItem>
             <MenuItem Header="{DynamicResource Loc.Menu.View}">
               <MenuItem Header="{DynamicResource Loc.Menu.ProjectExplorer}"
                         Command="{Binding ToggleProjectExplorerCommand}"
-                        InputGesture="Ctrl+B"
+                        InputGesture="Meta+B"
                         IsChecked="{Binding IsProjectExplorerVisible, Mode=OneWay}"
                         ToggleType="CheckBox"/>
               <Separator/>

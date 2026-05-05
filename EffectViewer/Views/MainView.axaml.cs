@@ -39,60 +39,7 @@ namespace EffectViewer.Views
         public MainView()
         {
             InitializeComponent();
-            ApplyPlatformKeyGestures();
             DataContextChanged += OnDataContextChanged;
-        }
-
-        private void ApplyPlatformKeyGestures()
-        {
-            if (!UseApplePrimaryModifier())
-            {
-                return;
-            }
-
-            foreach (KeyBinding keyBinding in KeyBindings)
-            {
-                keyBinding.Gesture = UseApplePrimaryModifier(keyBinding.Gesture);
-            }
-
-            foreach (MenuItem menuItem in EnumerateMenuItems(MainMenu))
-            {
-                menuItem.InputGesture = UseApplePrimaryModifier(menuItem.InputGesture);
-            }
-        }
-
-        private static bool UseApplePrimaryModifier()
-        {
-            return OperatingSystem.IsMacOS() || OperatingSystem.IsIOS() || OperatingSystem.IsMacCatalyst();
-        }
-
-        private static KeyGesture UseApplePrimaryModifier(KeyGesture gesture)
-        {
-            if (gesture is null || !gesture.KeyModifiers.HasFlag(KeyModifiers.Control))
-            {
-                return gesture;
-            }
-
-            KeyModifiers modifiers = (gesture.KeyModifiers & ~KeyModifiers.Control) | KeyModifiers.Meta;
-            return new KeyGesture(gesture.Key, modifiers);
-        }
-
-        private static IEnumerable<MenuItem> EnumerateMenuItems(ItemsControl itemsControl)
-        {
-            foreach (object item in itemsControl.Items)
-            {
-                if (item is not MenuItem menuItem)
-                {
-                    continue;
-                }
-
-                yield return menuItem;
-
-                foreach (MenuItem child in EnumerateMenuItems(menuItem))
-                {
-                    yield return child;
-                }
-            }
         }
 
         private async Task<T> RunStoragePickerAsync<T>(Func<Task<T>> picker)
