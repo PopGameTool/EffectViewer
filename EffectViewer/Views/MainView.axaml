@@ -100,6 +100,13 @@
         <Setter Property="Padding" Value="0"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
       </Style>
+      <Style Selector="Button.compact-project-explorer-button">
+        <Setter Property="Width" Value="34"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Margin" Value="0,0,6,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+      </Style>
       <Style Selector="Button.tab-close-button">
         <Setter Property="Width" Value="22"/>
         <Setter Property="Height" Value="22"/>
@@ -196,9 +203,12 @@
       <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
               BorderThickness="0,0,0,1">
-        <DockPanel Margin="12,0">
-          <Menu DockPanel.Dock="Left"
-                Background="Transparent">
+        <Grid Margin="8,0"
+              ColumnDefinitions="*,Auto"
+              ColumnSpacing="8">
+          <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                        VerticalScrollBarVisibility="Disabled">
+          <Menu Background="Transparent">
             <MenuItem Header="{DynamicResource Loc.Menu.Project}">
               <MenuItem Header="{DynamicResource Loc.Menu.NewProject}"
                         Command="{Binding ShowNewProjectDialogCommand}"
@@ -357,15 +367,23 @@
                         Click="LoadLanguageFileMenuItem_Click"/>
             </MenuItem>
           </Menu>
+          </ScrollViewer>
           <TextBlock Text="{Binding CurrentProject.Manifest.Name}"
+                     Grid.Column="1"
                      VerticalAlignment="Center"
-                     HorizontalAlignment="Center"
-                     FontWeight="SemiBold"/>
-        </DockPanel>
+                     FontWeight="SemiBold"
+                     MaxWidth="180"
+                     TextTrimming="CharacterEllipsis"/>
+        </Grid>
       </Border>
 
       <Grid x:Name="WorkspaceGrid"
             Grid.Row="1">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="*" MinHeight="0"/>
+          <RowDefinition Height="0" MinHeight="0"/>
+          <RowDefinition Height="0" MinHeight="0"/>
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="280"
                             MinWidth="180"/>
@@ -378,7 +396,8 @@
                             MinWidth="0"/>
         </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0"
+        <Border x:Name="LeftProjectExplorerPanel"
+                Grid.Column="0"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                 BorderThickness="0,0,1,0"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
@@ -435,21 +454,31 @@
           </Grid>
         </Border>
 
-        <GridSplitter Grid.Column="1"
+        <GridSplitter x:Name="LeftProjectExplorerSplitter"
+                      Grid.Column="1"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch"
                       ResizeDirection="Columns"
                       IsVisible="{Binding IsProjectExplorerVisibleLeft}"
                       Classes="layout-splitter vertical-splitter"/>
 
-        <Grid Grid.Column="2" RowDefinitions="42,*">
+        <Grid x:Name="WorkspaceContentGrid"
+              Grid.Column="2"
+              RowDefinitions="42,*">
           <Border Background="{DynamicResource SystemControlBackgroundChromeLowBrush}"
                   BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                   BorderThickness="0,0,0,1">
             <Grid x:Name="DocumentTabHeaderGrid"
-                  ColumnDefinitions="*,Auto"
+                  ColumnDefinitions="Auto,*,Auto"
                   Margin="8,0">
+              <Button x:Name="CompactProjectExplorerButton"
+                      Content="☰"
+                      Classes.compact-project-explorer-button="True"
+                      ToolTip.Tip="{DynamicResource Loc.Menu.ProjectExplorer}"
+                      IsVisible="False"
+                      Click="CompactProjectExplorerButton_Click"/>
               <ScrollViewer x:Name="DocumentTabStripScrollViewer"
+                            Grid.Column="1"
                             HorizontalScrollBarVisibility="Auto"
                             VerticalScrollBarVisibility="Disabled"
                             Margin="0,0,8,0">
@@ -546,7 +575,7 @@
               </ItemsControl>
               </ScrollViewer>
 
-              <Menu Grid.Column="1"
+              <Menu Grid.Column="2"
                     Background="Transparent"
                     VerticalAlignment="Center">
                 <MenuItem Header="..."
@@ -599,14 +628,16 @@
                           Content="{Binding SelectedEditor}"/>
         </Grid>
 
-        <GridSplitter Grid.Column="3"
+        <GridSplitter x:Name="RightProjectExplorerSplitter"
+                      Grid.Column="3"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch"
                       ResizeDirection="Columns"
                       IsVisible="{Binding IsProjectExplorerVisibleRight}"
                       Classes="layout-splitter vertical-splitter"/>
 
-        <Border Grid.Column="4"
+        <Border x:Name="RightProjectExplorerPanel"
+                Grid.Column="4"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                 BorderThickness="1,0,0,0"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
@@ -708,8 +739,9 @@
 
       <Border Background="#80000000"
             IsVisible="{Binding IsUnsavedChangesPromptOpen}">
-      <Border Width="420"
-              HorizontalAlignment="Center"
+      <Border MaxWidth="420"
+              Margin="16"
+              HorizontalAlignment="Stretch"
               VerticalAlignment="Center"
               Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
@@ -744,9 +776,10 @@
 
     <Border Background="#80000000"
             IsVisible="{Binding IsOpenProjectDialogOpen}">
-      <Border Width="520"
+      <Border MaxWidth="520"
               MaxHeight="520"
-              HorizontalAlignment="Center"
+              Margin="16"
+              HorizontalAlignment="Stretch"
               VerticalAlignment="Center"
               Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
@@ -820,8 +853,9 @@
 
     <Border Background="#80000000"
             IsVisible="{Binding IsRenameProjectDialogOpen}">
-      <Border Width="420"
-              HorizontalAlignment="Center"
+      <Border MaxWidth="420"
+              Margin="16"
+              HorizontalAlignment="Stretch"
               VerticalAlignment="Center"
               Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
@@ -852,8 +886,9 @@
 
     <Border Background="#80000000"
             IsVisible="{Binding IsPreviewExportDialogOpen}">
-      <Border Width="460"
-              HorizontalAlignment="Center"
+      <Border MaxWidth="460"
+              Margin="16"
+              HorizontalAlignment="Stretch"
               VerticalAlignment="Center"
               Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
@@ -1012,8 +1047,9 @@
 
     <Border Background="#80000000"
             IsVisible="{Binding IsDeleteProjectDialogOpen}">
-      <Border Width="460"
-              HorizontalAlignment="Center"
+      <Border MaxWidth="460"
+              Margin="16"
+              HorizontalAlignment="Stretch"
               VerticalAlignment="Center"
               Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
@@ -1045,8 +1081,9 @@
 
     <Border Background="#80000000"
             IsVisible="{Binding IsDeleteResourceDialogOpen}">
-      <Border Width="460"
-              HorizontalAlignment="Center"
+      <Border MaxWidth="460"
+              Margin="16"
+              HorizontalAlignment="Stretch"
               VerticalAlignment="Center"
               Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
@@ -1078,8 +1115,9 @@
 
     <Border Background="#80000000"
             IsVisible="{Binding IsNewProjectDialogOpen}">
-      <Border Width="420"
-              HorizontalAlignment="Center"
+      <Border MaxWidth="420"
+              Margin="16"
+              HorizontalAlignment="Stretch"
               VerticalAlignment="Center"
               Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
@@ -1110,8 +1148,9 @@
 
     <Border Background="#80000000"
             IsVisible="{Binding IsNewResourceDialogOpen}">
-      <Border Width="440"
-              HorizontalAlignment="Center"
+      <Border MaxWidth="440"
+              Margin="16"
+              HorizontalAlignment="Stretch"
               VerticalAlignment="Center"
               Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
@@ -1148,8 +1187,9 @@
 
     <Border Background="#80000000"
             IsVisible="{Binding IsProjectTransferInProgress}">
-      <Border Width="460"
-              HorizontalAlignment="Center"
+      <Border MaxWidth="460"
+              Margin="16"
+              HorizontalAlignment="Stretch"
               VerticalAlignment="Center"
               Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"

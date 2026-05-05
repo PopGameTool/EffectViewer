@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using Avalonia;
 using Avalonia.Controls;
@@ -16,6 +17,9 @@ namespace EffectViewer.Controls
         private const double ScaleHandleSize = 10d;
         private const double SkewHandleSize = 8d;
         private const double HandleHitSize = 18d;
+        private const float MinimumZoom = 0.05f;
+        private const float MaximumZoom = 32f;
+        private const float MinimumPinchDistancePixels = 8f;
 
         public static readonly StyledProperty<RenderFrame> FrameProperty =
             AvaloniaProperty.Register<InteractiveEffectViewport, RenderFrame>(nameof(Frame), new RenderFrame());
@@ -34,11 +38,16 @@ namespace EffectViewer.Controls
         private readonly Control _viewportControl;
         private readonly IEffectViewport _viewport;
         private readonly TransformOverlay _overlay;
+        private readonly Dictionary<IPointer, Vector2> _touchPointsPixels = [];
         private Vector2 _panPixels;
         private Vector2 _lastPanPositionPixels;
+        private Vector2 _pinchStartWorldCenter;
         private float _zoom = 1f;
+        private float _pinchStartZoom = 1f;
+        private float _pinchStartDistancePixels;
         private bool _isPanning;
         private bool _isDraggingContent;
+        private bool _isPinching;
         private ViewportDragHandle _activeDragHandle;
         private IViewportDragHandler _subscribedDragHandler;
 
@@ -143,7 +152,7 @@ namespace EffectViewer.Controls
             Vector2 cursorPixels = ToPixels(e.GetPosition(this), scaling);
             float oldZoom = _zoom;
             float factor = (float)Math.Pow(1.12, e.Delta.Y);
-            float newZoom = Math.Clamp(oldZoom * factor, 0.05f, 32f);
+            float newZoom = Math.Clamp(oldZoom * factor, MinimumZoom, MaximumZoom);
             if (Math.Abs(newZoom - oldZoom) < 0.0001f)
             {
                 return;
@@ -160,6 +169,11 @@ namespace EffectViewer.Controls
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
             base.OnPointerPressed(e);
+
+            if (TryHandleTouchPressed(e))
+            {
+                return;
+            }
 
             PointerPoint point = e.GetCurrentPoint(this);
             if (!point.Properties.IsLeftButtonPressed && !point.Properties.IsMiddleButtonPressed)
@@ -189,6 +203,12 @@ namespace EffectViewer.Controls
         protected override void OnPointerMoved(PointerEventArgs e)
         {
             base.OnPointerMoved(e);
+
+            if (TryHandleTouchMoved(e))
+            {
+                return;
+            }
+
             if (!_isPanning && !_isDraggingContent)
             {
                 return;
@@ -223,6 +243,12 @@ namespace EffectViewer.Controls
         protected override void OnPointerReleased(PointerReleasedEventArgs e)
         {
             base.OnPointerReleased(e);
+            if (TryHandleTouchReleased(e.Pointer))
+            {
+                e.Handled = true;
+                return;
+            }
+
             EndPointerAction(e.Pointer);
             e.Handled = true;
         }
@@ -230,8 +256,14 @@ namespace EffectViewer.Controls
         protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
         {
             base.OnPointerCaptureLost(e);
+            if (TryHandleTouchCaptureLost(e.Pointer))
+            {
+                return;
+            }
+
             _isPanning = false;
             _isDraggingContent = false;
+            _isPinching = false;
             _activeDragHandle = ViewportDragHandle.None;
             DragHandler?.EndDrag();
         }
@@ -241,6 +273,8 @@ namespace EffectViewer.Controls
             base.OnDoubleTapped(e);
             _zoom = 1f;
             _panPixels = Vector2.Zero;
+            _isPinching = false;
+            _touchPointsPixels.Clear();
             ApplyViewTransform();
             InvalidateOverlay();
             e.Handled = true;
@@ -256,6 +290,8 @@ namespace EffectViewer.Controls
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             ViewportBackgroundSettings.ModeChanged -= OnViewportBackgroundModeChanged;
+            _touchPointsPixels.Clear();
+            _isPinching = false;
             base.OnDetachedFromVisualTree(e);
         }
 
@@ -273,9 +309,218 @@ namespace EffectViewer.Controls
 
             _isPanning = false;
             _isDraggingContent = false;
+            _isPinching = false;
             _activeDragHandle = ViewportDragHandle.None;
             DragHandler?.EndDrag();
             pointer.Capture(null);
+        }
+
+        private bool TryHandleTouchPressed(PointerPressedEventArgs e)
+        {
+            if (e.Pointer.Type != PointerType.Touch)
+            {
+                return false;
+            }
+
+            Focus();
+            double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+            _touchPointsPixels[e.Pointer] = ToPixels(e.GetPosition(this), scaling);
+            e.Pointer.Capture(this);
+
+            if (_touchPointsPixels.Count >= 2)
+            {
+                CancelDragForTouchGesture();
+                BeginPinch();
+            }
+            else
+            {
+                _lastPanPositionPixels = _touchPointsPixels[e.Pointer];
+                _isPanning = true;
+                _isDraggingContent = false;
+                _activeDragHandle = ViewportDragHandle.None;
+            }
+
+            e.PreventGestureRecognition();
+            e.Handled = true;
+            return true;
+        }
+
+        private bool TryHandleTouchMoved(PointerEventArgs e)
+        {
+            if (e.Pointer.Type != PointerType.Touch || !_touchPointsPixels.ContainsKey(e.Pointer))
+            {
+                return false;
+            }
+
+            double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+            Vector2 positionPixels = ToPixels(e.GetPosition(this), scaling);
+            _touchPointsPixels[e.Pointer] = positionPixels;
+
+            if (_touchPointsPixels.Count >= 2)
+            {
+                if (!_isPinching)
+                {
+                    CancelDragForTouchGesture();
+                    BeginPinch();
+                }
+
+                UpdatePinch();
+            }
+            else if (_isPanning)
+            {
+                Vector2 deltaPixels = positionPixels - _lastPanPositionPixels;
+                _panPixels += deltaPixels;
+                _lastPanPositionPixels = positionPixels;
+                ApplyViewTransform();
+                InvalidateOverlay();
+            }
+
+            e.PreventGestureRecognition();
+            e.Handled = true;
+            return true;
+        }
+
+        private bool TryHandleTouchReleased(IPointer pointer)
+        {
+            if (pointer.Type != PointerType.Touch)
+            {
+                return false;
+            }
+
+            if (_touchPointsPixels.Remove(pointer))
+            {
+                pointer.Capture(null);
+            }
+
+            if (_touchPointsPixels.Count >= 2)
+            {
+                BeginPinch();
+            }
+            else
+            {
+                _isPinching = false;
+                if (TryGetSingleTouchPoint(out Vector2 remainingPositionPixels))
+                {
+                    _lastPanPositionPixels = remainingPositionPixels;
+                    _isPanning = true;
+                }
+                else
+                {
+                    _isPanning = false;
+                }
+            }
+
+            _isDraggingContent = false;
+            _activeDragHandle = ViewportDragHandle.None;
+            DragHandler?.EndDrag();
+            return true;
+        }
+
+        private bool TryHandleTouchCaptureLost(IPointer pointer)
+        {
+            if (pointer.Type != PointerType.Touch)
+            {
+                return false;
+            }
+
+            _touchPointsPixels.Remove(pointer);
+            if (_touchPointsPixels.Count >= 2)
+            {
+                BeginPinch();
+            }
+            else
+            {
+                _isPinching = false;
+                _isPanning = _touchPointsPixels.Count == 1;
+                if (_isPanning && TryGetSingleTouchPoint(out Vector2 remainingPositionPixels))
+                {
+                    _lastPanPositionPixels = remainingPositionPixels;
+                }
+            }
+
+            _isDraggingContent = false;
+            _activeDragHandle = ViewportDragHandle.None;
+            DragHandler?.EndDrag();
+            return true;
+        }
+
+        private void CancelDragForTouchGesture()
+        {
+            if (_isDraggingContent)
+            {
+                DragHandler?.EndDrag();
+            }
+
+            _isPanning = false;
+            _isDraggingContent = false;
+            _activeDragHandle = ViewportDragHandle.None;
+        }
+
+        private void BeginPinch()
+        {
+            if (!TryGetTwoTouchPoints(out Vector2 first, out Vector2 second))
+            {
+                _isPinching = false;
+                return;
+            }
+
+            _pinchStartDistancePixels = Math.Max(Vector2.Distance(first, second), MinimumPinchDistancePixels);
+            Vector2 centerPixels = (first + second) * 0.5f;
+            _pinchStartWorldCenter = ViewPixelsToWorld(centerPixels);
+            _pinchStartZoom = _zoom;
+            _isPinching = true;
+        }
+
+        private void UpdatePinch()
+        {
+            if (!_isPinching || !TryGetTwoTouchPoints(out Vector2 first, out Vector2 second))
+            {
+                return;
+            }
+
+            float currentDistancePixels = Math.Max(Vector2.Distance(first, second), MinimumPinchDistancePixels);
+            float factor = currentDistancePixels / _pinchStartDistancePixels;
+            float newZoom = Math.Clamp(_pinchStartZoom * factor, MinimumZoom, MaximumZoom);
+            Vector2 centerPixels = (first + second) * 0.5f;
+            _zoom = newZoom;
+            _panPixels = centerPixels - _pinchStartWorldCenter * _zoom;
+            ApplyViewTransform();
+            InvalidateOverlay();
+        }
+
+        private bool TryGetTwoTouchPoints(out Vector2 first, out Vector2 second)
+        {
+            first = default;
+            second = default;
+            int index = 0;
+            foreach (Vector2 point in _touchPointsPixels.Values)
+            {
+                if (index == 0)
+                {
+                    first = point;
+                }
+                else
+                {
+                    second = point;
+                    return true;
+                }
+
+                index++;
+            }
+
+            return false;
+        }
+
+        private bool TryGetSingleTouchPoint(out Vector2 point)
+        {
+            foreach (Vector2 touchPoint in _touchPointsPixels.Values)
+            {
+                point = touchPoint;
+                return true;
+            }
+
+            point = default;
+            return false;
         }
 
         private void InvalidateOverlay()

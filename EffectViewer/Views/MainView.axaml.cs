@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -23,9 +25,13 @@ namespace EffectViewer.Views
         private const double DefaultProjectExplorerWidth = 280d;
         private const double MinimumProjectExplorerWidth = 180d;
         private const double SplitterWidth = 5d;
+        private const double CompactLayoutWidth = 700d;
+        private const double CompactProjectExplorerMaximumWidthRatio = 0.88d;
+        private const double CompactProjectExplorerTopOffset = 42d;
         private const double DocumentTabDragThreshold = 6d;
         private double _lastLeftProjectExplorerWidth = DefaultProjectExplorerWidth;
         private double _lastRightProjectExplorerWidth = DefaultProjectExplorerWidth;
+        private bool _wasCompactProjectExplorerLayout;
         private Control _draggedDocumentTab;
         private EditorViewModelBase _draggedDocumentEditor;
         private EditorViewModelBase _documentTabDropTarget;
@@ -100,10 +106,12 @@ namespace EffectViewer.Views
                 _observedViewModel.ExportFileRequested -= OnExportFileRequested;
                 _observedViewModel.PreviewExportRequested -= OnPreviewExportRequested;
                 _observedViewModel.LoadLanguageFileRequested -= OnLoadLanguageFileRequested;
+                _observedViewModel.ProjectExplorerResourceOpened -= OnProjectExplorerResourceOpened;
                 _observedViewModel.RecentlyOpenedProjectItems.CollectionChanged -= OnRecentlyOpenedProjectItemsChanged;
             }
 
             _observedViewModel = DataContext as MainViewModel;
+            _wasCompactProjectExplorerLayout = false;
             if (_observedViewModel is not null)
             {
                 _observedViewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -115,6 +123,7 @@ namespace EffectViewer.Views
                 _observedViewModel.ExportFileRequested += OnExportFileRequested;
                 _observedViewModel.PreviewExportRequested += OnPreviewExportRequested;
                 _observedViewModel.LoadLanguageFileRequested += OnLoadLanguageFileRequested;
+                _observedViewModel.ProjectExplorerResourceOpened += OnProjectExplorerResourceOpened;
                 _observedViewModel.RecentlyOpenedProjectItems.CollectionChanged += OnRecentlyOpenedProjectItemsChanged;
             }
 
@@ -147,6 +156,12 @@ namespace EffectViewer.Views
         {
             SetBrowserDialogOverlayActive(false);
             base.OnDetachedFromVisualTree(e);
+        }
+
+        protected override void OnSizeChanged(SizeChangedEventArgs e)
+        {
+            base.OnSizeChanged(e);
+            UpdateProjectExplorerLayout();
         }
 
         private void UpdateBrowserDialogOverlayState()
@@ -220,6 +235,18 @@ namespace EffectViewer.Views
             RefreshRecentlyOpenedMenuItems();
         }
 
+        private void OnProjectExplorerResourceOpened(object sender, EventArgs e)
+        {
+            if (Bounds.Width <= 0 ||
+                Bounds.Width >= CompactLayoutWidth ||
+                _observedViewModel?.IsProjectExplorerVisible != true)
+            {
+                return;
+            }
+
+            _observedViewModel.IsProjectExplorerVisible = false;
+        }
+
         private void RefreshRecentlyOpenedMenuItems()
         {
             RecentlyOpenedMenuItem.Items.Clear();
@@ -240,8 +267,13 @@ namespace EffectViewer.Views
             }
         }
 
-        private void CaptureVisibleProjectExplorerWidth()
+        private void CaptureVisibleProjectExplorerSize(bool compactLayout)
         {
+            if (compactLayout)
+            {
+                return;
+            }
+
             ColumnDefinition leftColumn = WorkspaceGrid.ColumnDefinitions[0];
             ColumnDefinition rightColumn = WorkspaceGrid.ColumnDefinitions[4];
 
@@ -257,13 +289,54 @@ namespace EffectViewer.Views
 
         private void UpdateProjectExplorerLayout(bool captureCurrentWidth = true)
         {
+            bool compactLayout = Bounds.Width > 0 && Bounds.Width < CompactLayoutWidth;
+            ApplyCompactProjectExplorerState(compactLayout);
+            CompactProjectExplorerButton.IsVisible = compactLayout;
+
             if (captureCurrentWidth)
             {
-                CaptureVisibleProjectExplorerWidth();
+                CaptureVisibleProjectExplorerSize(compactLayout);
             }
 
             bool showLeft = _observedViewModel?.IsProjectExplorerVisibleLeft == true;
             bool showRight = _observedViewModel?.IsProjectExplorerVisibleRight == true;
+
+            if (compactLayout)
+            {
+                UpdateCompactProjectExplorerLayout(showLeft, showRight);
+                return;
+            }
+
+            UpdateDockedProjectExplorerLayout(showLeft, showRight);
+        }
+
+        private void UpdateDockedProjectExplorerLayout(bool showLeft, bool showRight)
+        {
+            ResetProjectExplorerOverlayLayout();
+            ConfigureRow(WorkspaceGrid.RowDefinitions[0], 1d, 0d, GridUnitType.Star);
+            ConfigureRow(WorkspaceGrid.RowDefinitions[1], 0d, 0d);
+            ConfigureRow(WorkspaceGrid.RowDefinitions[2], 0d, 0d);
+            ConfigureColumn(WorkspaceGrid.ColumnDefinitions[2], 1d, 320d, GridUnitType.Star);
+
+            Grid.SetRow(LeftProjectExplorerPanel, 0);
+            Grid.SetRow(LeftProjectExplorerSplitter, 0);
+            Grid.SetRow(WorkspaceContentGrid, 0);
+            Grid.SetRow(RightProjectExplorerSplitter, 0);
+            Grid.SetRow(RightProjectExplorerPanel, 0);
+            Grid.SetColumn(LeftProjectExplorerPanel, 0);
+            Grid.SetColumn(LeftProjectExplorerSplitter, 1);
+            Grid.SetColumn(WorkspaceContentGrid, 2);
+            Grid.SetColumn(RightProjectExplorerSplitter, 3);
+            Grid.SetColumn(RightProjectExplorerPanel, 4);
+            SetGridSpans(LeftProjectExplorerPanel, columnSpan: 1, rowSpan: 1);
+            SetGridSpans(LeftProjectExplorerSplitter, columnSpan: 1, rowSpan: 1);
+            SetGridSpans(WorkspaceContentGrid, columnSpan: 1, rowSpan: 1);
+            SetGridSpans(RightProjectExplorerSplitter, columnSpan: 1, rowSpan: 1);
+            SetGridSpans(RightProjectExplorerPanel, columnSpan: 1, rowSpan: 1);
+            ConfigureProjectExplorerSplitter(LeftProjectExplorerSplitter, horizontal: false);
+            ConfigureProjectExplorerSplitter(RightProjectExplorerSplitter, horizontal: false);
+            LeftProjectExplorerPanel.BorderThickness = new Thickness(0, 0, 1, 0);
+            RightProjectExplorerPanel.BorderThickness = new Thickness(1, 0, 0, 0);
 
             ConfigureColumn(
                 WorkspaceGrid.ColumnDefinitions[0],
@@ -283,16 +356,188 @@ namespace EffectViewer.Views
                 showRight ? MinimumProjectExplorerWidth : 0d);
         }
 
+        private void UpdateCompactProjectExplorerLayout(bool showLeft, bool showRight)
+        {
+            bool showExplorer = showLeft || showRight;
+
+            ConfigureRow(WorkspaceGrid.RowDefinitions[0], 1d, 0d, GridUnitType.Star);
+            ConfigureRow(WorkspaceGrid.RowDefinitions[1], 0d, 0d);
+            ConfigureRow(WorkspaceGrid.RowDefinitions[2], 0d, 0d);
+
+            ConfigureColumn(WorkspaceGrid.ColumnDefinitions[0], 1d, 0d, GridUnitType.Star);
+            ConfigureColumn(WorkspaceGrid.ColumnDefinitions[1], 0d, 0d);
+            ConfigureColumn(WorkspaceGrid.ColumnDefinitions[2], 0d, 0d);
+            ConfigureColumn(WorkspaceGrid.ColumnDefinitions[3], 0d, 0d);
+            ConfigureColumn(WorkspaceGrid.ColumnDefinitions[4], 0d, 0d);
+
+            Grid.SetRow(LeftProjectExplorerPanel, 0);
+            Grid.SetRow(RightProjectExplorerPanel, 0);
+            Grid.SetRow(LeftProjectExplorerSplitter, 0);
+            Grid.SetRow(RightProjectExplorerSplitter, 0);
+            Grid.SetRow(WorkspaceContentGrid, 0);
+            Grid.SetColumn(LeftProjectExplorerPanel, 0);
+            Grid.SetColumn(RightProjectExplorerPanel, 0);
+            Grid.SetColumn(LeftProjectExplorerSplitter, 0);
+            Grid.SetColumn(RightProjectExplorerSplitter, 0);
+            Grid.SetColumn(WorkspaceContentGrid, 0);
+            SetGridSpans(LeftProjectExplorerPanel, columnSpan: 5, rowSpan: 1);
+            SetGridSpans(RightProjectExplorerPanel, columnSpan: 5, rowSpan: 1);
+            SetGridSpans(LeftProjectExplorerSplitter, columnSpan: 5, rowSpan: 1);
+            SetGridSpans(RightProjectExplorerSplitter, columnSpan: 5, rowSpan: 1);
+            SetGridSpans(WorkspaceContentGrid, columnSpan: 5, rowSpan: 1);
+            ConfigureProjectExplorerSplitter(LeftProjectExplorerSplitter, horizontal: true);
+            ConfigureProjectExplorerSplitter(RightProjectExplorerSplitter, horizontal: true);
+            LeftProjectExplorerPanel.BorderThickness = new Thickness(0, 0, 0, 1);
+            RightProjectExplorerPanel.BorderThickness = new Thickness(0, 0, 0, 1);
+            ApplyProjectExplorerOverlayLayout(showExplorer);
+        }
+
         private void ResetProjectExplorerWidths()
         {
             _lastLeftProjectExplorerWidth = DefaultProjectExplorerWidth;
             _lastRightProjectExplorerWidth = DefaultProjectExplorerWidth;
         }
 
-        private static void ConfigureColumn(ColumnDefinition column, double width, double minWidth)
+        private void ApplyCompactProjectExplorerState(bool compactLayout)
+        {
+            if (!compactLayout)
+            {
+                _wasCompactProjectExplorerLayout = false;
+                return;
+            }
+
+            if (_observedViewModel is null)
+            {
+                _wasCompactProjectExplorerLayout = true;
+                return;
+            }
+
+            if (!_wasCompactProjectExplorerLayout)
+            {
+                _observedViewModel.ProjectExplorerDockSide = ProjectExplorerDockSide.Left;
+                _observedViewModel.IsProjectExplorerVisible = false;
+            }
+            else if (_observedViewModel.IsProjectExplorerVisibleRight)
+            {
+                _observedViewModel.ProjectExplorerDockSide = ProjectExplorerDockSide.Left;
+            }
+
+            _wasCompactProjectExplorerLayout = true;
+        }
+
+        private void ApplyProjectExplorerOverlayLayout(bool showExplorer)
+        {
+            double availableWidth = Bounds.Width > 0 ? Bounds.Width : DefaultProjectExplorerWidth;
+            double maximumWidth = System.Math.Max(
+                MinimumProjectExplorerWidth,
+                availableWidth * CompactProjectExplorerMaximumWidthRatio);
+            double overlayWidth = showExplorer
+                ? System.Math.Min(System.Math.Max(MinimumProjectExplorerWidth, _lastLeftProjectExplorerWidth), maximumWidth)
+                : 0d;
+
+            ConfigureOverlayPanel(LeftProjectExplorerPanel, overlayWidth);
+            ConfigureOverlayPanel(RightProjectExplorerPanel, overlayWidth);
+            SetZIndexes(projectExplorerZIndex: 20);
+        }
+
+        private static void ConfigureOverlayPanel(Control panel, double width)
+        {
+            panel.Width = width;
+            panel.Margin = new Thickness(0, CompactProjectExplorerTopOffset, 0, 0);
+            panel.HorizontalAlignment = HorizontalAlignment.Left;
+            panel.VerticalAlignment = VerticalAlignment.Stretch;
+        }
+
+        private void ResetProjectExplorerOverlayLayout()
+        {
+            ResetProjectExplorerOverlayPanel(LeftProjectExplorerPanel);
+            ResetProjectExplorerOverlayPanel(RightProjectExplorerPanel);
+            SetZIndexes(projectExplorerZIndex: 0);
+        }
+
+        private static void ResetProjectExplorerOverlayPanel(Control panel)
+        {
+            panel.Width = double.NaN;
+            panel.Margin = new Thickness(0);
+            panel.HorizontalAlignment = HorizontalAlignment.Stretch;
+            panel.VerticalAlignment = VerticalAlignment.Stretch;
+        }
+
+        private void SetZIndexes(int projectExplorerZIndex)
+        {
+            WorkspaceContentGrid.ZIndex = 0;
+            LeftProjectExplorerPanel.ZIndex = projectExplorerZIndex;
+            RightProjectExplorerPanel.ZIndex = projectExplorerZIndex;
+            LeftProjectExplorerSplitter.ZIndex = 0;
+            RightProjectExplorerSplitter.ZIndex = 0;
+        }
+
+        private void CompactProjectExplorerButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not MainViewModel viewModel)
+            {
+                return;
+            }
+
+            if (viewModel.IsProjectExplorerVisibleLeft)
+            {
+                viewModel.IsProjectExplorerVisible = false;
+            }
+            else
+            {
+                viewModel.ProjectExplorerDockSide = ProjectExplorerDockSide.Left;
+                viewModel.IsProjectExplorerVisible = true;
+            }
+
+            UpdateProjectExplorerLayout(captureCurrentWidth: false);
+        }
+
+        private static void ConfigureColumn(
+            ColumnDefinition column,
+            double width,
+            double minWidth,
+            GridUnitType unitType = GridUnitType.Pixel)
         {
             column.MinWidth = minWidth;
-            column.Width = new GridLength(width, GridUnitType.Pixel);
+            column.Width = new GridLength(width, unitType);
+        }
+
+        private static void ConfigureRow(
+            RowDefinition row,
+            double height,
+            double minHeight,
+            GridUnitType unitType = GridUnitType.Pixel)
+        {
+            row.MinHeight = minHeight;
+            row.Height = new GridLength(height, unitType);
+        }
+
+        private static void SetGridSpans(Control control, int columnSpan, int rowSpan)
+        {
+            Grid.SetColumnSpan(control, columnSpan);
+            Grid.SetRowSpan(control, rowSpan);
+        }
+
+        private static void ConfigureProjectExplorerSplitter(GridSplitter splitter, bool horizontal)
+        {
+            splitter.ResizeDirection = horizontal ? GridResizeDirection.Rows : GridResizeDirection.Columns;
+            SetClass(splitter, "horizontal-splitter", horizontal);
+            SetClass(splitter, "vertical-splitter", !horizontal);
+        }
+
+        private static void SetClass(Control control, string className, bool isSet)
+        {
+            if (isSet)
+            {
+                if (!control.Classes.Contains(className))
+                {
+                    control.Classes.Add(className);
+                }
+
+                return;
+            }
+
+            control.Classes.Remove(className);
         }
 
         private void DocumentTab_PointerPressed(object sender, PointerPressedEventArgs e)

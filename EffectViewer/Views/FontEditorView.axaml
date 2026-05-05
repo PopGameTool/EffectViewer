@@ -28,8 +28,13 @@
         </MenuItem>
       </Menu>
       <StackPanel Spacing="4">
-        <TextBlock Text="{Binding AssetId}" FontSize="24" FontWeight="SemiBold"/>
-        <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+        <TextBlock Text="{Binding AssetId}"
+                   FontSize="24"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap"/>
+        <TextBlock Text="{Binding Path}"
+                   Foreground="{DynamicResource TextControlPlaceholderForeground}"
+                   TextTrimming="CharacterEllipsis"/>
       </StackPanel>
     </DockPanel>
 
@@ -43,7 +48,7 @@
         <Grid RowDefinitions="Auto,*" RowSpacing="8">
           <DockPanel LastChildFill="True">
             <ComboBox DockPanel.Dock="Right"
-                      Width="280"
+                      Width="220"
                       ItemsSource="{Binding Textures}"
                       SelectedItem="{Binding SelectedTexture}"
                       IsVisible="{Binding HasMultipleTextures}">

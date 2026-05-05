@@ -58,6 +58,8 @@ namespace EffectViewer.ViewModels
         public ObservableCollection<EditorViewModelBase> OpenEditors { get; } = [];
         public ObservableCollection<ProjectListItemViewModel> AvailableProjects { get; } = [];
 
+        public event EventHandler ProjectExplorerResourceOpened;
+
         public IReadOnlyList<ProjectExplorerItemViewModel> VisibleProjectItems
         {
             get => _visibleProjectItems;
@@ -1915,6 +1917,7 @@ namespace EffectViewer.ViewModels
         private void OpenEditor(ProjectExplorerItemViewModel item)
         {
             AddRecentlyOpenedResource(item);
+            bool openedResource = false;
 
             switch (item.Kind)
             {
@@ -1923,6 +1926,7 @@ namespace EffectViewer.ViewModels
                     {
                         OpenOrSelectEditor(item.Kind, item.AssetId, () => new ImageEditorViewModel(image, CurrentProject));
                         StatusText = F("Status.EditingImage", image.Id);
+                        openedResource = true;
                     }
                     break;
 
@@ -1931,22 +1935,26 @@ namespace EffectViewer.ViewModels
                     {
                         OpenOrSelectEditor(item.Kind, item.AssetId, () => new FontEditorViewModel(font, CurrentProject));
                         StatusText = F("Status.EditingFont", font.Id);
+                        openedResource = true;
                     }
                     break;
 
                 case EffectAssetKind.Reanim:
                     OpenOrSelectEditor(item.Kind, item.AssetId, () => new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
                     StatusText = F("Status.EditingReanim", item.AssetId);
+                    openedResource = true;
                     break;
 
                 case EffectAssetKind.Particle:
                     OpenOrSelectEditor(item.Kind, item.AssetId, () => new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
                     StatusText = F("Status.EditingParticle", item.AssetId);
+                    openedResource = true;
                     break;
 
                 case EffectAssetKind.Trail:
                     OpenOrSelectEditor(item.Kind, item.AssetId, () => new EffectEditorViewModel(item.Kind, item.AssetId, item.Path, CurrentProject));
                     StatusText = F("Status.EditingTrail", item.AssetId);
+                    openedResource = true;
                     break;
 
                 case EffectAssetKind.Showcase:
@@ -1954,8 +1962,14 @@ namespace EffectViewer.ViewModels
                     {
                         OpenOrSelectEditor(item.Kind, item.AssetId, () => new ShowcaseEditorViewModel(showcase, _luaHost, CurrentProject));
                         StatusText = F("Status.EditingShowcase", item.AssetId);
+                        openedResource = true;
                     }
                     break;
+            }
+
+            if (openedResource)
+            {
+                ProjectExplorerResourceOpened?.Invoke(this, EventArgs.Empty);
             }
         }
 

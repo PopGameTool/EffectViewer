@@ -449,8 +449,13 @@
           </MenuItem>
         </Menu>
         <StackPanel Spacing="4">
-          <TextBlock Text="{Binding AssetId}" FontSize="24" FontWeight="SemiBold"/>
-          <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+          <TextBlock Text="{Binding AssetId}"
+                     FontSize="24"
+                     FontWeight="SemiBold"
+                     TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding Path}"
+                     Foreground="{DynamicResource TextControlPlaceholderForeground}"
+                     TextTrimming="CharacterEllipsis"/>
         </StackPanel>
       </DockPanel>
 
@@ -757,35 +762,38 @@
           <Grid RowDefinitions="Auto,*"
                 Margin="10"
                 RowSpacing="8">
-            <DockPanel LastChildFill="False">
+            <Grid ColumnDefinitions="Auto,*"
+                  ColumnSpacing="8">
               <TextBlock Text="{DynamicResource Loc.Label.Timeline}"
                          FontSize="16"
                          FontWeight="SemiBold"
                          VerticalAlignment="Center"/>
-              <WrapPanel DockPanel.Dock="Right"
-                         HorizontalAlignment="Right"
-                         ItemSpacing="6"
-                         LineSpacing="6">
-                <ComboBox ItemsSource="{Binding ReanimLayers}"
-                          SelectedItem="{Binding SelectedReanimLayer}"
-                          Width="150"/>
-                <TextBlock Text="{DynamicResource Loc.Label.FPS}"
-                           VerticalAlignment="Center"/>
-                <NumericUpDown Value="{Binding ReanimFps}"
-                               Width="112"
-                               Minimum="1"
-                               Maximum="240"
-                               Increment="1"
-                               FormatString="0.###"/>
-                <CheckBox Content="{DynamicResource Loc.Label.Play}"
-                          IsChecked="{Binding ReanimIsPlaying}"
-                          VerticalAlignment="Center"/>
-                <CheckBox Content="{DynamicResource Loc.Label.FreeTransform}"
-                          IsChecked="{Binding IsViewportFreeTransformEnabled}"
-                          IsEnabled="{Binding CanTransformSelectedReanimFrame}"
-                          VerticalAlignment="Center"/>
-              </WrapPanel>
-            </DockPanel>
+              <ScrollViewer Grid.Column="1"
+                            HorizontalScrollBarVisibility="Auto"
+                            VerticalScrollBarVisibility="Disabled">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="6">
+                  <ComboBox ItemsSource="{Binding ReanimLayers}"
+                            SelectedItem="{Binding SelectedReanimLayer}"
+                            Width="150"/>
+                  <TextBlock Text="{DynamicResource Loc.Label.FPS}"
+                             VerticalAlignment="Center"/>
+                  <NumericUpDown Value="{Binding ReanimFps}"
+                                 Width="112"
+                                 Minimum="1"
+                                 Maximum="240"
+                                 Increment="1"
+                                 FormatString="0.###"/>
+                  <CheckBox Content="{DynamicResource Loc.Label.Play}"
+                            IsChecked="{Binding ReanimIsPlaying}"
+                            VerticalAlignment="Center"/>
+                  <CheckBox Content="{DynamicResource Loc.Label.FreeTransform}"
+                            IsChecked="{Binding IsViewportFreeTransformEnabled}"
+                            IsEnabled="{Binding CanTransformSelectedReanimFrame}"
+                            VerticalAlignment="Center"/>
+                </StackPanel>
+              </ScrollViewer>
+            </Grid>
 
             <ScrollViewer Grid.Row="1"
                           HorizontalScrollBarVisibility="Auto"
