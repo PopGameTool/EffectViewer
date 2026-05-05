@@ -4,16 +4,11 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media;
+using Avalonia.Media.TextFormatting;
 using Avalonia.VisualTree;
-using AvaloniaEdit;
-using AvaloniaEdit.CodeCompletion;
-using AvaloniaEdit.Document;
-using AvaloniaEdit.Editing;
-using AvaloniaEdit.Rendering;
-using AvaloniaEdit.Search;
 using EffectViewer.Localization;
 using EffectViewer.ViewModels;
 
@@ -23,8 +18,6 @@ namespace EffectViewer.Views
     {
         private ShowcaseEditorViewModel _viewModel;
         private bool _isSyncingEditorText;
-        private TypingUndoGroupKind? _typingUndoGroupKind;
-        private bool _typingUndoGroupHasChanges;
         private bool _isAcceptingCompletion;
         private int _inlineCompletionStartOffset;
         private int _inlineCompletionEndOffset;
@@ -44,36 +37,20 @@ namespace EffectViewer.Views
 
         private void ConfigureScriptEditor()
         {
-            ScriptEditor.Options = new()
-            {
-                AllowScrollBelowDocument = true,
-                ConvertTabsToSpaces = true,
-                HighlightCurrentLine = true,
-                IndentationSize = 4,
-                EnableHyperlinks = false
-            };
-            ScriptEditor.LineNumbersForeground = Brush.Parse("#7A7F87");
-            ScriptEditor.TextArea.TextView.LineTransformers.Add(new LuaSyntaxColorizer());
+            ScriptEditor.TextChanging += ScriptEditor_TextChanging;
             ScriptEditor.TextChanged += ScriptEditor_TextChanged;
-            ScriptEditor.TextArea.TextEntering += ScriptEditor_TextEntering;
-            ScriptEditor.TextArea.TextEntered += ScriptEditor_TextEntered;
-            ScriptEditor.TextArea.TextView.ScrollOffsetChanged += ScriptEditor_TextViewChanged;
-            ScriptEditor.TextArea.TextView.VisualLinesChanged += ScriptEditor_TextViewChanged;
-            ScriptEditor.TextArea.AddHandler(InputElement.KeyDownEvent, ScriptEditor_KeyDown, RoutingStrategies.Tunnel);
-            ScriptEditor.TextArea.AddHandler(InputElement.PointerPressedEvent, ScriptEditor_PointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
-            ScriptEditor.KeyDown += ScriptEditor_KeyDown;
-            ScriptEditor.AddHandler(InputElement.PointerPressedEvent, ScriptEditor_PointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
             ScriptEditor.SizeChanged += ScriptEditor_SizeChanged;
             ScriptEditor.LostFocus += ScriptEditor_LostFocus;
+            ScriptEditor.AddHandler(InputElement.KeyDownEvent, ScriptEditor_KeyDown, RoutingStrategies.Tunnel);
+            ScriptEditor.AddHandler(InputElement.PointerPressedEvent, ScriptEditor_PointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
             InlineCompletionList.AddHandler(InputElement.TappedEvent, InlineCompletionList_Tapped, RoutingStrategies.Bubble, handledEventsToo: true);
-            SearchPanel.Install(ScriptEditor);
-            ScriptEditor.Watermark = LocalizationManager.Instance.Text("Placeholder.ShowcaseScript");
+            ScriptEditor.PlaceholderText = LocalizationManager.Instance.Text("Placeholder.ShowcaseScript");
             LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
         }
 
         private void OnLanguageChanged(object sender, EventArgs e)
         {
-            ScriptEditor.Watermark = LocalizationManager.Instance.Text("Placeholder.ShowcaseScript");
+            ScriptEditor.PlaceholderText = LocalizationManager.Instance.Text("Placeholder.ShowcaseScript");
         }
 
         private void OnDataContextChanged(object sender, EventArgs e)
@@ -111,41 +88,78 @@ namespace EffectViewer.Views
             }
         }
 
-        private void ScriptEditor_TextChanged(object sender, EventArgs e)
+        private void ScriptEditor_TextChanging(object sender, TextChangingEventArgs e)
         {
-            if (_typingUndoGroupKind.HasValue)
-            {
-                _typingUndoGroupHasChanges = true;
-            }
+            SyncScriptTextFromEditor(ScriptEditor.Text);
+        }
 
+        private void ScriptEditor_TextChanged(object sender, TextChangedEventArgs e)
+        {
             UpdateScriptUndoRedoState();
+            if (!_isSyncingEditorText && !_isAcceptingCompletion && HasJustTypedMemberSeparator())
+            {
+                ShowCompletion(membersOnly: true);
+            }
+        }
 
+        private bool HasJustTypedMemberSeparator()
+        {
+            string text = GetScriptEditorText();
+            int caretOffset = Math.Clamp(ScriptEditor.CaretIndex, 0, text.Length);
+            return caretOffset > 0 && IsMemberSeparator(text[caretOffset - 1]);
+        }
+
+        private void SyncScriptTextFromEditor(string text)
+        {
             if (_isSyncingEditorText || _viewModel is null)
             {
                 return;
             }
 
-            if (!string.Equals(_viewModel.ScriptText, ScriptEditor.Text, StringComparison.Ordinal))
+            text ??= string.Empty;
+            if (!string.Equals(_viewModel.ScriptText, text, StringComparison.Ordinal))
             {
-                _viewModel.ScriptText = ScriptEditor.Text;
+                _viewModel.ScriptText = text;
             }
         }
 
         private void SetEditorText(string text)
         {
-            EndTypingUndoGroup();
-
-            if (string.Equals(ScriptEditor.Text, text ?? string.Empty, StringComparison.Ordinal))
+            string normalizedText = text ?? string.Empty;
+            if (string.Equals(GetScriptEditorText(), normalizedText, StringComparison.Ordinal))
             {
                 UpdateScriptUndoRedoState();
                 return;
             }
 
             _isSyncingEditorText = true;
-            ScriptEditor.Text = text ?? string.Empty;
-            ScriptEditor.Document?.UndoStack.ClearAll();
-            _isSyncingEditorText = false;
+            try
+            {
+                SetScriptEditorTextWithoutUndo(normalizedText);
+            }
+            finally
+            {
+                _isSyncingEditorText = false;
+            }
+
             UpdateScriptUndoRedoState();
+        }
+
+        private string GetScriptEditorText()
+        {
+            return ScriptEditor.Text ?? string.Empty;
+        }
+
+        private void SetScriptEditorTextWithoutUndo(string text)
+        {
+            bool wasUndoEnabled = ScriptEditor.IsUndoEnabled;
+            ScriptEditor.IsUndoEnabled = false;
+            ScriptEditor.Text = text;
+            int caretOffset = Math.Clamp(ScriptEditor.CaretIndex, 0, text.Length);
+            ScriptEditor.CaretIndex = caretOffset;
+            ScriptEditor.SelectionStart = caretOffset;
+            ScriptEditor.SelectionEnd = caretOffset;
+            ScriptEditor.IsUndoEnabled = wasUndoEnabled;
         }
 
         private void OnScriptEditRequested(object sender, ShowcaseScriptEditRequest request)
@@ -161,7 +175,6 @@ namespace EffectViewer.Views
         private void OnScriptUndoRequested(object sender, EventArgs e)
         {
             HideInlineCompletion();
-            EndTypingUndoGroup();
             if (ScriptEditor.CanUndo)
             {
                 ScriptEditor.Undo();
@@ -173,7 +186,6 @@ namespace EffectViewer.Views
         private void OnScriptRedoRequested(object sender, EventArgs e)
         {
             HideInlineCompletion();
-            EndTypingUndoGroup();
             if (ScriptEditor.CanRedo)
             {
                 ScriptEditor.Redo();
@@ -184,18 +196,25 @@ namespace EffectViewer.Views
 
         private void OnScriptNavigationRequested(object sender, ShowcaseScriptNavigationRequest request)
         {
-            if (request is null || ScriptEditor.Document is null || ScriptEditor.Document.LineCount == 0)
+            if (request is null)
             {
                 return;
             }
 
-            int lineNumber = Math.Clamp(request.LineNumber, 1, ScriptEditor.Document.LineCount);
-            DocumentLine line = ScriptEditor.Document.GetLineByNumber(lineNumber);
-            int column = Math.Clamp(request.ColumnNumber, 1, Math.Max(1, line.Length + 1));
-            int offset = Math.Clamp(line.Offset + column - 1, line.Offset, line.EndOffset);
-            ScriptEditor.CaretOffset = offset;
-            ScriptEditor.Select(line.Offset, line.Length);
-            ScriptEditor.ScrollToLine(lineNumber);
+            string text = GetScriptEditorText();
+            (int lineStart, int lineEnd) = GetLineSpan(text, request.LineNumber);
+            int caretOffset = Math.Clamp(lineStart + Math.Max(0, request.ColumnNumber - 1), lineStart, lineEnd);
+
+            ScriptEditor.CaretIndex = caretOffset;
+            ScriptEditor.SelectionStart = lineStart;
+            ScriptEditor.SelectionEnd = lineEnd;
+            int lineIndex = Math.Max(0, request.LineNumber - 1);
+            int lineCount = ScriptEditor.GetLineCount();
+            if (lineCount > lineIndex)
+            {
+                ScriptEditor.ScrollToLine(lineIndex);
+            }
+
             FocusScriptEditor();
         }
 
@@ -204,11 +223,6 @@ namespace EffectViewer.Views
             if (e.Handled)
             {
                 return;
-            }
-
-            if (ShouldEndTypingUndoGroup(e))
-            {
-                EndTypingUndoGroup();
             }
 
             if (InlineCompletionHost.IsVisible && HandleInlineCompletionKey(e))
@@ -224,7 +238,6 @@ namespace EffectViewer.Views
                 return;
             }
 
-            EndTypingUndoGroup();
             ShowCompletion(membersOnly: false);
             e.Handled = true;
         }
@@ -237,44 +250,17 @@ namespace EffectViewer.Views
 
         private void FocusScriptEditor()
         {
-            ScriptEditor.TextArea.Focus();
+            ScriptEditor.Focus();
         }
 
         private void UpdateScriptUndoRedoState()
         {
-            _viewModel?.SetScriptUndoRedoState(
-                ScriptEditor.CanUndo || _typingUndoGroupHasChanges,
-                ScriptEditor.CanRedo);
-        }
-
-        private void ScriptEditor_TextEntering(object sender, TextInputEventArgs e)
-        {
-            if (string.IsNullOrEmpty(e.Text) || ScriptEditor.IsReadOnly)
-            {
-                EndTypingUndoGroup();
-                return;
-            }
-
-            StartOrContinueTypingUndoGroup(GetTypingUndoGroupKind(e.Text));
-        }
-
-        private void ScriptEditor_TextEntered(object sender, TextInputEventArgs e)
-        {
-            if (e.Text is "." or ":")
-            {
-                EndTypingUndoGroup();
-                ShowCompletion(membersOnly: true);
-            }
+            _viewModel?.SetScriptUndoRedoState(ScriptEditor.CanUndo, ScriptEditor.CanRedo);
         }
 
         private void ScriptEditor_LostFocus(object sender, RoutedEventArgs e)
         {
-            EndTypingUndoGroup();
-        }
-
-        private void ScriptEditor_TextViewChanged(object sender, EventArgs e)
-        {
-            UpdateInlineCompletionPlacement();
+            HideInlineCompletion();
         }
 
         private void ScriptEditor_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -282,72 +268,9 @@ namespace EffectViewer.Views
             UpdateInlineCompletionPlacement();
         }
 
-        private void StartOrContinueTypingUndoGroup(TypingUndoGroupKind kind)
-        {
-            if (_typingUndoGroupKind == kind)
-            {
-                return;
-            }
-
-            EndTypingUndoGroup();
-            ScriptEditor.Document?.UndoStack.StartUndoGroup();
-            _typingUndoGroupKind = kind;
-            _typingUndoGroupHasChanges = false;
-        }
-
-        private void EndTypingUndoGroup()
-        {
-            if (!_typingUndoGroupKind.HasValue)
-            {
-                return;
-            }
-
-            ScriptEditor.Document?.UndoStack.EndUndoGroup();
-            _typingUndoGroupKind = null;
-            _typingUndoGroupHasChanges = false;
-            UpdateScriptUndoRedoState();
-        }
-
-        private static bool ShouldEndTypingUndoGroup(KeyEventArgs e)
-        {
-            if (e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta))
-            {
-                return true;
-            }
-
-            return e.Key is Key.Back
-                or Key.Delete
-                or Key.Enter
-                or Key.Tab
-                or Key.Escape
-                or Key.Left
-                or Key.Right
-                or Key.Up
-                or Key.Down
-                or Key.Home
-                or Key.End
-                or Key.PageUp
-                or Key.PageDown;
-        }
-
-        private static TypingUndoGroupKind GetTypingUndoGroupKind(string text)
-        {
-            if (text.All(IsIdentifierPart))
-            {
-                return TypingUndoGroupKind.Word;
-            }
-
-            if (text.All(char.IsWhiteSpace))
-            {
-                return TypingUndoGroupKind.Whitespace;
-            }
-
-            return TypingUndoGroupKind.Symbol;
-        }
-
         private void ShowCompletion(bool membersOnly)
         {
-            if (_viewModel?.CompletionItems is null || ScriptEditor.Document is null)
+            if (_viewModel?.CompletionItems is null)
             {
                 return;
             }
@@ -369,14 +292,12 @@ namespace EffectViewer.Views
                 return;
             }
 
-            ShowInlineCompletion(items, request.StartOffset, ScriptEditor.CaretOffset);
+            ShowInlineCompletion(items, request.StartOffset, ScriptEditor.CaretIndex);
         }
 
         private void ShowInlineCompletion(IEnumerable<ShowcaseCompletionItem> items, int startOffset, int endOffset)
         {
-            List<ShowcaseCompletionData> completionData = items
-                .Select(item => new ShowcaseCompletionData(item))
-                .ToList();
+            List<ShowcaseCompletionItem> completionData = items.ToList();
             InlineCompletionList.ItemsSource = completionData;
             InlineCompletionList.SelectedIndex = completionData.Count > 0 ? 0 : -1;
             _inlineCompletionStartOffset = startOffset;
@@ -394,14 +315,14 @@ namespace EffectViewer.Views
 
         private void InlineCompletionList_Tapped(object sender, TappedEventArgs e)
         {
-            if (TryGetInlineCompletionData(e, out ICompletionData completionData))
+            if (TryGetInlineCompletionData(e, out ShowcaseCompletionItem completionData))
             {
-                AcceptInlineCompletion(completionData, e);
+                AcceptInlineCompletion(completionData);
                 e.Handled = true;
             }
         }
 
-        private bool TryGetInlineCompletionData(TappedEventArgs e, out ICompletionData completionData)
+        private bool TryGetInlineCompletionData(TappedEventArgs e, out ShowcaseCompletionItem completionData)
         {
             Point position = e.GetPosition(InlineCompletionList);
             foreach (Visual visual in InlineCompletionList.GetVisualsAt(position))
@@ -416,11 +337,11 @@ namespace EffectViewer.Views
             return false;
         }
 
-        private static bool TryGetCompletionDataFromVisual(Visual visual, out ICompletionData completionData)
+        private static bool TryGetCompletionDataFromVisual(Visual visual, out ShowcaseCompletionItem completionData)
         {
             for (; visual is not null; visual = visual.GetVisualParent())
             {
-                if (visual is Control { DataContext: ICompletionData item })
+                if (visual is Control { DataContext: ShowcaseCompletionItem item })
                 {
                     completionData = item;
                     return true;
@@ -431,9 +352,9 @@ namespace EffectViewer.Views
             return false;
         }
 
-        private void AcceptInlineCompletion(ICompletionData completionData, EventArgs e)
+        private void AcceptInlineCompletion(ShowcaseCompletionItem completionData)
         {
-            if (_isAcceptingCompletion || completionData is null || ScriptEditor.Document is null)
+            if (_isAcceptingCompletion || completionData is null)
             {
                 return;
             }
@@ -441,14 +362,14 @@ namespace EffectViewer.Views
             _isAcceptingCompletion = true;
             try
             {
-                int endOffset = Math.Clamp(ScriptEditor.CaretOffset, _inlineCompletionStartOffset, ScriptEditor.Document.TextLength);
+                int textLength = GetScriptEditorText().Length;
+                int endOffset = Math.Clamp(ScriptEditor.CaretIndex, _inlineCompletionStartOffset, textLength);
                 _inlineCompletionEndOffset = Math.Max(_inlineCompletionEndOffset, endOffset);
-                ISegment segment = new AnchorSegment(
-                    ScriptEditor.Document,
-                    _inlineCompletionStartOffset,
-                    Math.Max(0, _inlineCompletionEndOffset - _inlineCompletionStartOffset));
                 HideInlineCompletion();
-                completionData.Complete(ScriptEditor.TextArea, segment, e);
+                ReplaceScriptText(
+                    _inlineCompletionStartOffset,
+                    Math.Max(0, _inlineCompletionEndOffset - _inlineCompletionStartOffset),
+                    completionData.InsertText);
                 FocusScriptEditor();
                 UpdateScriptUndoRedoState();
             }
@@ -473,9 +394,9 @@ namespace EffectViewer.Views
                     return true;
                 case Key.Enter:
                 case Key.Tab:
-                    if (InlineCompletionList.SelectedItem is ICompletionData completionData)
+                    if (InlineCompletionList.SelectedItem is ShowcaseCompletionItem completionData)
                     {
-                        AcceptInlineCompletion(completionData, e);
+                        AcceptInlineCompletion(completionData);
                     }
 
                     return true;
@@ -486,7 +407,7 @@ namespace EffectViewer.Views
 
         private void MoveInlineCompletionSelection(int direction)
         {
-            if (InlineCompletionList.ItemsSource is not ICollection<ShowcaseCompletionData> items || items.Count == 0)
+            if (InlineCompletionList.ItemsSource is not ICollection<ShowcaseCompletionItem> items || items.Count == 0)
             {
                 return;
             }
@@ -498,115 +419,142 @@ namespace EffectViewer.Views
         private void UpdateInlineCompletionPlacement()
         {
             if (!InlineCompletionHost.IsVisible ||
-                ScriptEditor.Document is null ||
                 InlineCompletionHost.GetVisualParent() is not Control parent)
             {
                 return;
             }
 
-            TextView textView = ScriptEditor.TextArea.TextView;
-            textView.EnsureVisualLines();
+            double parentHeight = parent.Bounds.Height;
+            double top = TryGetInlineCompletionTop(parent, out double caretLineBottom)
+                ? caretLineBottom + InlineCompletionVerticalGap
+                : InlineCompletionMargin;
+            top = Math.Max(InlineCompletionMargin, top);
 
-            int caretOffset = Math.Clamp(ScriptEditor.CaretOffset, 0, ScriptEditor.Document.TextLength);
-            TextLocation location = ScriptEditor.Document.GetLocation(caretOffset);
-            if (TryGetInlineCompletionTop(textView, location, parent, out double top, out double parentHeight))
+            double availableHeight = double.IsNaN(parentHeight) || parentHeight <= 0
+                ? InlineCompletionMaxHeight
+                : parentHeight - top - InlineCompletionMargin;
+
+            InlineCompletionHost.Margin = new Thickness(
+                InlineCompletionMargin,
+                top,
+                InlineCompletionMargin,
+                InlineCompletionMargin);
+            InlineCompletionHost.MaxHeight = Math.Min(
+                InlineCompletionMaxHeight,
+                Math.Max(InlineCompletionMinimumHeight, availableHeight));
+        }
+
+        private bool TryGetInlineCompletionTop(Control parent, out double top)
+        {
+            if (TryGetTextPresenterCaretLineBottom(parent, out top))
             {
-                double availableHeight = parentHeight - top - InlineCompletionMargin;
-                if (availableHeight < InlineCompletionMinimumHeight && TryScrollInlineCompletionLineIntoRoom(location))
+                return true;
+            }
+
+            return TryGetEstimatedCaretLineBottom(out top);
+        }
+
+        private bool TryGetTextPresenterCaretLineBottom(Control parent, out double top)
+        {
+            TextPresenter presenter = ScriptEditor.GetVisualDescendants().OfType<TextPresenter>().FirstOrDefault();
+            TextLayout layout = presenter?.TextLayout;
+            if (presenter is null || layout?.TextLines is not { Count: > 0 } lines)
+            {
+                top = 0;
+                return false;
+            }
+
+            int caretOffset = Math.Clamp(ScriptEditor.CaretIndex, 0, GetScriptEditorText().Length);
+            double lineTop = 0;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                TextLine line = lines[i];
+                double lineHeight = Math.Max(1, line.Height);
+                int lineEnd = line.FirstTextSourceIndex + line.Length;
+                if (i < lines.Count - 1 && caretOffset >= lines[i + 1].FirstTextSourceIndex)
                 {
-                    textView.EnsureVisualLines();
-                    TryGetInlineCompletionTop(textView, location, parent, out top, out parentHeight);
-                    availableHeight = parentHeight - top - InlineCompletionMargin;
+                    lineTop += lineHeight;
+                    continue;
                 }
 
-                InlineCompletionHost.Margin = new Thickness(
-                    InlineCompletionMargin,
-                    Math.Max(InlineCompletionMargin, top),
-                    InlineCompletionMargin,
-                    InlineCompletionMargin);
-                InlineCompletionHost.MaxHeight = Math.Min(
-                    InlineCompletionMaxHeight,
-                    Math.Max(InlineCompletionMinimumHeight, availableHeight));
+                if (caretOffset <= lineEnd)
+                {
+                    Point? parentPoint = presenter.TranslatePoint(new Point(0, lineTop + lineHeight), parent);
+                    if (parentPoint is not null)
+                    {
+                        top = parentPoint.Value.Y;
+                        return true;
+                    }
+
+                    break;
+                }
+
+                lineTop += lineHeight;
             }
+
+            top = 0;
+            return false;
         }
 
-        private bool TryGetInlineCompletionTop(
-            TextView textView,
-            TextLocation location,
-            Control parent,
-            out double top,
-            out double parentHeight)
+        private bool TryGetEstimatedCaretLineBottom(out double top)
         {
-            TextViewPosition position = new(location);
-            Point lineBottom = textView.GetVisualPosition(position, VisualYPosition.LineBottom);
-            Point? parentPoint = textView.TranslatePoint(lineBottom, parent);
-
-            parentHeight = parent.Bounds.Height;
-            if (parentPoint is null || double.IsNaN(parentHeight) || parentHeight <= 0)
+            string text = GetScriptEditorText();
+            int caretOffset = Math.Clamp(ScriptEditor.CaretIndex, 0, text.Length);
+            int lineIndex = 0;
+            for (int i = 0; i < caretOffset; i++)
             {
-                top = InlineCompletionMargin;
-                return false;
+                if (text[i] == '\n')
+                {
+                    lineIndex++;
+                }
             }
 
-            top = parentPoint.Value.Y + InlineCompletionVerticalGap;
-            return true;
-        }
-
-        private bool TryScrollInlineCompletionLineIntoRoom(TextLocation location)
-        {
-            if (ScriptEditor.ViewportHeight <= InlineCompletionMinimumHeight + InlineCompletionMargin * 2)
-            {
-                return false;
-            }
-
-            double lineBottomOffset = ScriptEditor.ViewportHeight - InlineCompletionMinimumHeight - InlineCompletionMargin;
-            ScriptEditor.ScrollTo(
-                location.Line,
-                location.Column,
-                VisualYPosition.LineBottom,
-                lineBottomOffset,
-                minimumScrollFraction: 0);
-            return true;
+            double lineHeight = double.IsNaN(ScriptEditor.LineHeight) || ScriptEditor.LineHeight <= 0
+                ? ScriptEditor.FontSize * 1.4
+                : ScriptEditor.LineHeight;
+            top = ScriptEditor.Padding.Top + (lineIndex + 1) * lineHeight;
+            return lineHeight > 0;
         }
 
         private CompletionRequest CreateCompletionRequest(bool membersOnly)
         {
-            TextDocument document = ScriptEditor.Document;
-            int caretOffset = Math.Clamp(ScriptEditor.CaretOffset, 0, document.TextLength);
-            int wordStart = GetIdentifierStartOffset(document, caretOffset);
+            string text = GetScriptEditorText();
+            int caretOffset = Math.Clamp(ScriptEditor.CaretIndex, 0, text.Length);
+            int wordStart = GetIdentifierStartOffset(text, caretOffset);
             int separatorOffset = -1;
 
-            if (membersOnly && caretOffset > 0 && IsMemberSeparator(document.GetCharAt(caretOffset - 1)))
+            if (membersOnly && caretOffset > 0 && IsMemberSeparator(text[caretOffset - 1]))
             {
                 separatorOffset = caretOffset - 1;
                 wordStart = caretOffset;
             }
-            else if (wordStart > 0 && IsMemberSeparator(document.GetCharAt(wordStart - 1)))
+            else if (wordStart > 0 && IsMemberSeparator(text[wordStart - 1]))
             {
                 separatorOffset = wordStart - 1;
             }
 
             if (separatorOffset >= 0)
             {
-                string receiver = GetReceiverBeforeSeparator(document, separatorOffset);
+                string receiver = GetReceiverBeforeSeparator(text, separatorOffset);
                 if (string.IsNullOrWhiteSpace(receiver) || !IsIdentifierStart(receiver[0]))
                 {
                     return CompletionRequest.Suppressed(caretOffset);
                 }
 
-                ShowcaseCompletionScope? scope = ResolveCompletionScope(receiver, document, separatorOffset);
+                string precedingText = text[..Math.Clamp(separatorOffset, 0, text.Length)];
+                ShowcaseCompletionScope? scope = ResolveCompletionScope(receiver, precedingText);
                 return new CompletionRequest(wordStart, scope ?? ShowcaseCompletionScope.Reanimation, !scope.HasValue);
             }
 
             return new CompletionRequest(wordStart, ShowcaseCompletionScope.Global, allMembers: false);
         }
 
-        private static int GetIdentifierStartOffset(TextDocument document, int caretOffset)
+        private static int GetIdentifierStartOffset(string text, int caretOffset)
         {
-            int offset = Math.Clamp(caretOffset, 0, document.TextLength);
+            int offset = Math.Clamp(caretOffset, 0, text.Length);
             while (offset > 0)
             {
-                char value = document.GetCharAt(offset - 1);
+                char value = text[offset - 1];
                 if (!IsIdentifierPart(value))
                 {
                     break;
@@ -618,19 +566,19 @@ namespace EffectViewer.Views
             return offset;
         }
 
-        private static string GetReceiverBeforeSeparator(TextDocument document, int separatorOffset)
+        private static string GetReceiverBeforeSeparator(string text, int separatorOffset)
         {
-            int endOffset = Math.Clamp(separatorOffset, 0, document.TextLength);
+            int endOffset = Math.Clamp(separatorOffset, 0, text.Length);
             int startOffset = endOffset;
-            while (startOffset > 0 && IsIdentifierPart(document.GetCharAt(startOffset - 1)))
+            while (startOffset > 0 && IsIdentifierPart(text[startOffset - 1]))
             {
                 startOffset--;
             }
 
-            return startOffset == endOffset ? string.Empty : document.GetText(startOffset, endOffset - startOffset);
+            return startOffset == endOffset ? string.Empty : text[startOffset..endOffset];
         }
 
-        private static ShowcaseCompletionScope? ResolveCompletionScope(string receiver, TextDocument document, int separatorOffset)
+        private static ShowcaseCompletionScope? ResolveCompletionScope(string receiver, string text)
         {
             if (string.IsNullOrWhiteSpace(receiver))
             {
@@ -642,7 +590,7 @@ namespace EffectViewer.Views
                 "scene" => ShowcaseCompletionScope.Scene,
                 "global_attachment" => ShowcaseCompletionScope.AttachmentApi,
                 "g" or "graphics" => ShowcaseCompletionScope.Graphics,
-                _ => InferReceiverScope(receiver, document.GetText(0, Math.Clamp(separatorOffset, 0, document.TextLength)))
+                _ => InferReceiverScope(receiver, text)
             };
         }
 
@@ -690,6 +638,95 @@ namespace EffectViewer.Views
             return char.IsLetter(value) || value == '_';
         }
 
+        private static (int Start, int End) GetLineSpan(string text, int lineNumber)
+        {
+            text ??= string.Empty;
+            int targetLine = Math.Max(1, lineNumber);
+            int currentLine = 1;
+            int lineStart = 0;
+
+            for (int i = 0; i < text.Length && currentLine < targetLine; i++)
+            {
+                if (text[i] == '\n')
+                {
+                    currentLine++;
+                    lineStart = i + 1;
+                }
+            }
+
+            int lineEnd = text.IndexOf('\n', lineStart);
+            if (lineEnd < 0)
+            {
+                lineEnd = text.Length;
+            }
+
+            if (lineEnd > lineStart && text[lineEnd - 1] == '\r')
+            {
+                lineEnd--;
+            }
+
+            return (lineStart, lineEnd);
+        }
+
+        private void InsertScriptText(string rawText, bool replaceDocument)
+        {
+            string text = NormalizeSnippetText(rawText, out int markerIndex);
+            int caretOffset;
+            if (replaceDocument)
+            {
+                ScriptEditor.Text = text;
+                caretOffset = markerIndex >= 0 ? markerIndex : text.Length;
+            }
+            else
+            {
+                int start = GetSelectionStart();
+                ScriptEditor.SelectedText = text;
+                caretOffset = start + (markerIndex >= 0 ? markerIndex : text.Length);
+            }
+
+            MoveCaret(caretOffset);
+            FocusScriptEditor();
+            UpdateScriptUndoRedoState();
+        }
+
+        private void ReplaceScriptText(int start, int length, string rawText)
+        {
+            string text = NormalizeSnippetText(rawText, out int markerIndex);
+            string currentText = GetScriptEditorText();
+            int normalizedStart = Math.Clamp(start, 0, currentText.Length);
+            int normalizedLength = Math.Clamp(length, 0, currentText.Length - normalizedStart);
+
+            ScriptEditor.SelectionStart = normalizedStart;
+            ScriptEditor.SelectionEnd = normalizedStart + normalizedLength;
+            ScriptEditor.SelectedText = text;
+            MoveCaret(normalizedStart + (markerIndex >= 0 ? markerIndex : text.Length));
+        }
+
+        private static string NormalizeSnippetText(string rawText, out int markerIndex)
+        {
+            string text = rawText ?? string.Empty;
+            markerIndex = text.IndexOf("$0", StringComparison.Ordinal);
+            if (markerIndex >= 0)
+            {
+                text = text.Replace("$0", string.Empty, StringComparison.Ordinal);
+            }
+
+            return text;
+        }
+
+        private int GetSelectionStart()
+        {
+            return Math.Clamp(Math.Min(ScriptEditor.SelectionStart, ScriptEditor.SelectionEnd), 0, GetScriptEditorText().Length);
+        }
+
+        private void MoveCaret(int offset)
+        {
+            int caretOffset = Math.Clamp(offset, 0, GetScriptEditorText().Length);
+            ScriptEditor.CaretIndex = caretOffset;
+            ScriptEditor.SelectionStart = caretOffset;
+            ScriptEditor.SelectionEnd = caretOffset;
+        }
+
         private static readonly IReadOnlyList<(ShowcaseCompletionScope Scope, string ExpressionPattern)> TypeInferenceRules =
         [
             (ShowcaseCompletionScope.Reanimation, @"scene\s*[:\.]\s*(?:reanim|find_reanim|reanim_at|reanim_get|reanim_try_to_get)\s*\("),
@@ -719,70 +756,6 @@ namespace EffectViewer.Views
             (ShowcaseCompletionScope.Vector, @"[A-Za-z_][A-Za-z0-9_]*\s*[:\.]\s*(?:position|normal|normal_at|get_perp)\s*\(")
         ];
 
-        private void InsertScriptText(string rawText, bool replaceDocument)
-        {
-            if (ScriptEditor.Document is null)
-            {
-                return;
-            }
-
-            EndTypingUndoGroup();
-            string text = rawText ?? string.Empty;
-            int markerIndex = text.IndexOf("$0", StringComparison.Ordinal);
-            if (markerIndex >= 0)
-            {
-                text = text.Replace("$0", string.Empty, StringComparison.Ordinal);
-            }
-
-            int caretOffset;
-            if (replaceDocument)
-            {
-                ScriptEditor.Text = text;
-                caretOffset = markerIndex >= 0 ? markerIndex : ScriptEditor.Document.TextLength;
-            }
-            else
-            {
-                int start = ScriptEditor.SelectionLength > 0 ? ScriptEditor.SelectionStart : ScriptEditor.CaretOffset;
-                int length = ScriptEditor.SelectionLength > 0 ? ScriptEditor.SelectionLength : 0;
-                ScriptEditor.Document.Replace(start, length, text);
-                caretOffset = start + (markerIndex >= 0 ? markerIndex : text.Length);
-            }
-
-            ScriptEditor.CaretOffset = Math.Clamp(caretOffset, 0, ScriptEditor.Document.TextLength);
-            FocusScriptEditor();
-            UpdateScriptUndoRedoState();
-        }
-
-        private sealed class ShowcaseCompletionData : ICompletionData
-        {
-            private readonly ShowcaseCompletionItem _item;
-
-            public ShowcaseCompletionData(ShowcaseCompletionItem item)
-            {
-                _item = item;
-            }
-
-            public IImage Image => null;
-            public string Text => _item.DisplayText;
-            public object Content => _item.DisplayText;
-            public object Description => _item.Description;
-            public double Priority => _item.IsMember ? 0 : 1;
-
-            public void Complete(TextArea textArea, ISegment completionSegment, EventArgs insertionRequestEventArgs)
-            {
-                string text = _item.InsertText ?? string.Empty;
-                int markerIndex = text.IndexOf("$0", StringComparison.Ordinal);
-                if (markerIndex >= 0)
-                {
-                    text = text.Replace("$0", string.Empty, StringComparison.Ordinal);
-                }
-
-                int start = completionSegment.Offset;
-                textArea.Document.Replace(completionSegment, text);
-                textArea.Caret.Offset = start + (markerIndex >= 0 ? markerIndex : text.Length);
-            }
-        }
-
         private sealed class CompletionRequest
         {
             private CompletionRequest(int startOffset, ShowcaseCompletionScope scope, bool allMembers, bool suppress)
@@ -807,13 +780,6 @@ namespace EffectViewer.Views
             public ShowcaseCompletionScope Scope { get; }
             public bool AllMembers { get; }
             public bool Suppress { get; }
-        }
-
-        private enum TypingUndoGroupKind
-        {
-            Word,
-            Whitespace,
-            Symbol
         }
     }
 }

@@ -2,8 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:EffectViewer.Controls"
              xmlns:vm="using:EffectViewer.ViewModels"
-             xmlns:ae="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
-             xmlns:cc="clr-namespace:AvaloniaEdit.CodeCompletion;assembly=AvaloniaEdit"
              x:Class="EffectViewer.Views.ShowcaseEditorView"
              x:DataType="vm:ShowcaseEditorViewModel">
   <Grid RowDefinitions="Auto,*" Margin="24" RowSpacing="16">
@@ -76,15 +74,15 @@
                   BorderThickness="1"
                   CornerRadius="4">
             <Grid>
-              <ae:TextEditor x:Name="ScriptEditor"
-                             Padding="8"
-                             FontFamily="{StaticResource CodeFontFamily}"
-                             FontSize="14"
-                             IsReadOnly="False"
-                             ShowLineNumbers="True"
-                             WordWrap="False"
-                             HorizontalScrollBarVisibility="Auto"
-                             VerticalScrollBarVisibility="Auto"/>
+              <TextBox x:Name="ScriptEditor"
+                       Padding="8"
+                       FontFamily="{StaticResource CodeFontFamily}"
+                       FontSize="14"
+                       AcceptsReturn="True"
+                       AcceptsTab="True"
+                       TextWrapping="NoWrap"
+                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                       ScrollViewer.VerticalScrollBarVisibility="Auto"/>
               <Border x:Name="InlineCompletionHost"
                       ZIndex="10"
                       IsVisible="False"
@@ -105,8 +103,8 @@
                     </Style>
                   </ListBox.Styles>
                   <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="cc:ICompletionData">
-                      <TextBlock Text="{Binding Text}"
+                    <DataTemplate x:DataType="vm:ShowcaseCompletionItem">
+                      <TextBlock Text="{Binding DisplayText}"
                                  Padding="10,0"
                                  TextTrimming="CharacterEllipsis"/>
                     </DataTemplate>
