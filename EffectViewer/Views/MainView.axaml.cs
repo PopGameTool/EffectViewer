@@ -27,6 +27,7 @@ namespace EffectViewer.Views
         private const double MinimumProjectExplorerWidth = 180d;
         private const double SplitterWidth = 5d;
         private const double CompactLayoutWidth = 700d;
+        private const double CompactProjectExplorerMaximumWidth = 360d;
         private const double CompactProjectExplorerMaximumWidthRatio = 0.88d;
         private const double CompactProjectExplorerTopOffset = 42d;
         private const double TopMenuScrollDragThreshold = 5d;
@@ -600,20 +601,23 @@ namespace EffectViewer.Views
             double availableWidth = Bounds.Width > 0 ? Bounds.Width : DefaultProjectExplorerWidth;
             double maximumWidth = System.Math.Max(
                 MinimumProjectExplorerWidth,
-                availableWidth * CompactProjectExplorerMaximumWidthRatio);
+                System.Math.Min(
+                    CompactProjectExplorerMaximumWidth,
+                    availableWidth * CompactProjectExplorerMaximumWidthRatio));
             double overlayWidth = showExplorer
                 ? System.Math.Min(System.Math.Max(MinimumProjectExplorerWidth, _lastLeftProjectExplorerWidth), maximumWidth)
                 : 0d;
 
-            ConfigureOverlayPanel(LeftProjectExplorerPanel, overlayWidth);
-            ConfigureOverlayPanel(RightProjectExplorerPanel, overlayWidth);
+            ConfigureOverlayPanel(LeftProjectExplorerPanel, overlayWidth, maximumWidth);
+            ConfigureOverlayPanel(RightProjectExplorerPanel, overlayWidth, maximumWidth);
             ConfigureOverlayDismissArea(overlayWidth, showExplorer);
             SetZIndexes(projectExplorerZIndex: 20);
         }
 
-        private static void ConfigureOverlayPanel(Control panel, double width)
+        private static void ConfigureOverlayPanel(Control panel, double width, double maximumWidth)
         {
             panel.Width = width;
+            panel.MaxWidth = maximumWidth;
             panel.Margin = new Thickness(0, CompactProjectExplorerTopOffset, 0, 0);
             panel.HorizontalAlignment = HorizontalAlignment.Left;
             panel.VerticalAlignment = VerticalAlignment.Stretch;
@@ -647,6 +651,7 @@ namespace EffectViewer.Views
         private static void ResetProjectExplorerOverlayPanel(Control panel)
         {
             panel.Width = double.NaN;
+            panel.MaxWidth = double.PositiveInfinity;
             panel.Margin = new Thickness(0);
             panel.HorizontalAlignment = HorizontalAlignment.Stretch;
             panel.VerticalAlignment = VerticalAlignment.Stretch;
