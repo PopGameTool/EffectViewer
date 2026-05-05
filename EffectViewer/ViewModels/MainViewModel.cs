@@ -50,6 +50,8 @@ namespace EffectViewer.ViewModels
         private const string ShowcasesProjectTreeGroupKey = "showcases";
         private const int MaxRecentlyOpenedProjectItems = 8;
         private const int ProjectTreeSearchDebounceMilliseconds = 250;
+        private const double DefaultWindowMinWidth = 960d;
+        private const double MobileWindowMinWidth = 360d;
         private const double DefaultProjectExplorerWidth = 280d;
         private readonly List<ProjectExplorerResourceIdentity> _recentlyOpenedResources = [];
         private readonly Dictionary<string, bool> _projectTreeExpansionState = new(StringComparer.OrdinalIgnoreCase);
@@ -160,6 +162,9 @@ namespace EffectViewer.ViewModels
         private double _projectExplorerRightWidth = DefaultProjectExplorerWidth;
 
         [ObservableProperty]
+        private bool _useMobileLayoutOnWideScreens;
+
+        [ObservableProperty]
         private bool _useLightViewportBackground;
 
         [ObservableProperty]
@@ -253,6 +258,7 @@ namespace EffectViewer.ViewModels
         public bool CanExportSelectedPreview => SelectedEditor is not null && SelectedEditor.Kind != EffectAssetKind.Project;
         public bool CanModifyCurrentProject => CanSaveCurrentProject;
         public bool CanDeleteSelectedResource => CanDeleteResourceItem(SelectedProjectItem);
+        public double MainWindowMinWidth => UseMobileLayoutOnWideScreens ? MobileWindowMinWidth : DefaultWindowMinWidth;
         public bool IsEnglishLanguage => Loc.IsEnglish;
         public bool IsChineseLanguage => Loc.IsChinese;
         public bool HasOpenEditors => OpenEditors.Count > 0;
@@ -377,6 +383,7 @@ namespace EffectViewer.ViewModels
                 ? dockSide
                 : ProjectExplorerDockSide.Left;
             IsProjectExplorerVisible = layout.IsProjectExplorerVisible;
+            UseMobileLayoutOnWideScreens = layout.UseMobileLayoutOnWideScreens;
             ProjectExplorerLeftWidth = NormalizePositive(layout.ProjectExplorerLeftWidth, DefaultProjectExplorerWidth);
             ProjectExplorerRightWidth = NormalizePositive(layout.ProjectExplorerRightWidth, DefaultProjectExplorerWidth);
         }
@@ -431,6 +438,7 @@ namespace EffectViewer.ViewModels
             WorkspaceLayoutSettings layout = _settings.Layout ??= new WorkspaceLayoutSettings();
             layout.ProjectExplorerDockSide = ProjectExplorerDockSide.ToString();
             layout.IsProjectExplorerVisible = IsProjectExplorerVisible;
+            layout.UseMobileLayoutOnWideScreens = UseMobileLayoutOnWideScreens;
             layout.ProjectExplorerLeftWidth = NormalizePositive(ProjectExplorerLeftWidth, DefaultProjectExplorerWidth);
             layout.ProjectExplorerRightWidth = NormalizePositive(ProjectExplorerRightWidth, DefaultProjectExplorerWidth);
             SaveUserSettings();
@@ -688,6 +696,25 @@ namespace EffectViewer.ViewModels
             PersistWorkspaceLayout();
         }
 
+        partial void OnUseMobileLayoutOnWideScreensChanged(bool value)
+        {
+            OnPropertyChanged(nameof(MainWindowMinWidth));
+
+            foreach (EditorViewModelBase editor in OpenEditors)
+            {
+                editor.UseMobileLayout = value;
+            }
+
+            PersistWorkspaceLayout();
+
+            if (!_isApplyingSettings)
+            {
+                StatusText = value
+                    ? T("Status.MobileLayoutEnabled")
+                    : T("Status.MobileLayoutDisabled");
+            }
+        }
+
         private void NotifyProjectExplorerLayoutProperties()
         {
             OnPropertyChanged(nameof(IsProjectExplorerDockedLeft));
@@ -726,6 +753,7 @@ namespace EffectViewer.ViewModels
         {
             ProjectExplorerDockSide = ProjectExplorerDockSide.Left;
             IsProjectExplorerVisible = true;
+            UseMobileLayoutOnWideScreens = false;
             ProjectExplorerLeftWidth = DefaultProjectExplorerWidth;
             ProjectExplorerRightWidth = DefaultProjectExplorerWidth;
             LayoutResetRevision++;
@@ -2673,6 +2701,7 @@ namespace EffectViewer.ViewModels
         private void OpenEditorTab(EditorViewModelBase editor)
         {
             ApplySavedEditorLayout(editor);
+            editor.UseMobileLayout = UseMobileLayoutOnWideScreens;
             editor.PropertyChanged += OnOpenEditorPropertyChanged;
             OpenEditors.Add(editor);
             SelectedEditor = editor;

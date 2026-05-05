@@ -23,6 +23,7 @@ public sealed class UserSettingsStoreTests
             {
                 ProjectExplorerDockSide = "Right",
                 IsProjectExplorerVisible = false,
+                UseMobileLayoutOnWideScreens = true,
                 ProjectExplorerLeftWidth = 312d,
                 ProjectExplorerRightWidth = 344d,
                 EditorLayouts =
@@ -45,6 +46,7 @@ public sealed class UserSettingsStoreTests
         Assert.Contains("Saved!", loaded.Language.CustomLanguageJson);
         Assert.Equal("Right", loaded.Layout.ProjectExplorerDockSide);
         Assert.False(loaded.Layout.IsProjectExplorerVisible);
+        Assert.True(loaded.Layout.UseMobileLayoutOnWideScreens);
         Assert.Equal(312d, loaded.Layout.ProjectExplorerLeftWidth);
         Assert.Equal(344d, loaded.Layout.ProjectExplorerRightWidth);
 
@@ -67,6 +69,7 @@ public sealed class UserSettingsStoreTests
 
         Assert.Equal("Left", loaded.Layout.ProjectExplorerDockSide);
         Assert.True(loaded.Layout.IsProjectExplorerVisible);
+        Assert.False(loaded.Layout.UseMobileLayoutOnWideScreens);
         Assert.Equal(280d, loaded.Layout.ProjectExplorerLeftWidth);
         Assert.Equal(280d, loaded.Layout.ProjectExplorerRightWidth);
     }

@@ -220,7 +220,8 @@
               BorderThickness="0,0,0,1">
         <Grid Margin="8,0"
               ColumnDefinitions="*">
-          <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+          <ScrollViewer x:Name="TopMenuScrollViewer"
+                        HorizontalScrollBarVisibility="Hidden"
                         VerticalScrollBarVisibility="Disabled">
           <Menu Background="Transparent">
             <MenuItem Header="{DynamicResource Loc.Menu.Project}">
@@ -356,6 +357,10 @@
                         Command="{Binding DockProjectExplorerRightCommand}"
                         IsChecked="{Binding IsProjectExplorerDockedRight, Mode=OneWay}"
                         ToggleType="Radio"/>
+              <Separator/>
+              <MenuItem Header="{DynamicResource Loc.Menu.UseMobileLayoutOnWideScreens}"
+                        IsChecked="{Binding UseMobileLayoutOnWideScreens, Mode=TwoWay}"
+                        ToggleType="CheckBox"/>
               <Separator/>
               <MenuItem Header="{DynamicResource Loc.Label.LightTheme}"
                         IsChecked="{Binding UseLightTheme, Mode=TwoWay}"

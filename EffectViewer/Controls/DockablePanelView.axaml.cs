@@ -28,6 +28,9 @@ namespace EffectViewer.Controls
         public static readonly StyledProperty<bool> IsSidePanelOnLeftProperty =
             AvaloniaProperty.Register<DockablePanelView, bool>(nameof(IsSidePanelOnLeft));
 
+        public static readonly StyledProperty<bool> ForceCompactLayoutProperty =
+            AvaloniaProperty.Register<DockablePanelView, bool>(nameof(ForceCompactLayout));
+
         public static readonly StyledProperty<double> DefaultSidePanelWidthProperty =
             AvaloniaProperty.Register<DockablePanelView, double>(nameof(DefaultSidePanelWidth), 320d);
 
@@ -71,6 +74,12 @@ namespace EffectViewer.Controls
         {
             get => GetValue(IsSidePanelOnLeftProperty);
             set => SetValue(IsSidePanelOnLeftProperty, value);
+        }
+
+        public bool ForceCompactLayout
+        {
+            get => GetValue(ForceCompactLayoutProperty);
+            set => SetValue(ForceCompactLayoutProperty, value);
         }
 
         public double DefaultSidePanelWidth
@@ -131,6 +140,7 @@ namespace EffectViewer.Controls
             }
             else if (change.Property == IsSidePanelVisibleProperty
                      || change.Property == IsSidePanelOnLeftProperty
+                     || change.Property == ForceCompactLayoutProperty
                      || change.Property == MinimumSidePanelWidthProperty)
             {
                 UpdateLayoutColumns();
@@ -193,7 +203,7 @@ namespace EffectViewer.Controls
 
         private void UpdateLayoutColumns(bool captureCurrentWidth = true)
         {
-            bool compactLayout = Bounds.Width > 0 && Bounds.Width < CompactLayoutWidth;
+            bool compactLayout = IsCompactLayoutActive();
             if (captureCurrentWidth)
             {
                 CaptureVisibleSidePanelSize(compactLayout);
@@ -216,6 +226,12 @@ namespace EffectViewer.Controls
             }
 
             UpdateDockedLayout();
+        }
+
+        private bool IsCompactLayoutActive()
+        {
+            return ForceCompactLayout ||
+                Bounds.Width > 0 && Bounds.Width < CompactLayoutWidth;
         }
 
         private void UpdateDockedLayout()

@@ -19,6 +19,7 @@ namespace EffectViewer.Settings
     {
         public string ProjectExplorerDockSide { get; set; } = "Left";
         public bool IsProjectExplorerVisible { get; set; } = true;
+        public bool UseMobileLayoutOnWideScreens { get; set; }
         public double ProjectExplorerLeftWidth { get; set; } = 280d;
         public double ProjectExplorerRightWidth { get; set; } = 280d;
         public Dictionary<string, EditorLayoutSettings> EditorLayouts { get; set; } = new();

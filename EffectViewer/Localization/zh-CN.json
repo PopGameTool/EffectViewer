@@ -84,6 +84,7 @@
       "Tabs": "标签页(_T)",
       "TogglePinTab": "固定/取消固定标签页(_P)",
       "Undo": "撤销(_U)",
+      "UseMobileLayoutOnWideScreens": "宽屏使用移动端布局(_M)",
       "View": "视图(_V)"
     },
     "Label": {
@@ -436,6 +437,8 @@
       "LanguageChanged": "语言已切换为 {0}。",
       "LanguageFileLoaded": "已加载语言文件 {0}。",
       "LayoutReset": "布局已重置。",
+      "MobileLayoutDisabled": "宽屏移动端布局已关闭。",
+      "MobileLayoutEnabled": "宽屏移动端布局已开启。",
       "NoDocumentSelected": "未选择文档。",
       "NoInternalProjectLoaded": "未加载内部项目。",
       "NoInternalProjectsFound": "没有找到内部项目。",

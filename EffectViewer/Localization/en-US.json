@@ -84,6 +84,7 @@
       "Tabs": "_Tabs",
       "TogglePinTab": "_Pin / Unpin Tab",
       "Undo": "_Undo",
+      "UseMobileLayoutOnWideScreens": "Use _Mobile Layout on Wide Screens",
       "View": "_View"
     },
     "Label": {
@@ -436,6 +437,8 @@
       "LanguageChanged": "Language changed to {0}.",
       "LanguageFileLoaded": "Loaded language file {0}.",
       "LayoutReset": "Layout reset.",
+      "MobileLayoutDisabled": "Mobile layout disabled for wide screens.",
+      "MobileLayoutEnabled": "Mobile layout enabled for wide screens.",
       "NoDocumentSelected": "No document is selected.",
       "NoInternalProjectLoaded": "No internal project is loaded.",
       "NoInternalProjectsFound": "No internal projects found.",

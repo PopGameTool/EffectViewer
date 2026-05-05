@@ -29,10 +29,15 @@ namespace EffectViewer.Views
         private const double CompactLayoutWidth = 700d;
         private const double CompactProjectExplorerMaximumWidthRatio = 0.88d;
         private const double CompactProjectExplorerTopOffset = 42d;
+        private const double TopMenuScrollDragThreshold = 5d;
         private const double DocumentTabDragThreshold = 6d;
         private double _lastLeftProjectExplorerWidth = DefaultProjectExplorerWidth;
         private double _lastRightProjectExplorerWidth = DefaultProjectExplorerWidth;
+        private Point _topMenuScrollDragStartPoint;
+        private Vector _topMenuScrollDragStartOffset;
         private bool _wasCompactProjectExplorerLayout;
+        private bool _isTopMenuScrollPointerDown;
+        private bool _isTopMenuScrollDragging;
         private Control _draggedDocumentTab;
         private EditorViewModelBase _draggedDocumentEditor;
         private EditorViewModelBase _documentTabDropTarget;
@@ -47,6 +52,10 @@ namespace EffectViewer.Views
         public MainView()
         {
             InitializeComponent();
+            TopMenuScrollViewer.AddHandler(PointerPressedEvent, TopMenuScrollViewer_PointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+            TopMenuScrollViewer.AddHandler(PointerMovedEvent, TopMenuScrollViewer_PointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+            TopMenuScrollViewer.AddHandler(PointerReleasedEvent, TopMenuScrollViewer_PointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+            TopMenuScrollViewer.PointerCaptureLost += TopMenuScrollViewer_PointerCaptureLost;
             DataContextChanged += OnDataContextChanged;
         }
 
@@ -95,6 +104,76 @@ namespace EffectViewer.Views
             }
         }
 
+        private void TopMenuScrollViewer_PointerPressed(object sender, PointerPressedEventArgs e)
+        {
+            if (!e.GetCurrentPoint(TopMenuScrollViewer).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
+            _topMenuScrollDragStartPoint = e.GetPosition(TopMenuScrollViewer);
+            _topMenuScrollDragStartOffset = TopMenuScrollViewer.Offset;
+            _isTopMenuScrollPointerDown = true;
+            _isTopMenuScrollDragging = false;
+        }
+
+        private void TopMenuScrollViewer_PointerMoved(object sender, PointerEventArgs e)
+        {
+            if (!_isTopMenuScrollPointerDown)
+            {
+                return;
+            }
+
+            if (!e.GetCurrentPoint(TopMenuScrollViewer).Properties.IsLeftButtonPressed)
+            {
+                EndTopMenuScrollDrag(e);
+                return;
+            }
+
+            Point currentPoint = e.GetPosition(TopMenuScrollViewer);
+            if (!_isTopMenuScrollDragging &&
+                GetDragDistance(_topMenuScrollDragStartPoint, currentPoint) < TopMenuScrollDragThreshold)
+            {
+                return;
+            }
+
+            if (!_isTopMenuScrollDragging)
+            {
+                _isTopMenuScrollDragging = true;
+                e.Pointer.Capture(TopMenuScrollViewer);
+            }
+
+            double deltaX = currentPoint.X - _topMenuScrollDragStartPoint.X;
+            double maximumOffsetX = System.Math.Max(0d, TopMenuScrollViewer.Extent.Width - TopMenuScrollViewer.Viewport.Width);
+            double nextOffsetX = System.Math.Clamp(_topMenuScrollDragStartOffset.X - deltaX, 0d, maximumOffsetX);
+            TopMenuScrollViewer.Offset = new Vector(nextOffsetX, TopMenuScrollViewer.Offset.Y);
+            e.Handled = true;
+        }
+
+        private void TopMenuScrollViewer_PointerReleased(object sender, PointerReleasedEventArgs e)
+        {
+            bool wasDragging = _isTopMenuScrollDragging;
+            EndTopMenuScrollDrag(e);
+            e.Handled = wasDragging;
+        }
+
+        private void TopMenuScrollViewer_PointerCaptureLost(object sender, PointerCaptureLostEventArgs e)
+        {
+            _isTopMenuScrollPointerDown = false;
+            _isTopMenuScrollDragging = false;
+        }
+
+        private void EndTopMenuScrollDrag(PointerEventArgs e)
+        {
+            if (_isTopMenuScrollDragging)
+            {
+                e.Pointer.Capture(null);
+            }
+
+            _isTopMenuScrollPointerDown = false;
+            _isTopMenuScrollDragging = false;
+        }
+
         private void OnDataContextChanged(object sender, System.EventArgs e)
         {
             if (_observedViewModel is not null)
@@ -140,7 +219,8 @@ namespace EffectViewer.Views
         {
             if (e.PropertyName is nameof(MainViewModel.IsProjectExplorerVisibleLeft)
                 or nameof(MainViewModel.IsProjectExplorerVisibleRight)
-                or nameof(MainViewModel.IsProjectExplorerVisible))
+                or nameof(MainViewModel.IsProjectExplorerVisible)
+                or nameof(MainViewModel.UseMobileLayoutOnWideScreens))
             {
                 UpdateProjectExplorerLayout();
             }
@@ -316,7 +396,7 @@ namespace EffectViewer.Views
         private void OnProjectExplorerResourceOpened(object sender, EventArgs e)
         {
             if (Bounds.Width <= 0 ||
-                Bounds.Width >= CompactLayoutWidth ||
+                !IsCompactLayoutActive() ||
                 _observedViewModel?.IsProjectExplorerVisible != true)
             {
                 return;
@@ -369,7 +449,7 @@ namespace EffectViewer.Views
 
         private void UpdateProjectExplorerLayout(bool captureCurrentWidth = true)
         {
-            bool compactLayout = Bounds.Width > 0 && Bounds.Width < CompactLayoutWidth;
+            bool compactLayout = IsCompactLayoutActive();
             ApplyCompactProjectExplorerState(compactLayout);
             CompactProjectExplorerButton.IsVisible = compactLayout;
 
@@ -388,6 +468,12 @@ namespace EffectViewer.Views
             }
 
             UpdateDockedProjectExplorerLayout(showLeft, showRight);
+        }
+
+        private bool IsCompactLayoutActive()
+        {
+            return _observedViewModel?.UseMobileLayoutOnWideScreens == true ||
+                Bounds.Width > 0 && Bounds.Width < CompactLayoutWidth;
         }
 
         private void UpdateDockedProjectExplorerLayout(bool showLeft, bool showRight)

@@ -465,6 +465,7 @@
         <controls:DockablePanelView Grid.Row="0"
                                     IsSidePanelVisible="{Binding IsSidePanelVisible}"
                                     IsSidePanelOnLeft="{Binding IsSidePanelOnLeft}"
+                                    ForceCompactLayout="{Binding UseMobileLayout}"
                                     SidePanelWidth="{Binding SidePanelWidth, Mode=TwoWay}"
                                     CompactSidePanelHeight="{Binding CompactSidePanelHeight, Mode=TwoWay}"
                                     LayoutResetRevision="{Binding LayoutResetRevision}"

@@ -135,6 +135,9 @@ namespace EffectViewer.ViewModels
         }
 
         [ObservableProperty]
+        private bool _useMobileLayout;
+
+        [ObservableProperty]
         private int _layoutResetRevision;
 
         [ObservableProperty]

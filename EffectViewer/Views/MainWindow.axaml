@@ -11,7 +11,7 @@
         Title="Effect Viewer"
         Width="1200"
         Height="760"
-        MinWidth="960"
+        MinWidth="{Binding MainWindowMinWidth}"
         MinHeight="620">
         <NativeMenu.Menu>
                 <NativeMenu>
@@ -150,6 +150,10 @@
                                                         Command="{Binding DockProjectExplorerLeftCommand}"/>
                                         <NativeMenuItem Header="{DynamicResource Loc.Menu.DockExplorerRight}"
                                                         Command="{Binding DockProjectExplorerRightCommand}"/>
+                                        <NativeMenuItemSeparator/>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.UseMobileLayoutOnWideScreens}"
+                                                        IsChecked="{Binding UseMobileLayoutOnWideScreens, Mode=TwoWay}"
+                                                        ToggleType="CheckBox"/>
                                         <NativeMenuItemSeparator/>
                                         <NativeMenuItem Header="{DynamicResource Loc.Menu.ResetLayout}"
                                                         Command="{Binding ResetLayoutCommand}"/>
