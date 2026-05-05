@@ -26,8 +26,23 @@ jobs:
       - name: Restore
         run: dotnet restore EffectViewer.Tests/EffectViewer.Tests.csproj
 
+      - name: Restore Desktop
+        run: dotnet restore EffectViewer.Desktop/EffectViewer.Desktop.csproj
+
+      - name: Restore Browser workload
+        run: dotnet workload restore EffectViewer.Browser/EffectViewer.Browser.csproj --skip-manifest-update
+
+      - name: Restore Browser
+        run: dotnet restore EffectViewer.Browser/EffectViewer.Browser.csproj
+
       - name: Build core
         run: dotnet build EffectViewer/EffectViewer.csproj --configuration Release --no-restore
+
+      - name: Build Desktop
+        run: dotnet build EffectViewer.Desktop/EffectViewer.Desktop.csproj --configuration Release --no-restore
+
+      - name: Build Browser
+        run: dotnet build EffectViewer.Browser/EffectViewer.Browser.csproj --configuration Release --no-restore
 
       - name: Test
         run: >
