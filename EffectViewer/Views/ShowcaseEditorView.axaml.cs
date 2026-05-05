@@ -217,11 +217,6 @@ namespace EffectViewer.Views
                 return;
             }
 
-            if (_viewModel is not null)
-            {
-                _viewModel.IsShowcaseOutputVisible = false;
-            }
-
             InsertScriptText(request.Text, request.ReplaceDocument);
         }
 
@@ -242,11 +237,6 @@ namespace EffectViewer.Views
             if (request is null)
             {
                 return;
-            }
-
-            if (_viewModel is not null)
-            {
-                _viewModel.IsShowcaseOutputVisible = false;
             }
 
             string text = GetScriptEditorText();
@@ -303,11 +293,6 @@ namespace EffectViewer.Views
 
         private void CompletionButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_viewModel is not null)
-            {
-                _viewModel.IsShowcaseOutputVisible = false;
-            }
-
             ShowCompletion(membersOnly: false);
             FocusScriptEditor();
         }

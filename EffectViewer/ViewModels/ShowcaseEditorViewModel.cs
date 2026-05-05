@@ -62,11 +62,7 @@ namespace EffectViewer.ViewModels
         [ObservableProperty]
         private ShowcaseResourceReference _selectedResourceReference;
 
-        [ObservableProperty]
-        private bool _isShowcaseOutputVisible;
-
         public string SelectedLogDetail => SelectedLog?.Detail ?? Loc.Text("Showcase.NoLogSelected");
-        public bool IsShowcaseCodeVisible => !IsShowcaseOutputVisible;
 
         public event EventHandler<ShowcaseScriptEditRequest> ScriptEditRequested;
         public event EventHandler<ShowcaseScriptNavigationRequest> ScriptNavigationRequested;
@@ -107,11 +103,6 @@ namespace EffectViewer.ViewModels
         partial void OnScriptTextChanged(string value)
         {
             MarkDirty();
-        }
-
-        partial void OnIsShowcaseOutputVisibleChanged(bool value)
-        {
-            OnPropertyChanged(nameof(IsShowcaseCodeVisible));
         }
 
         public override async Task SaveAsync(EffectProjectService projectService, EffectProject project)
@@ -177,7 +168,6 @@ namespace EffectViewer.ViewModels
         [RelayCommand]
         private void RunScript()
         {
-            IsShowcaseOutputVisible = true;
             _suppressLogNavigation = true;
 
             try
@@ -227,7 +217,6 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(SelectedLogDetail));
             if (!_suppressLogNavigation && value?.HasLocation == true)
             {
-                IsShowcaseOutputVisible = false;
                 ScriptNavigationRequested?.Invoke(
                     this,
                     new ShowcaseScriptNavigationRequest(value.LineNumber, value.ColumnNumber));
