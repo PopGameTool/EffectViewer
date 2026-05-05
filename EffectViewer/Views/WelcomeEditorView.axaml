@@ -27,9 +27,9 @@
                      FontSize="16"
                      FontWeight="SemiBold"
                      TextWrapping="Wrap"/>
-          <StackPanel Grid.Row="1"
-                      Orientation="Horizontal"
-                      Spacing="8">
+          <WrapPanel Grid.Row="1"
+                     ItemSpacing="8"
+                     LineSpacing="8">
             <Button Content="{DynamicResource Loc.Welcome.CreateProjectAction}"
                     MinWidth="110"
                     Command="{Binding CreateProjectCommand}"/>
@@ -42,7 +42,7 @@
             <Button Content="{DynamicResource Loc.Welcome.ImportResourcePakAction}"
                     MinWidth="110"
                     Command="{Binding ImportResourcePakCommand}"/>
-          </StackPanel>
+          </WrapPanel>
         </Grid>
       </Border>
 
