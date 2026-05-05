@@ -6,7 +6,7 @@
         <ImplicitUsings>true</ImplicitUsings>
         <SupportedOSPlatformVersion>12.0</SupportedOSPlatformVersion>
         <PublishAot>true</PublishAot>
-        <ApplicationTitle>EffectViewer</ApplicationTitle>
+        <ApplicationTitle>Effect Viewer</ApplicationTitle>
         <ApplicationId>com.yingfengtingyu.effectviewer</ApplicationId>
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
         <ApplicationVersion>1</ApplicationVersion>

@@ -6,6 +6,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <PublishAot>true</PublishAot>
+    <AssemblyTitle>Effect Viewer</AssemblyTitle>
+    <Product>Effect Viewer</Product>
   </PropertyGroup>
 
   <PropertyGroup>

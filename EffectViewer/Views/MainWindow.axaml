@@ -8,7 +8,7 @@
         x:Class="EffectViewer.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/effectviewer-icon.ico"
-        Title="EffectViewer"
+        Title="Effect Viewer"
         Width="1200"
         Height="760"
         MinWidth="960"

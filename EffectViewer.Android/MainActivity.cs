@@ -6,7 +6,7 @@ using Avalonia.Android;
 namespace EffectViewer.Android
 {
     [Activity(
-        Label = "EffectViewer.Android",
+        Label = "Effect Viewer",
         Theme = "@style/MyTheme.NoActionBar",
         Icon = "@drawable/icon",
         MainLauncher = true,
