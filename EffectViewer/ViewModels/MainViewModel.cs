@@ -7,7 +7,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -149,6 +151,12 @@ namespace EffectViewer.ViewModels
 
         [ObservableProperty]
         private bool _useDarkViewportBackground;
+
+        [ObservableProperty]
+        private bool _useLightTheme;
+
+        [ObservableProperty]
+        private bool _useDarkTheme;
 
         [ObservableProperty]
         private int _layoutResetRevision;
@@ -397,6 +405,40 @@ namespace EffectViewer.ViewModels
                 : UseDarkViewportBackground
                     ? ViewportBackgroundMode.Dark
                     : ViewportBackgroundMode.Theme;
+        }
+
+        partial void OnUseLightThemeChanged(bool value)
+        {
+            if (value)
+            {
+                UseDarkTheme = false;
+            }
+
+            ApplyThemeVariant();
+        }
+
+        partial void OnUseDarkThemeChanged(bool value)
+        {
+            if (value)
+            {
+                UseLightTheme = false;
+            }
+
+            ApplyThemeVariant();
+        }
+
+        private void ApplyThemeVariant()
+        {
+            if (Application.Current is null)
+            {
+                return;
+            }
+
+            Application.Current.RequestedThemeVariant = UseLightTheme
+                ? ThemeVariant.Light
+                : UseDarkTheme
+                    ? ThemeVariant.Dark
+                    : ThemeVariant.Default;
         }
 
         public async Task LoadLanguageFileAsync(Stream stream, string fileName)

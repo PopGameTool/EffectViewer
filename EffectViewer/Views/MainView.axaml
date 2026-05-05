@@ -343,6 +343,13 @@
                         IsChecked="{Binding IsProjectExplorerDockedRight, Mode=OneWay}"
                         ToggleType="Radio"/>
               <Separator/>
+              <MenuItem Header="{DynamicResource Loc.Label.LightTheme}"
+                        IsChecked="{Binding UseLightTheme, Mode=TwoWay}"
+                        ToggleType="CheckBox"/>
+              <MenuItem Header="{DynamicResource Loc.Label.DarkTheme}"
+                        IsChecked="{Binding UseDarkTheme, Mode=TwoWay}"
+                        ToggleType="CheckBox"/>
+              <Separator/>
               <MenuItem Header="{DynamicResource Loc.Label.LightViewportBackground}"
                         IsChecked="{Binding UseLightViewportBackground, Mode=TwoWay}"
                         ToggleType="CheckBox"/>

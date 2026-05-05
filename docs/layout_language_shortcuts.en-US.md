@@ -106,6 +106,13 @@ All preview viewports support:
 | Left-drag | Pan in normal editors; drag object or handles in Reanim free-transform mode. |
 | Double-click | Reset zoom and pan. |
 
+Theme modes:
+
+- `View -> Light theme`
+- `View -> Dark theme`
+
+If neither option is checked, the app follows the system theme.
+
 Background modes:
 
 - `View -> Light Viewport Background`
@@ -175,4 +182,3 @@ On macOS/iOS, shortcuts that use `Ctrl` are automatically mapped to `Command`.
 | Undo | `Ctrl+Z` | `Command+Z` |
 | Redo | `Ctrl+Y` or `Ctrl+Shift+Z` | `Command+Y` or `Command+Shift+Z` |
 | ShowCase completion | `Ctrl+Space` | `Command+Space` |
-

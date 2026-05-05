@@ -106,6 +106,13 @@ ShowCase 编辑器提供 `脚本面板` 侧栏。
 | 左键拖动 | 普通编辑器中平移；Reanim 自由变换模式中拖拽对象或控制点。 |
 | 双击 | 重置缩放和平移。 |
 
+主题模式：
+
+- `视图 -> 浅色主题`
+- `视图 -> 深色主题`
+
+如果两个选项都不勾选，应用跟随系统主题。
+
 背景模式：
 
 - `视图 -> 浅色背景`
@@ -175,4 +182,3 @@ macOS/iOS 上，文档中的 `Ctrl` 会自动映射为 `Command`。
 | 撤销 | `Ctrl+Z` | `Command+Z` |
 | 重做 | `Ctrl+Y` 或 `Ctrl+Shift+Z` | `Command+Y` 或 `Command+Shift+Z` |
 | ShowCase 补全 | `Ctrl+Space` | `Command+Space` |
-
