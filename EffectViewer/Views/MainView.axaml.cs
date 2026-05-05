@@ -607,6 +607,7 @@ namespace EffectViewer.Views
 
             ConfigureOverlayPanel(LeftProjectExplorerPanel, overlayWidth);
             ConfigureOverlayPanel(RightProjectExplorerPanel, overlayWidth);
+            ConfigureOverlayDismissArea(overlayWidth, showExplorer);
             SetZIndexes(projectExplorerZIndex: 20);
         }
 
@@ -618,10 +619,28 @@ namespace EffectViewer.Views
             panel.VerticalAlignment = VerticalAlignment.Stretch;
         }
 
+        private void ConfigureOverlayDismissArea(double projectExplorerWidth, bool isVisible)
+        {
+            Grid.SetRow(CompactProjectExplorerDismissOverlay, 0);
+            Grid.SetColumn(CompactProjectExplorerDismissOverlay, 0);
+            SetGridSpans(CompactProjectExplorerDismissOverlay, columnSpan: 5, rowSpan: 1);
+
+            CompactProjectExplorerDismissOverlay.Margin = new Thickness(
+                projectExplorerWidth,
+                CompactProjectExplorerTopOffset,
+                0d,
+                0d);
+            CompactProjectExplorerDismissOverlay.HorizontalAlignment = HorizontalAlignment.Stretch;
+            CompactProjectExplorerDismissOverlay.VerticalAlignment = VerticalAlignment.Stretch;
+            CompactProjectExplorerDismissOverlay.IsVisible = isVisible;
+        }
+
         private void ResetProjectExplorerOverlayLayout()
         {
             ResetProjectExplorerOverlayPanel(LeftProjectExplorerPanel);
             ResetProjectExplorerOverlayPanel(RightProjectExplorerPanel);
+            ResetProjectExplorerOverlayPanel(CompactProjectExplorerDismissOverlay);
+            CompactProjectExplorerDismissOverlay.IsVisible = false;
             SetZIndexes(projectExplorerZIndex: 0);
         }
 
@@ -638,8 +657,19 @@ namespace EffectViewer.Views
             WorkspaceContentGrid.ZIndex = 0;
             LeftProjectExplorerPanel.ZIndex = projectExplorerZIndex;
             RightProjectExplorerPanel.ZIndex = projectExplorerZIndex;
+            CompactProjectExplorerDismissOverlay.ZIndex = projectExplorerZIndex > 0 ? projectExplorerZIndex - 1 : 0;
             LeftProjectExplorerSplitter.ZIndex = 0;
             RightProjectExplorerSplitter.ZIndex = 0;
+        }
+
+        private void CompactProjectExplorerDismissOverlay_PointerPressed(object sender, PointerPressedEventArgs e)
+        {
+            if (DataContext is MainViewModel viewModel && IsCompactLayoutActive())
+            {
+                viewModel.IsProjectExplorerVisible = false;
+                UpdateProjectExplorerLayout(captureCurrentWidth: false);
+                e.Handled = true;
+            }
         }
 
         private void CompactProjectExplorerButton_Click(object sender, RoutedEventArgs e)

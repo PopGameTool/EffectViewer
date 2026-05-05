@@ -647,6 +647,11 @@
                           Content="{Binding SelectedEditor}"/>
         </Grid>
 
+        <Border x:Name="CompactProjectExplorerDismissOverlay"
+                Background="#66000000"
+                IsVisible="False"
+                PointerPressed="CompactProjectExplorerDismissOverlay_PointerPressed"/>
+
         <GridSplitter x:Name="RightProjectExplorerSplitter"
                       Grid.Column="3"
                       HorizontalAlignment="Stretch"
