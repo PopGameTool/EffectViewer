@@ -210,8 +210,7 @@
               BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
               BorderThickness="0,0,0,1">
         <Grid Margin="8,0"
-              ColumnDefinitions="*,Auto"
-              ColumnSpacing="8">
+              ColumnDefinitions="*">
           <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                         VerticalScrollBarVisibility="Disabled">
           <Menu Background="Transparent">
@@ -381,12 +380,6 @@
             </MenuItem>
           </Menu>
           </ScrollViewer>
-          <TextBlock Text="{Binding CurrentProject.Manifest.Name}"
-                     Grid.Column="1"
-                     VerticalAlignment="Center"
-                     FontWeight="SemiBold"
-                     MaxWidth="180"
-                     TextTrimming="CharacterEllipsis"/>
         </Grid>
       </Border>
 
