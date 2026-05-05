@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -42,10 +43,25 @@ namespace EffectViewer.Localization
 
         public string this[string key] => Text(key);
 
-        public void Initialize()
+        public void Initialize(string languageCode = null, string customLanguageJson = null)
         {
             EnsureFallbackLoaded();
-            UseBuiltInLanguage(SelectInitialLanguageCode());
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(customLanguageJson))
+                {
+                    UseLanguageJson(customLanguageJson, languageCode);
+                    return;
+                }
+
+                UseBuiltInLanguage(IsBuiltInLanguageCode(languageCode)
+                    ? languageCode
+                    : SelectInitialLanguageCode());
+            }
+            catch (Exception ex) when (ex is IOException or JsonException or InvalidOperationException)
+            {
+                UseBuiltInLanguage(SelectInitialLanguageCode());
+            }
         }
 
         public void UseBuiltInLanguage(string languageCode)
@@ -70,6 +86,25 @@ namespace EffectViewer.Localization
 
             EnsureFallbackLoaded();
             Dictionary<string, string> loaded = await ReadLanguageAsync(stream);
+            string selectedLanguageCode = string.IsNullOrWhiteSpace(languageCode)
+                ? Text("Language.Custom")
+                : languageCode;
+            ApplyLanguage(selectedLanguageCode, loaded);
+        }
+
+        public void UseLanguageJson(string json, string languageCode)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                UseBuiltInLanguage(IsBuiltInLanguageCode(languageCode)
+                    ? languageCode
+                    : SelectInitialLanguageCode());
+                return;
+            }
+
+            EnsureFallbackLoaded();
+            using MemoryStream stream = new(Encoding.UTF8.GetBytes(json));
+            Dictionary<string, string> loaded = ReadLanguage(stream);
             string selectedLanguageCode = string.IsNullOrWhiteSpace(languageCode)
                 ? Text("Language.Custom")
                 : languageCode;
@@ -236,6 +271,12 @@ namespace EffectViewer.Localization
             return string.Equals(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName, "zh", StringComparison.OrdinalIgnoreCase)
                 ? ChineseLanguageCode
                 : EnglishLanguageCode;
+        }
+
+        private static bool IsBuiltInLanguageCode(string languageCode)
+        {
+            return string.Equals(languageCode, EnglishLanguageCode, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(languageCode, ChineseLanguageCode, StringComparison.OrdinalIgnoreCase);
         }
 
         private void OnPropertyChanged(string propertyName)

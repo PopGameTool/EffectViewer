@@ -114,6 +114,8 @@ namespace EffectViewer.Views
             _wasCompactProjectExplorerLayout = false;
             if (_observedViewModel is not null)
             {
+                _lastLeftProjectExplorerWidth = NormalizeProjectExplorerWidth(_observedViewModel.ProjectExplorerLeftWidth);
+                _lastRightProjectExplorerWidth = NormalizeProjectExplorerWidth(_observedViewModel.ProjectExplorerRightWidth);
                 _observedViewModel.PropertyChanged += OnViewModelPropertyChanged;
                 _observedViewModel.ImportResourceFileRequested += OnImportResourceFileRequested;
                 _observedViewModel.ImportResourceFolderRequested += OnImportResourceFolderRequested;
@@ -280,10 +282,12 @@ namespace EffectViewer.Views
             if (_observedViewModel?.IsProjectExplorerVisibleLeft == true && leftColumn.ActualWidth > 0)
             {
                 _lastLeftProjectExplorerWidth = leftColumn.ActualWidth;
+                _observedViewModel.ProjectExplorerLeftWidth = _lastLeftProjectExplorerWidth;
             }
             else if (_observedViewModel?.IsProjectExplorerVisibleRight == true && rightColumn.ActualWidth > 0)
             {
                 _lastRightProjectExplorerWidth = rightColumn.ActualWidth;
+                _observedViewModel.ProjectExplorerRightWidth = _lastRightProjectExplorerWidth;
             }
         }
 
@@ -396,6 +400,11 @@ namespace EffectViewer.Views
         {
             _lastLeftProjectExplorerWidth = DefaultProjectExplorerWidth;
             _lastRightProjectExplorerWidth = DefaultProjectExplorerWidth;
+            if (_observedViewModel is not null)
+            {
+                _observedViewModel.ProjectExplorerLeftWidth = DefaultProjectExplorerWidth;
+                _observedViewModel.ProjectExplorerRightWidth = DefaultProjectExplorerWidth;
+            }
         }
 
         private void ApplyCompactProjectExplorerState(bool compactLayout)
@@ -414,12 +423,11 @@ namespace EffectViewer.Views
 
             if (!_wasCompactProjectExplorerLayout)
             {
-                _observedViewModel.ProjectExplorerDockSide = ProjectExplorerDockSide.Left;
-                _observedViewModel.IsProjectExplorerVisible = false;
+                _observedViewModel.ApplyTemporaryProjectExplorerLayout(ProjectExplorerDockSide.Left, isVisible: false);
             }
             else if (_observedViewModel.IsProjectExplorerVisibleRight)
             {
-                _observedViewModel.ProjectExplorerDockSide = ProjectExplorerDockSide.Left;
+                _observedViewModel.ApplyTemporaryProjectExplorerLayout(ProjectExplorerDockSide.Left, _observedViewModel.IsProjectExplorerVisible);
             }
 
             _wasCompactProjectExplorerLayout = true;
@@ -500,6 +508,11 @@ namespace EffectViewer.Views
         {
             column.MinWidth = minWidth;
             column.Width = new GridLength(width, unitType);
+        }
+
+        private static double NormalizeProjectExplorerWidth(double value)
+        {
+            return double.IsFinite(value) && value > 0d ? value : DefaultProjectExplorerWidth;
         }
 
         private static void ConfigureRow(

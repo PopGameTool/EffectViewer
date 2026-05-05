@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data;
 
 namespace EffectViewer.Controls
 {
@@ -31,6 +32,18 @@ namespace EffectViewer.Controls
 
         public static readonly StyledProperty<double> MinimumSidePanelWidthProperty =
             AvaloniaProperty.Register<DockablePanelView, double>(nameof(MinimumSidePanelWidth), 180d);
+
+        public static readonly StyledProperty<double> SidePanelWidthProperty =
+            AvaloniaProperty.Register<DockablePanelView, double>(
+                nameof(SidePanelWidth),
+                defaultValue: 0d,
+                defaultBindingMode: BindingMode.TwoWay);
+
+        public static readonly StyledProperty<double> CompactSidePanelHeightProperty =
+            AvaloniaProperty.Register<DockablePanelView, double>(
+                nameof(CompactSidePanelHeight),
+                defaultValue: 0d,
+                defaultBindingMode: BindingMode.TwoWay);
 
         public static readonly StyledProperty<int> LayoutResetRevisionProperty =
             AvaloniaProperty.Register<DockablePanelView, int>(nameof(LayoutResetRevision));
@@ -69,6 +82,18 @@ namespace EffectViewer.Controls
         {
             get => GetValue(MinimumSidePanelWidthProperty);
             set => SetValue(MinimumSidePanelWidthProperty, value);
+        }
+
+        public double SidePanelWidth
+        {
+            get => GetValue(SidePanelWidthProperty);
+            set => SetValue(SidePanelWidthProperty, value);
+        }
+
+        public double CompactSidePanelHeight
+        {
+            get => GetValue(CompactSidePanelHeightProperty);
+            set => SetValue(CompactSidePanelHeightProperty, value);
         }
 
         public int LayoutResetRevision
@@ -114,13 +139,36 @@ namespace EffectViewer.Controls
                 if (double.IsNaN(_lastSidePanelWidth) || _lastSidePanelWidth <= 0)
                 {
                     _lastSidePanelWidth = DefaultSidePanelWidth;
+                    PublishSidePanelWidth();
                 }
 
                 UpdateLayoutColumns();
             }
+            else if (change.Property == SidePanelWidthProperty)
+            {
+                if (TryGetPositiveDouble(change.NewValue, out double sidePanelWidth))
+                {
+                    _lastSidePanelWidth = sidePanelWidth;
+                    UpdateLayoutColumns(captureCurrentWidth: false);
+                }
+            }
+            else if (change.Property == CompactSidePanelHeightProperty)
+            {
+                if (TryGetPositiveDouble(change.NewValue, out double compactSidePanelHeight))
+                {
+                    _lastCompactSidePanelHeight = compactSidePanelHeight;
+                    UpdateLayoutColumns(captureCurrentWidth: false);
+                }
+            }
             else if (change.Property == LayoutResetRevisionProperty)
             {
                 _lastSidePanelWidth = DefaultSidePanelWidth;
+                _lastCompactSidePanelHeight = System.Math.Clamp(
+                    DefaultSidePanelWidth,
+                    CompactMinimumSidePanelHeight,
+                    CompactMaximumSidePanelHeight);
+                PublishSidePanelWidth();
+                PublishCompactSidePanelHeight();
                 UpdateLayoutColumns(captureCurrentWidth: false);
             }
         }
@@ -137,6 +185,7 @@ namespace EffectViewer.Controls
                 if (SideContentHost.Bounds.Height > 0)
                 {
                     _lastCompactSidePanelHeight = SideContentHost.Bounds.Height;
+                    PublishCompactSidePanelHeight();
                 }
 
                 return;
@@ -146,6 +195,7 @@ namespace EffectViewer.Controls
             if (sideColumn.ActualWidth > 0)
             {
                 _lastSidePanelWidth = sideColumn.ActualWidth;
+                PublishSidePanelWidth();
             }
         }
 
@@ -308,6 +358,37 @@ namespace EffectViewer.Controls
             }
 
             control.Classes.Remove(className);
+        }
+
+        private void PublishSidePanelWidth()
+        {
+            if (double.IsFinite(_lastSidePanelWidth) &&
+                _lastSidePanelWidth > 0d &&
+                !ApproximatelyEqual(SidePanelWidth, _lastSidePanelWidth))
+            {
+                SetCurrentValue(SidePanelWidthProperty, _lastSidePanelWidth);
+            }
+        }
+
+        private void PublishCompactSidePanelHeight()
+        {
+            if (double.IsFinite(_lastCompactSidePanelHeight) &&
+                _lastCompactSidePanelHeight > 0d &&
+                !ApproximatelyEqual(CompactSidePanelHeight, _lastCompactSidePanelHeight))
+            {
+                SetCurrentValue(CompactSidePanelHeightProperty, _lastCompactSidePanelHeight);
+            }
+        }
+
+        private static bool TryGetPositiveDouble(object value, out double result)
+        {
+            result = value is double doubleValue ? doubleValue : 0d;
+            return double.IsFinite(result) && result > 0d;
+        }
+
+        private static bool ApproximatelyEqual(double left, double right)
+        {
+            return System.Math.Abs(left - right) < 0.5d;
         }
     }
 }

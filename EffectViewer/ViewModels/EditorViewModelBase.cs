@@ -20,6 +20,8 @@ namespace EffectViewer.ViewModels
         private bool _isPinned;
         private bool _isSidePanelOnLeft;
         private bool _isSidePanelVisible = true;
+        private double _sidePanelWidth;
+        private double _compactSidePanelHeight;
 
         private string _title;
         private string _documentId;
@@ -118,6 +120,18 @@ namespace EffectViewer.ViewModels
         {
             get => _isSidePanelVisible;
             set => SetProperty(ref _isSidePanelVisible, value);
+        }
+
+        public double SidePanelWidth
+        {
+            get => _sidePanelWidth;
+            set => SetProperty(ref _sidePanelWidth, value);
+        }
+
+        public double CompactSidePanelHeight
+        {
+            get => _compactSidePanelHeight;
+            set => SetProperty(ref _compactSidePanelHeight, value);
         }
 
         [ObservableProperty]

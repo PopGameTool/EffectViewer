@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -21,6 +22,7 @@ using EffectViewer.Rendering.Export;
 using EffectViewer.Rendering.TextureUpload;
 using EffectViewer.Runtime;
 using EffectViewer.Runtime.Lua;
+using EffectViewer.Settings;
 
 namespace EffectViewer.ViewModels
 {
@@ -48,12 +50,17 @@ namespace EffectViewer.ViewModels
         private const string ShowcasesProjectTreeGroupKey = "showcases";
         private const int MaxRecentlyOpenedProjectItems = 8;
         private const int ProjectTreeSearchDebounceMilliseconds = 250;
+        private const double DefaultProjectExplorerWidth = 280d;
         private readonly List<ProjectExplorerResourceIdentity> _recentlyOpenedResources = [];
         private readonly Dictionary<string, bool> _projectTreeExpansionState = new(StringComparer.OrdinalIgnoreCase);
+        private readonly UserSettingsStore _settingsStore;
+        private readonly UserSettings _settings;
         private string _appliedProjectTreeSearchText = string.Empty;
         private CancellationTokenSource _projectTreeSearchRefreshCancellation;
         private IReadOnlyList<ProjectExplorerItemViewModel> _visibleProjectItems = Array.Empty<ProjectExplorerItemViewModel>();
         private bool _suppressSelectedProjectItemOpen;
+        private bool _isApplyingSettings;
+        private bool _suppressLayoutSettingsPersistence;
 
         public ObservableCollection<ProjectExplorerItemViewModel> ProjectItems { get; } = [];
         public ObservableCollection<ProjectExplorerItemViewModel> RecentlyOpenedProjectItems { get; } = [];
@@ -145,6 +152,12 @@ namespace EffectViewer.ViewModels
 
         [ObservableProperty]
         private bool _isProjectExplorerVisible = true;
+
+        [ObservableProperty]
+        private double _projectExplorerLeftWidth = DefaultProjectExplorerWidth;
+
+        [ObservableProperty]
+        private double _projectExplorerRightWidth = DefaultProjectExplorerWidth;
 
         [ObservableProperty]
         private bool _useLightViewportBackground;
@@ -290,8 +303,16 @@ namespace EffectViewer.ViewModels
         }
 
         public MainViewModel(IProjectStorageProvider storageProvider)
+            : this(storageProvider, null, null)
+        {
+        }
+
+        public MainViewModel(IProjectStorageProvider storageProvider, UserSettingsStore settingsStore, UserSettings settings)
         {
             _projectService = new EffectProjectService(storageProvider);
+            _settingsStore = settingsStore ?? UserSettingsStore.FromProjectsRootPath(storageProvider?.ProjectsRootPath);
+            _settings = settings ?? _settingsStore.Load();
+            ApplySavedSettings();
             Loc.LanguageChanged += OnLanguageChanged;
             OpenEditors.CollectionChanged += OnOpenEditorsCollectionChanged;
             ShowWelcomePage();
@@ -310,6 +331,185 @@ namespace EffectViewer.ViewModels
         private static LocalizationManager Loc => LocalizationManager.Instance;
         private static string T(string key) => Loc.Text(key);
         private static string F(string key, params object[] args) => Loc.Format(key, args);
+
+        private void ApplySavedSettings()
+        {
+            _isApplyingSettings = true;
+            try
+            {
+                ApplySavedLanguage();
+                ApplySavedWorkspaceLayout();
+            }
+            finally
+            {
+                _isApplyingSettings = false;
+            }
+        }
+
+        private void ApplySavedLanguage()
+        {
+            LanguageUserSettings language = _settings.Language ??= new LanguageUserSettings();
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(language.CustomLanguageJson))
+                {
+                    Loc.UseLanguageJson(language.CustomLanguageJson, language.LanguageCode);
+                    return;
+                }
+
+                if (IsBuiltInLanguageCode(language.LanguageCode))
+                {
+                    Loc.UseBuiltInLanguage(language.LanguageCode);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException or InvalidOperationException)
+            {
+                language.LanguageCode = Loc.CurrentLanguageCode;
+                language.CustomLanguageJson = string.Empty;
+            }
+        }
+
+        private void ApplySavedWorkspaceLayout()
+        {
+            WorkspaceLayoutSettings layout = _settings.Layout ??= new WorkspaceLayoutSettings();
+            ProjectExplorerDockSide = TryParseProjectExplorerDockSide(layout.ProjectExplorerDockSide, out ProjectExplorerDockSide dockSide)
+                ? dockSide
+                : ProjectExplorerDockSide.Left;
+            IsProjectExplorerVisible = layout.IsProjectExplorerVisible;
+            ProjectExplorerLeftWidth = NormalizePositive(layout.ProjectExplorerLeftWidth, DefaultProjectExplorerWidth);
+            ProjectExplorerRightWidth = NormalizePositive(layout.ProjectExplorerRightWidth, DefaultProjectExplorerWidth);
+        }
+
+        public void ApplyTemporaryProjectExplorerLayout(ProjectExplorerDockSide dockSide, bool isVisible)
+        {
+            _suppressLayoutSettingsPersistence = true;
+            try
+            {
+                ProjectExplorerDockSide = dockSide;
+                IsProjectExplorerVisible = isVisible;
+            }
+            finally
+            {
+                _suppressLayoutSettingsPersistence = false;
+            }
+        }
+
+        private void PersistBuiltInLanguage(string languageCode)
+        {
+            if (_isApplyingSettings)
+            {
+                return;
+            }
+
+            _settings.Language ??= new LanguageUserSettings();
+            _settings.Language.LanguageCode = languageCode;
+            _settings.Language.CustomLanguageJson = string.Empty;
+            SaveUserSettings();
+        }
+
+        private void PersistCustomLanguage(string languageCode, string languageJson)
+        {
+            if (_isApplyingSettings)
+            {
+                return;
+            }
+
+            _settings.Language ??= new LanguageUserSettings();
+            _settings.Language.LanguageCode = languageCode ?? string.Empty;
+            _settings.Language.CustomLanguageJson = languageJson ?? string.Empty;
+            SaveUserSettings();
+        }
+
+        private void PersistWorkspaceLayout()
+        {
+            if (_isApplyingSettings || _suppressLayoutSettingsPersistence)
+            {
+                return;
+            }
+
+            WorkspaceLayoutSettings layout = _settings.Layout ??= new WorkspaceLayoutSettings();
+            layout.ProjectExplorerDockSide = ProjectExplorerDockSide.ToString();
+            layout.IsProjectExplorerVisible = IsProjectExplorerVisible;
+            layout.ProjectExplorerLeftWidth = NormalizePositive(ProjectExplorerLeftWidth, DefaultProjectExplorerWidth);
+            layout.ProjectExplorerRightWidth = NormalizePositive(ProjectExplorerRightWidth, DefaultProjectExplorerWidth);
+            SaveUserSettings();
+        }
+
+        private void ApplySavedEditorLayout(EditorViewModelBase editor)
+        {
+            if (editor is null ||
+                editor.Kind == EffectAssetKind.Project ||
+                _settings.Layout?.EditorLayouts is null ||
+                !_settings.Layout.EditorLayouts.TryGetValue(GetEditorLayoutKey(editor.Kind), out EditorLayoutSettings layout))
+            {
+                return;
+            }
+
+            editor.IsSidePanelOnLeft = layout.IsSidePanelOnLeft;
+            editor.IsSidePanelVisible = layout.IsSidePanelVisible;
+            editor.SidePanelWidth = NormalizeOptionalSize(layout.SidePanelWidth);
+            editor.CompactSidePanelHeight = NormalizeOptionalSize(layout.CompactSidePanelHeight);
+        }
+
+        private void PersistEditorLayout(EditorViewModelBase editor)
+        {
+            if (_isApplyingSettings ||
+                editor is null ||
+                editor.Kind == EffectAssetKind.Project)
+            {
+                return;
+            }
+
+            WorkspaceLayoutSettings workspaceLayout = _settings.Layout ??= new WorkspaceLayoutSettings();
+            workspaceLayout.EditorLayouts ??= new Dictionary<string, EditorLayoutSettings>(StringComparer.OrdinalIgnoreCase);
+            workspaceLayout.EditorLayouts[GetEditorLayoutKey(editor.Kind)] = new EditorLayoutSettings
+            {
+                IsSidePanelOnLeft = editor.IsSidePanelOnLeft,
+                IsSidePanelVisible = editor.IsSidePanelVisible,
+                SidePanelWidth = NormalizeOptionalSize(editor.SidePanelWidth),
+                CompactSidePanelHeight = NormalizeOptionalSize(editor.CompactSidePanelHeight)
+            };
+            SaveUserSettings();
+        }
+
+        private void SaveUserSettings()
+        {
+            try
+            {
+                _settingsStore?.Save(_settings);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or NotSupportedException or InvalidOperationException)
+            {
+            }
+        }
+
+        private static string GetEditorLayoutKey(EffectAssetKind kind)
+        {
+            return kind.ToString();
+        }
+
+        private static bool IsBuiltInLanguageCode(string languageCode)
+        {
+            return string.Equals(languageCode, LocalizationManager.EnglishLanguageCode, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(languageCode, LocalizationManager.ChineseLanguageCode, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryParseProjectExplorerDockSide(string value, out ProjectExplorerDockSide dockSide)
+        {
+            return Enum.TryParse(value, ignoreCase: true, out dockSide) &&
+                Enum.IsDefined(typeof(ProjectExplorerDockSide), dockSide);
+        }
+
+        private static double NormalizePositive(double value, double fallback)
+        {
+            return double.IsFinite(value) && value > 0d ? value : fallback;
+        }
+
+        private static double NormalizeOptionalSize(double value)
+        {
+            return double.IsFinite(value) && value > 0d ? value : 0d;
+        }
 
         private void OnLanguageChanged(object sender, EventArgs e)
         {
@@ -372,6 +572,7 @@ namespace EffectViewer.ViewModels
         private void SetLanguage(string languageCode)
         {
             Loc.UseBuiltInLanguage(languageCode);
+            PersistBuiltInLanguage(languageCode);
             string languageName = languageCode == LocalizationManager.ChineseLanguageCode
                 ? T("Language.ChineseSimplified")
                 : T("Language.English");
@@ -443,9 +644,20 @@ namespace EffectViewer.ViewModels
 
         public async Task LoadLanguageFileAsync(Stream stream, string fileName)
         {
+            if (stream is null)
+            {
+                return;
+            }
+
             try
             {
-                await Loc.LoadLanguageFileAsync(stream, Path.GetFileNameWithoutExtension(fileName));
+                using MemoryStream buffer = new();
+                await stream.CopyToAsync(buffer);
+                string languageJson = Encoding.UTF8.GetString(buffer.ToArray());
+                buffer.Position = 0;
+
+                await Loc.LoadLanguageFileAsync(buffer, Path.GetFileNameWithoutExtension(fileName));
+                PersistCustomLanguage(Loc.CurrentLanguageCode, languageJson);
                 StatusText = F("Status.LanguageFileLoaded", fileName);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException)
@@ -457,11 +669,23 @@ namespace EffectViewer.ViewModels
         partial void OnProjectExplorerDockSideChanged(ProjectExplorerDockSide value)
         {
             NotifyProjectExplorerLayoutProperties();
+            PersistWorkspaceLayout();
         }
 
         partial void OnIsProjectExplorerVisibleChanged(bool value)
         {
             NotifyProjectExplorerLayoutProperties();
+            PersistWorkspaceLayout();
+        }
+
+        partial void OnProjectExplorerLeftWidthChanged(double value)
+        {
+            PersistWorkspaceLayout();
+        }
+
+        partial void OnProjectExplorerRightWidthChanged(double value)
+        {
+            PersistWorkspaceLayout();
         }
 
         private void NotifyProjectExplorerLayoutProperties()
@@ -502,6 +726,8 @@ namespace EffectViewer.ViewModels
         {
             ProjectExplorerDockSide = ProjectExplorerDockSide.Left;
             IsProjectExplorerVisible = true;
+            ProjectExplorerLeftWidth = DefaultProjectExplorerWidth;
+            ProjectExplorerRightWidth = DefaultProjectExplorerWidth;
             LayoutResetRevision++;
             StatusText = T("Status.LayoutReset");
         }
@@ -2437,6 +2663,7 @@ namespace EffectViewer.ViewModels
 
         private void OpenEditorTab(EditorViewModelBase editor)
         {
+            ApplySavedEditorLayout(editor);
             editor.PropertyChanged += OnOpenEditorPropertyChanged;
             OpenEditors.Add(editor);
             SelectedEditor = editor;
@@ -2605,6 +2832,13 @@ namespace EffectViewer.ViewModels
             else if (e.PropertyName is nameof(EditorViewModelBase.IsPinned) or nameof(EditorViewModelBase.Title))
             {
                 NotifyOpenEditorProperties();
+            }
+            else if (e.PropertyName is nameof(EditorViewModelBase.IsSidePanelOnLeft)
+                or nameof(EditorViewModelBase.IsSidePanelVisible)
+                or nameof(EditorViewModelBase.SidePanelWidth)
+                or nameof(EditorViewModelBase.CompactSidePanelHeight))
+            {
+                PersistEditorLayout(editor);
             }
             else if (ReferenceEquals(editor, SelectedEditor) &&
                 e.PropertyName is nameof(EditorViewModelBase.CanUndo)

@@ -7,6 +7,7 @@ using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using EffectViewer.Localization;
 using EffectViewer.Projects;
+using EffectViewer.Settings;
 using EffectViewer.ViewModels;
 using EffectViewer.Views;
 using System;
@@ -20,11 +21,16 @@ namespace EffectViewer
         private NativeMenuItem _showMainWindowMenuItem;
 
         public static IProjectStorageProvider ProjectStorageProvider { get; set; } = new DefaultProjectStorageProvider();
+        public static UserSettingsStore SettingsStore { get; private set; }
+        public static UserSettings UserSettings { get; private set; } = new();
 
         public override void Initialize()
         {
             AvaloniaXamlLoader.Load(this);
-            LocalizationManager.Instance.Initialize();
+            ConfigureSettings();
+            LocalizationManager.Instance.Initialize(
+                UserSettings.Language.LanguageCode,
+                UserSettings.Language.CustomLanguageJson);
             ConfigureNativeMenus();
         }
 
@@ -34,22 +40,33 @@ namespace EffectViewer
             {
                 desktop.MainWindow = new MainWindow
                 {
-                    DataContext = new MainViewModel(ProjectStorageProvider)
+                    DataContext = CreateMainViewModel()
                 };
             }
             else if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
             {
-                singleViewFactoryApplicationLifetime.MainViewFactory = () => new MainView { DataContext = new MainViewModel(ProjectStorageProvider) };
+                singleViewFactoryApplicationLifetime.MainViewFactory = () => new MainView { DataContext = CreateMainViewModel() };
             }
             else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
             {
                 singleViewPlatform.MainView = new MainView
                 {
-                    DataContext = new MainViewModel(ProjectStorageProvider)
+                    DataContext = CreateMainViewModel()
                 };
             }
 
             base.OnFrameworkInitializationCompleted();
+        }
+
+        private static void ConfigureSettings()
+        {
+            SettingsStore = UserSettingsStore.FromProjectsRootPath(ProjectStorageProvider?.ProjectsRootPath);
+            UserSettings = SettingsStore.Load();
+        }
+
+        private static MainViewModel CreateMainViewModel()
+        {
+            return new MainViewModel(ProjectStorageProvider, SettingsStore, UserSettings);
         }
 
         private void ConfigureNativeMenus()
