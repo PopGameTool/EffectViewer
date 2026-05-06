@@ -94,8 +94,20 @@ namespace EffectViewer.Projects
         {
             Directory.CreateDirectory(project.RootPath);
             string manifestPath = System.IO.Path.Combine(project.RootPath, ManifestFileName);
-            await using FileStream stream = File.Create(manifestPath);
-            await JsonSerializer.SerializeAsync(stream, project.Manifest, ProjectJsonSerializerContext.Default.ProjectManifest);
+            await using (FileStream stream = File.Create(manifestPath))
+            {
+                await JsonSerializer.SerializeAsync(stream, project.Manifest, ProjectJsonSerializerContext.Default.ProjectManifest);
+            }
+
+            await FlushStorageAsync();
+        }
+
+        public async Task FlushStorageAsync()
+        {
+            if (_storageProvider is IProjectStoragePersistence persistence)
+            {
+                await persistence.FlushAsync();
+            }
         }
 
         public EffectProject CreateNew(string projectDirectory, string projectName)
@@ -135,15 +147,17 @@ namespace EffectViewer.Projects
             if (!PathsEqual(sourceDirectory, targetDirectory))
             {
                 Directory.Move(sourceDirectory, targetDirectory);
+                await FlushStorageAsync();
             }
 
             return await LoadAsync(targetDirectory);
         }
 
-        public Task DeleteProjectAsync(string projectDirectory)
+        public async Task DeleteProjectAsync(string projectDirectory)
         {
             string sourceDirectory = EnsureInternalProjectDirectory(projectDirectory);
-            return Task.Run(() => Directory.Delete(sourceDirectory, recursive: true));
+            await Task.Run(() => Directory.Delete(sourceDirectory, recursive: true));
+            await FlushStorageAsync();
         }
 
         public async Task<FolderImportResult> ImportFolderAsync(

@@ -487,8 +487,25 @@ namespace EffectViewer.ViewModels
             try
             {
                 _settingsStore?.Save(_settings);
+                RequestStorageFlush();
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or NotSupportedException or InvalidOperationException)
+            {
+            }
+        }
+
+        private void RequestStorageFlush()
+        {
+            _ = FlushStorageSilentlyAsync();
+        }
+
+        private async Task FlushStorageSilentlyAsync()
+        {
+            try
+            {
+                await _projectService.FlushStorageAsync();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
             {
             }
         }
@@ -2802,6 +2819,7 @@ namespace EffectViewer.ViewModels
             try
             {
                 await editor.SaveAsync(_projectService, CurrentProject);
+                await _projectService.FlushStorageAsync();
                 StatusText = F("Status.Saved", editor.Title);
                 return true;
             }

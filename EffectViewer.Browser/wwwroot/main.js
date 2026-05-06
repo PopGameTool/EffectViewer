@@ -1,4 +1,5 @@
 import { dotnet } from './_framework/dotnet.js'
+import { initializeProjectStorage, persistCurrentStorage } from './browserProjectStorage.js'
 import { installMobileImeWorkaround } from './mobileImeWorkaround.js'
 
 const is_browser = typeof window != "undefined";
@@ -11,6 +12,14 @@ const dotnetRuntime = await dotnet
     .withDiagnosticTracing(false)
     .withApplicationArgumentsFromQuery()
     .create();
+
+await initializeProjectStorage(dotnetRuntime.Module, "/EffectViewer");
+
+window.addEventListener("pagehide", () => {
+    persistCurrentStorage().catch(error => {
+        console.warn("Could not persist EffectViewer project storage during pagehide.", error);
+    });
+});
 
 const config = dotnetRuntime.getConfig();
 
