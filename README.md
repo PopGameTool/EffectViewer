@@ -116,6 +116,7 @@ See [docs/lua_api.en-US.md](docs/lua_api.en-US.md) for the full scripting API.
 ## Development Notes
 
 - Package versions are centralized in [Directory.Packages.props](Directory.Packages.props).
+- Product version metadata starts at `0.1.0` in [Directory.Build.props](Directory.Build.props); keep app package display versions and [CHANGELOG.md](CHANGELOG.md) in sync when cutting a release.
 - The shared UI and runtime target `net10.0`; the browser host targets `net10.0-browser`.
 - Desktop and Browser builds are good smoke tests for most shared code.
 - Run the [QuickStart smoke test](docs/quickstart_smoke_test.en-US.md) before release candidates.

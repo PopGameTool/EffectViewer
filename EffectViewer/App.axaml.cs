@@ -119,14 +119,13 @@ namespace EffectViewer
                 return;
             }
 
-            string version = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0";
             Window aboutWindow = new()
             {
                 Title = Loc.Text("About.Title"),
                 Width = 360,
                 SizeToContent = SizeToContent.Height,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Content = CreateAboutContent(version)
+                Content = CreateAboutContent(AppVersion.Current)
             };
 
             if (desktop.MainWindow is { } mainWindow)

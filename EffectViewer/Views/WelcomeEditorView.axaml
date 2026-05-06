@@ -11,6 +11,8 @@
         <TextBlock Text="{Binding Title}"
                    FontSize="28"
                    FontWeight="SemiBold"/>
+        <TextBlock Text="{Binding VersionText}"
+                   Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
         <TextBlock Text="{Binding Description}"
                    TextWrapping="Wrap"
                    Foreground="{DynamicResource TextControlPlaceholderForeground}"/>

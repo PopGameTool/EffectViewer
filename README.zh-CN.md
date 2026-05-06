@@ -116,6 +116,7 @@ scene.regist(context)
 ## 开发说明
 
 - NuGet 包版本集中维护在 [Directory.Packages.props](Directory.Packages.props)。
+- 产品版本元数据从 [Directory.Build.props](Directory.Build.props) 中的 `0.1.0` 开始；发布时需要同步应用包显示版本和 [CHANGELOG.md](CHANGELOG.md)。
 - 共享 UI 和运行时代码目标框架为 `net10.0`；浏览器宿主目标框架为 `net10.0-browser`。
 - Desktop 和 Browser 构建可以作为大多数共享代码的基础冒烟测试。
 - 发布候选版本前运行 [QuickStart 冒烟测试](docs/quickstart_smoke_test.zh-CN.md)。

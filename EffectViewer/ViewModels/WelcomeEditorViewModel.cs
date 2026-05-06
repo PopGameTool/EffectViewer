@@ -9,6 +9,7 @@ namespace EffectViewer.ViewModels
     public sealed class WelcomeEditorViewModel : EditorViewModelBase
     {
         public string Description => LocalizationManager.Instance.Text("Welcome.Description");
+        public string VersionText => LocalizationManager.Instance.Format("About.Version", AppVersion.Current);
         public string CreatePrompt => LocalizationManager.Instance.Text("Welcome.CreatePrompt");
         public string AuthorTitle => LocalizationManager.Instance.Text("Welcome.AuthorTitle");
         public IReadOnlyList<string> AuthorNames =>
@@ -57,6 +58,7 @@ namespace EffectViewer.ViewModels
         {
             Title = LocalizationManager.Instance.Text("Welcome.Title");
             OnPropertyChanged(nameof(Description));
+            OnPropertyChanged(nameof(VersionText));
             OnPropertyChanged(nameof(CreatePrompt));
             OnPropertyChanged(nameof(AuthorTitle));
             OnPropertyChanged(nameof(AuthorNames));
