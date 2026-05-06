@@ -27,7 +27,7 @@ EffectViewer projects use `project.effectproj.json` as the project manifest. A m
 | --- | --- | --- |
 | Image | Images, atlases, particle textures, animation frame textures | `.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.webp`, `.tga` |
 | Font | Image font descriptors or TrueType fonts | `.txt`, `.ttf` |
-| Reanim | PvZ/Tod-style reanimation definitions | `.reanim`, `.reanim.compiled` |
+| Reanim | reanimation definitions | `.reanim`, `.reanim.compiled` |
 | Particle | Particle system definitions | `.xml`, `.xml.compiled` |
 | Trail | Trail definitions | `.trail`, `.trail.compiled` |
 | ShowCase | Lua presentation scripts | `.lua` |

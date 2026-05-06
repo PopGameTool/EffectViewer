@@ -27,7 +27,7 @@ EffectViewer 项目使用 `project.effectproj.json` 作为项目清单。清单�
 | --- | --- | --- |
 | Image | 图像、图集、粒子贴图、动画帧贴图 | `.png`、`.jpg`、`.jpeg`、`.bmp`、`.gif`、`.webp`、`.tga` |
 | Font | 图片字体描述或 TrueType 字体 | `.txt`、`.ttf` |
-| Reanim | PvZ/Tod 风格 reanimation 动画定义 | `.reanim`、`.reanim.compiled` |
+| Reanim | reanimation 动画定义 | `.reanim`、`.reanim.compiled` |
 | Particle | 粒子系统定义 | `.xml`、`.xml.compiled` |
 | Trail | 拖尾/轨迹定义 | `.trail`、`.trail.compiled` |
 | ShowCase | Lua 展示脚本 | `.lua` |
