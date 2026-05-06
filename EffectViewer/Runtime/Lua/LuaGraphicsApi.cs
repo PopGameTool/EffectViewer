@@ -110,6 +110,18 @@ namespace EffectViewer.Runtime.Lua
             return this;
         }
 
+        public LuaGraphicsApi clip_rect(double x, double y, double width, double height)
+        {
+            _graphics.mClipRect = Rectangle.Intersect(
+                _graphics.mClipRect,
+                new Rectangle(
+                    (int)Math.Round(x + _graphics.mTransX),
+                    (int)Math.Round(y + _graphics.mTransY),
+                    (int)Math.Round(width),
+                    (int)Math.Round(height)));
+            return this;
+        }
+
         public DynValue get_clip_rect()
         {
             return LuaApiUtility.RectangleTuple(_graphics.mClipRect);

@@ -84,6 +84,7 @@ scene.regist(context)
 | `g:get_color()` | 无 | `r, g, b, a` | 获取当前颜色。 |
 | `g:set_color(r, g, b, a)` | number 或 nil | Graphics | 设置颜色，nil 表示保留原通道。 |
 | `g:set_clip_rect(x, y, width, height)` | number | Graphics | 设置裁剪矩形。 |
+| `g:clip_rect(x, y, width, height)` | number | Graphics | 将当前裁剪矩形与平移后的矩形取交集。 |
 | `g:get_clip_rect()` | 无 | `x, y, width, height` | 获取裁剪矩形。 |
 | `g:clear_clip_rect()` | 无 | Graphics | 清除裁剪限制。 |
 | `g:translate(x, y)` | number | Graphics | 累加平移。 |

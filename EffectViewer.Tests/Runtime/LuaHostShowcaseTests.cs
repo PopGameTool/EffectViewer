@@ -49,6 +49,37 @@ public sealed class LuaHostShowcaseTests
     }
 
     [Fact]
+    public void GraphicsClipRectIntersectsCurrentClipUsingTranslation()
+    {
+        using TempDirectory temp = new();
+        using EffectWorld world = CreateWorld(temp);
+        LuaHost host = new(world);
+        List<string> liveLogs = [];
+
+        LuaRunResult result = host.Run("""
+            local context = {}
+
+            function context:draw(g)
+              g:set_clip_rect(20, 40, 20, 20)
+              g:translate(10, 20)
+              g:clip_rect(5, 10, 20, 30)
+
+              local x, y, w, h = g:get_clip_rect()
+              scene.log(string.format("%d,%d,%d,%d", x, y, w, h))
+            end
+
+            scene.regist(context)
+            """, liveLogs.Add);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Logs));
+        Assert.NotNull(result.FrameProvider);
+
+        result.FrameProvider.GetFrame(0.02);
+
+        Assert.Contains("20,40,15,20", liveLogs);
+    }
+
+    [Fact]
     public void RunReportsLuaValidationErrorsWithoutKeepingFrameProvider()
     {
         using TempDirectory temp = new();

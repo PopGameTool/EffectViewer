@@ -84,6 +84,7 @@ Functions:
 | `g:get_color()` | none | `r, g, b, a` | Gets current color. |
 | `g:set_color(r, g, b, a)` | number or nil | Graphics | Sets color; nil leaves a channel unchanged. |
 | `g:set_clip_rect(x, y, width, height)` | numbers | Graphics | Sets clipping rectangle. |
+| `g:clip_rect(x, y, width, height)` | numbers | Graphics | Intersects the current clip rectangle with the translated rectangle. |
 | `g:get_clip_rect()` | none | `x, y, width, height` | Gets clipping rectangle. |
 | `g:clear_clip_rect()` | none | Graphics | Clears clipping limits. |
 | `g:translate(x, y)` | numbers | Graphics | Adds draw translation. |
