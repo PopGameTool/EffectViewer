@@ -9,11 +9,13 @@
     </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,*"
+  <Grid x:Name="LayoutRoot"
+        RowDefinitions="Auto,*"
         Margin="24"
         RowSpacing="16">
     <StackPanel Spacing="4">
-      <TextBlock Text="{Binding Title}"
+      <TextBlock x:Name="HeaderTitleTextBlock"
+                 Text="{Binding Title}"
                  FontSize="28"
                  FontWeight="SemiBold"/>
       <TextBlock Text="{Binding Subtitle}"
@@ -25,45 +27,71 @@
             BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
             BorderThickness="1"
             CornerRadius="6">
-      <Grid ColumnDefinitions="220,5,*">
-        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+      <Grid x:Name="HelpContentGrid"
+            RowDefinitions="*,0,0"
+            ColumnDefinitions="220,5,*">
+        <Border x:Name="SectionNavigationBorder"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                 BorderThickness="0,0,1,0"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
-          <ListBox ItemsSource="{Binding Sections}"
-                   SelectedItem="{Binding SelectedSection}"
-                   BorderThickness="0"
-                   Background="Transparent"
-                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-            <ListBox.ItemTemplate>
-              <DataTemplate DataType="vm:HelpSectionViewModel">
-                <StackPanel Spacing="3"
-                            Margin="6,5">
+          <Grid>
+            <ListBox x:Name="SectionsListBox"
+                     ItemsSource="{Binding Sections}"
+                     SelectedItem="{Binding SelectedSection}"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+              <ListBox.ItemTemplate>
+                <DataTemplate DataType="vm:HelpSectionViewModel">
+                  <StackPanel Spacing="3"
+                              Margin="6,5">
+                    <TextBlock Text="{Binding Title}"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Summary}"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+
+            <ComboBox x:Name="SectionSelectorComboBox"
+                      ItemsSource="{Binding Sections}"
+                      SelectedItem="{Binding SelectedSection}"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Center"
+                      Margin="10"
+                      MinHeight="40"
+                      IsVisible="False">
+              <ComboBox.ItemTemplate>
+                <DataTemplate DataType="vm:HelpSectionViewModel">
                   <TextBlock Text="{Binding Title}"
-                             FontWeight="SemiBold"
                              TextWrapping="Wrap"/>
-                  <TextBlock Text="{Binding Summary}"
-                             FontSize="12"
-                             TextWrapping="Wrap"
-                             Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
-                </StackPanel>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </Grid>
         </Border>
 
-        <GridSplitter Grid.Column="1"
+        <GridSplitter x:Name="SectionSplitter"
+                      Grid.Column="1"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch"
                       ResizeDirection="Columns"
                       Classes="layout-splitter vertical-splitter"/>
 
-        <ScrollViewer Grid.Column="2"
+        <ScrollViewer x:Name="SectionContentScrollViewer"
+                      Grid.Column="2"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
-          <StackPanel Margin="24"
+          <StackPanel x:Name="SectionContentPanel"
+                      Margin="24"
                       Spacing="12"
                       MaxWidth="920">
-            <TextBlock Text="{Binding SelectedSection.Title}"
+            <TextBlock x:Name="SectionTitleTextBlock"
+                       Text="{Binding SelectedSection.Title}"
                        FontSize="22"
                        FontWeight="SemiBold"
                        TextWrapping="Wrap"/>
@@ -71,7 +99,8 @@
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
             <Separator/>
-            <TextBlock Text="{Binding SelectedSection.Body}"
+            <TextBlock x:Name="HelpBodyTextBlock"
+                       Text="{Binding SelectedSection.Body}"
                        Classes="help-body"
                        TextWrapping="Wrap"/>
           </StackPanel>
