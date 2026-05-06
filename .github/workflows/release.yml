@@ -239,7 +239,7 @@ jobs:
 
   publish-macos:
     name: Publish macOS
-    runs-on: macos-latest
+    runs-on: macos-26
     needs:
       - validate
       - test
@@ -273,7 +273,7 @@ jobs:
 
   publish-ios:
     name: Publish iOS
-    runs-on: macos-latest
+    runs-on: macos-26
     needs:
       - validate
       - test
