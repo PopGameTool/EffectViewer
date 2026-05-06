@@ -57,6 +57,10 @@ namespace EffectViewer.Views
             TopMenuScrollViewer.AddHandler(PointerMovedEvent, TopMenuScrollViewer_PointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
             TopMenuScrollViewer.AddHandler(PointerReleasedEvent, TopMenuScrollViewer_PointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
             TopMenuScrollViewer.PointerCaptureLost += TopMenuScrollViewer_PointerCaptureLost;
+            LeftProjectExplorerSplitter.AddHandler(PointerReleasedEvent, ProjectExplorerSplitter_PointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+            RightProjectExplorerSplitter.AddHandler(PointerReleasedEvent, ProjectExplorerSplitter_PointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+            LeftProjectExplorerSplitter.PointerCaptureLost += ProjectExplorerSplitter_PointerCaptureLost;
+            RightProjectExplorerSplitter.PointerCaptureLost += ProjectExplorerSplitter_PointerCaptureLost;
             DataContextChanged += OnDataContextChanged;
         }
 
@@ -448,13 +452,31 @@ namespace EffectViewer.Views
             }
         }
 
+        private void ProjectExplorerSplitter_PointerReleased(object sender, PointerReleasedEventArgs e)
+        {
+            CaptureProjectExplorerSplitterWidth();
+        }
+
+        private void ProjectExplorerSplitter_PointerCaptureLost(object sender, PointerCaptureLostEventArgs e)
+        {
+            CaptureProjectExplorerSplitterWidth();
+        }
+
+        private void CaptureProjectExplorerSplitterWidth()
+        {
+            Dispatcher.UIThread.Post(
+                () => CaptureVisibleProjectExplorerSize(IsCompactLayoutActive()),
+                DispatcherPriority.Background);
+        }
+
         private void UpdateProjectExplorerLayout(bool captureCurrentWidth = true)
         {
             bool compactLayout = IsCompactLayoutActive();
+            bool wasCompactLayout = _wasCompactProjectExplorerLayout;
             ApplyCompactProjectExplorerState(compactLayout);
             CompactProjectExplorerButton.IsVisible = compactLayout;
 
-            if (captureCurrentWidth)
+            if (captureCurrentWidth && !wasCompactLayout)
             {
                 CaptureVisibleProjectExplorerSize(compactLayout);
             }
