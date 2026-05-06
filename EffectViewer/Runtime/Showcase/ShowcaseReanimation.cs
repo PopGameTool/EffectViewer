@@ -484,6 +484,26 @@ namespace EffectViewer.Runtime.Showcase
             return image is null ? null : new ShowcaseImage(image);
         }
 
+        public ShowcaseReanimation set_font_override(string trackName, string fontId)
+        {
+            EnsureTrack(trackName);
+            Reanimation.SetFontOverride(trackName, RequireFontId(fontId));
+            return this;
+        }
+
+        public ShowcaseReanimation clear_font_override(string trackName)
+        {
+            EnsureTrack(trackName);
+            Reanimation.SetFontOverride(trackName, null);
+            return this;
+        }
+
+        public string font_override_id(string trackName)
+        {
+            EnsureTrack(trackName);
+            return Reanimation.GetFontOverride(trackName);
+        }
+
         public ShowcaseReanimationTransform transform(string trackName, double frameIndex)
         {
             EnsureTrack(trackName);
@@ -1224,6 +1244,14 @@ namespace EffectViewer.Runtime.Showcase
         {
             Image image = ResourceHandler.GetImage(imageId);
             return image ?? throw new InvalidOperationException($"Image '{imageId}' was not found in the current project.");
+        }
+
+        private static string RequireFontId(string fontId)
+        {
+            Font font = ResourceHandler.GetFont(fontId);
+            return font is null
+                ? throw new InvalidOperationException($"Font '{fontId}' was not found in the current project.")
+                : fontId;
         }
 
         private void EnsureTrack(string trackName)

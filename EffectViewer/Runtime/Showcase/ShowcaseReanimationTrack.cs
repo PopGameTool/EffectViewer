@@ -24,6 +24,7 @@ namespace EffectViewer.Runtime.Showcase
         public int index => _trackIndex;
         public int transform_count => _reanimation.mDefinition?.mTracks?[_trackIndex].mTransformCount ?? 0;
         public string image_override_id => Track.mImageOverride?.mId;
+        public string font_override_id => Track.mFontOverride;
         public ShowcaseImage image_override
         {
             get => Track.mImageOverride is null ? null : new ShowcaseImage(Track.mImageOverride);
@@ -264,6 +265,18 @@ namespace EffectViewer.Runtime.Showcase
             return this;
         }
 
+        public ShowcaseReanimationTrack set_font_override(string fontId)
+        {
+            Track.mFontOverride = RequireFontId(fontId);
+            return this;
+        }
+
+        public ShowcaseReanimationTrack clear_font_override()
+        {
+            Track.mFontOverride = null;
+            return this;
+        }
+
         public ShowcaseReanimationTransform transform_at(int frameIndex)
         {
             ReanimatorTrack track = _reanimation.mDefinition?.mTracks?[_trackIndex];
@@ -367,6 +380,14 @@ namespace EffectViewer.Runtime.Showcase
         {
             Image image = ResourceHandler.GetImage(imageId);
             return image ?? throw new InvalidOperationException($"Image '{imageId}' was not found in the current project.");
+        }
+
+        private static string RequireFontId(string fontId)
+        {
+            Font font = ResourceHandler.GetFont(fontId);
+            return font is null
+                ? throw new InvalidOperationException($"Font '{fontId}' was not found in the current project.")
+                : fontId;
         }
 
         private static double IdToNumber<TId>(TId id)

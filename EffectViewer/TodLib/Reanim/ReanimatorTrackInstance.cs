@@ -10,6 +10,7 @@ namespace EffectViewer.TodLib.Reanim
         public float mShakeY;
         public AttachmentID mAttachmentID;
         public Image mImageOverride;
+        public string mFontOverride;
         public int mRenderGroup;
         public SexyColor mTrackColor;
         public bool mIgnoreClipRect;
@@ -34,6 +35,7 @@ namespace EffectViewer.TodLib.Reanim
             mRenderGroup = 0;
             mIgnoreClipRect = false;
             mImageOverride = null;
+            mFontOverride = null;
             mTruncateDisappearingFrames = true;
             mTrackColor = SexyColor.White;
             mIgnoreColorOverride = false;

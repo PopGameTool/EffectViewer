@@ -411,9 +411,12 @@ namespace EffectViewer.TodLib.Reanim
                     ReanimBltMatrix(g, aOverlayImage, aMatrix, aClipRect, aExtraOverlayColor, DrawMode.Normal, aSrcRect);
                 }
             }
-            else if (aTransform.mFont != null && !string.IsNullOrEmpty(aTransform.mText))  // 如果不存在图像但存在文本
+            else if ((!string.IsNullOrEmpty(aTrackInstance.mFontOverride) || aTransform.mFont != null) && !string.IsNullOrEmpty(aTransform.mText))  // 如果不存在图像但存在文本
             {
-                Font aFont = ResourceHandler.GetFont(aTransform.mFont);
+                string aFontId = !string.IsNullOrEmpty(aTrackInstance.mFontOverride)
+                    ? aTrackInstance.mFontOverride
+                    : aTransform.mFont;
+                Font aFont = ResourceHandler.GetFont(aFontId);
                 TodCommon.TodDrawStringMatrix(g, aFont, aMatrix, aTransform.mText, aColor);
                 if (mEnableExtraAdditiveDraw)
                 {
@@ -692,6 +695,16 @@ namespace EffectViewer.TodLib.Reanim
         public Image GetImageOverride(string theTrackName)
         {
             return GetTrackInstanceByName(theTrackName).mImageOverride;
+        }
+
+        public void SetFontOverride(string theTrackName, string theFontId)
+        {
+            GetTrackInstanceByName(theTrackName).mFontOverride = string.IsNullOrWhiteSpace(theFontId) ? null : theFontId;
+        }
+
+        public string GetFontOverride(string theTrackName)
+        {
+            return GetTrackInstanceByName(theTrackName).mFontOverride;
         }
 
         public void ShowOnlyTrack(string theTrackName)

@@ -110,6 +110,7 @@ scene.regist(context)
 | `shake_x` / `shake_y` | number | 当前震动偏移。 |
 | `attachment_id` | number | 当前轨道 attachment ID。 |
 | `image_override` | Image 或 nil | 轨道图片覆写。 |
+| `font_override_id` | string 或 nil | 轨道字体覆写资源 ID。 |
 | `render_group` | int | 绘制分组，`-1` 通常表示隐藏。 |
 | `ignore_clip_rect` | bool | 绘制时忽略裁剪。 |
 | `truncate_disappearing_frames` | bool | 截断消失帧补间。 |
@@ -122,6 +123,8 @@ scene.regist(context)
 | --- | --- | --- | --- |
 | `instance:get_track_color()` | 无 | `r, g, b, a` | 读取轨道颜色。 |
 | `instance:set_track_color(r, g, b, a)` | number 或 nil | instance | 设置轨道颜色，nil 表示保留原通道。 |
+| `instance:set_font_override(font_id)` | string | instance | 设置轨道字体覆写。 |
+| `instance:clear_font_override()` | 无 | instance | 清除轨道字体覆写。 |
 | `instance:get_blend_transform()` | 无 | `tx, ty, kx, ky, sx, sy, f, a, img, font, text` | 读取混合源变换。 |
 | `instance:set_blend_transform(tx, ty, kx, ky, sx, sy, f, a, img, font, text)` | number/string 或 nil | instance | 设置混合源变换，nil 表示保留原字段。 |
 
@@ -178,6 +181,9 @@ scene.regist(context)
 | `get_track_velocity(track_name)` | string | number | 获取轨道瞬时横向速度。 |
 | `set_image_override(track_name, img)` | string, Image 或 nil | Reanimation | 设置轨道图片覆写。 |
 | `get_image_override(track_name)` | string | Image 或 nil | 获取轨道图片覆写。 |
+| `set_font_override(track_name, font_id)` | string, string | Reanimation | 设置轨道字体覆写。 |
+| `clear_font_override(track_name)` | string | Reanimation | 清除轨道字体覆写。 |
+| `font_override_id(track_name)` | string | string 或 nil | 获取轨道字体覆写资源 ID。 |
 | `show_only_track(track_name)` | string | Reanimation | 只显示指定轨道。 |
 | `get_track_matrix(index, [matrix])` | int, Matrix3x3 可选 | Matrix3x3 | 获取轨道绘制矩阵。 |
 | `assign_render_group_to_track(track_name, group)` | string, int | Reanimation | 设置单轨道 render group。 |

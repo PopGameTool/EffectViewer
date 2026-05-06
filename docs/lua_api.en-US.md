@@ -110,6 +110,7 @@ Fields:
 | `shake_x` / `shake_y` | number | Current shake offset. |
 | `attachment_id` | number | Current track attachment ID. |
 | `image_override` | Image or nil | Track image override. |
+| `font_override_id` | string or nil | Track font override resource ID. |
 | `render_group` | int | Render group; `-1` normally means hidden. |
 | `ignore_clip_rect` | bool | Ignore clipping while drawing. |
 | `truncate_disappearing_frames` | bool | Cut disappearing-frame interpolation. |
@@ -122,6 +123,8 @@ Functions:
 | --- | --- | --- | --- |
 | `instance:get_track_color()` | none | `r, g, b, a` | Reads track color. |
 | `instance:set_track_color(r, g, b, a)` | number or nil | instance | Sets track color; nil leaves a channel unchanged. |
+| `instance:set_font_override(font_id)` | string | instance | Sets the track font override. |
+| `instance:clear_font_override()` | none | instance | Clears the track font override. |
 | `instance:get_blend_transform()` | none | `tx, ty, kx, ky, sx, sy, f, a, img, font, text` | Reads blend source transform. |
 | `instance:set_blend_transform(tx, ty, kx, ky, sx, sy, f, a, img, font, text)` | number/string or nil | instance | Sets blend source transform; nil leaves a field unchanged. |
 
@@ -178,6 +181,9 @@ Functions:
 | `get_track_velocity(track_name)` | string | number | Gets current horizontal track velocity. |
 | `set_image_override(track_name, img)` | string, Image or nil | Reanimation | Sets or clears track image override. |
 | `get_image_override(track_name)` | string | Image or nil | Gets track image override. |
+| `set_font_override(track_name, font_id)` | string, string | Reanimation | Sets a track font override. |
+| `clear_font_override(track_name)` | string | Reanimation | Clears a track font override. |
+| `font_override_id(track_name)` | string | string or nil | Gets the track font override resource ID. |
 | `show_only_track(track_name)` | string | Reanimation | Shows only one track. |
 | `get_track_matrix(index, [matrix])` | int, optional Matrix3x3 | Matrix3x3 | Gets track draw matrix. |
 | `assign_render_group_to_track(track_name, group)` | string, int | Reanimation | Sets one track render group. |
