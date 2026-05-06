@@ -120,4 +120,5 @@ scene.regist(context)
 - 共享 UI 和运行时代码目标框架为 `net10.0`；浏览器宿主目标框架为 `net10.0-browser`。
 - Desktop 和 Browser 构建可以作为大多数共享代码的基础冒烟测试。
 - 发布候选版本前运行 [QuickStart 冒烟测试](docs/quickstart_smoke_test.zh-CN.md)。
+- 打发布标签或创建 GitHub Release 产物时，使用 [发布检查清单](docs/release_checklist.zh-CN.md)。
 - 移动端构建即使没有改动共享代码，也依然需要对应原生 SDK。

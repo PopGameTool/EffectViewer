@@ -18,6 +18,7 @@ This documentation is for users who manage, inspect, edit, preview, and stage ef
 - [Layout, Language, Tabs, And Shortcuts](layout_language_shortcuts.en-US.md): workspace layout, tab management, viewport controls, UI language, and common shortcuts.
 - [Runtime Targets And Development Startup](runtime_targets.en-US.md): Desktop, Browser, Android, and iOS startup and build targets.
 - [QuickStart Smoke Test](quickstart_smoke_test.en-US.md): automated and manual release checks for the bundled sample project.
+- [Release Checklist](release_checklist.en-US.md): version metadata, release workflow, artifacts, and final validation.
 
 ## Supported Resource Types
 
