@@ -29,11 +29,14 @@
             <Border Width="{Binding Indent}"/>
             <Button Grid.Column="1"
                     Classes="project-tree-disclosure"
-                    Content="{Binding DisclosureText}"
                     Command="{Binding $parent[UserControl].DataContext.ToggleProjectExplorerItemCommand}"
                     CommandParameter="{Binding}"
                     IsVisible="{Binding CanExpand}"
-                    IsEnabled="{Binding CanExpand}"/>
+                    IsEnabled="{Binding CanExpand}">
+              <PathIcon Width="10"
+                        Height="10"
+                        Data="{Binding DisclosureIconData}"/>
+            </Button>
             <TextBlock Grid.Column="2"
                        Text="{Binding Title}"
                        TextTrimming="CharacterEllipsis"
@@ -498,11 +501,14 @@
                   ColumnDefinitions="Auto,*,Auto"
                   Margin="8,0">
               <Button x:Name="CompactProjectExplorerButton"
-                      Content="☰"
                       Classes.compact-project-explorer-button="True"
                       ToolTip.Tip="{DynamicResource Loc.Menu.ProjectExplorer}"
                       IsVisible="False"
-                      Click="CompactProjectExplorerButton_Click"/>
+                      Click="CompactProjectExplorerButton_Click">
+                <PathIcon Width="16"
+                          Height="16"
+                          Data="M3,6 H21 V8 H3 Z M3,11 H21 V13 H3 Z M3,16 H21 V18 H3 Z"/>
+              </Button>
               <ScrollViewer x:Name="DocumentTabStripScrollViewer"
                             Grid.Column="1"
                             HorizontalScrollBarVisibility="Auto"
