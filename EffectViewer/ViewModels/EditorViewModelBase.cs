@@ -48,6 +48,7 @@ namespace EffectViewer.ViewModels
             EffectAssetKind.Particle => "PAR",
             EffectAssetKind.Trail => "TRL",
             EffectAssetKind.Showcase => "LUA",
+            EffectAssetKind.Help => "HELP",
             EffectAssetKind.Project => "APP",
             _ => Kind.ToString().ToUpperInvariant()
         };

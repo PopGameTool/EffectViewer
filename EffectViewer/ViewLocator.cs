@@ -19,6 +19,7 @@ namespace EffectViewer
                 FontEditorViewModel => new FontEditorView(),
                 ImageEditorViewModel => new ImageEditorView(),
                 ShowcaseEditorViewModel => new ShowcaseEditorView(),
+                HelpEditorViewModel => new HelpEditorView(),
                 WelcomeEditorViewModel => new WelcomeEditorView(),
                 null => null,
                 _ => new TextBlock { Text = "Not Found: " + param.GetType().FullName }
@@ -32,6 +33,7 @@ namespace EffectViewer
                 or FontEditorViewModel
                 or ImageEditorViewModel
                 or ShowcaseEditorViewModel
+                or HelpEditorViewModel
                 or WelcomeEditorViewModel;
         }
     }

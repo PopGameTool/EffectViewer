@@ -9,6 +9,7 @@ namespace EffectViewer.Projects
         Reanim,
         Particle,
         Trail,
-        Showcase
+        Showcase,
+        Help
     }
 }

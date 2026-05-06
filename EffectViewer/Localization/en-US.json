@@ -52,6 +52,7 @@
       "ExportPreview": "Export _Preview...",
       "ExportProjectZip": "Export Project _Zip...",
       "File": "_File",
+      "Help": "_Help",
       "ImportProjectZip": "_Import Project Zip...",
       "ImportResourceFile": "Import Resource _File...",
       "ImportResourceFolder": "Import Resource _Folder...",
@@ -67,6 +68,7 @@
       "Redo": "_Redo",
       "DeleteResource": "_Delete Resource...",
       "NextTab": "_Next Tab",
+      "OpenHelp": "Open _Help",
       "OpenProject": "_Open Project...",
       "PreviousTab": "_Previous Tab",
       "Project": "_Project",
@@ -262,6 +264,7 @@
     "DocumentKind": {
       "Folder": "Folder",
       "Font": "Font",
+      "Help": "Help",
       "Image": "Image",
       "Particle": "Particle",
       "Project": "Project",
@@ -314,6 +317,10 @@
       "ShowMainWindow": "Show Main Window",
       "Title": "About EffectViewer",
       "Version": "Version {0}"
+    },
+    "Help": {
+      "Subtitle": "In-app help for project workflow, import/export, editors, and Showcase.",
+      "Title": "Help"
     },
     "EffectEditor": {
       "AssetIdEmpty": "Asset ID cannot be empty.",
@@ -449,6 +456,7 @@
       "NoSavedDocumentsToClose": "No saved documents to close.",
       "NoUnsavedDocuments": "No unsaved documents.",
       "NoWritableProjectLoaded": "No writable project is loaded.",
+      "OpenedHelp": "Opened help page.",
       "OpenedProject": "Opened {0}.",
       "OpenProjectMessageEmpty": "No imported projects were found in the app private project folder.",
       "OpenProjectMessageHasProjects": "Select a project from the app private project folder.",

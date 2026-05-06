@@ -211,6 +211,8 @@
                   Command="{Binding RedoSelectedEditorCommand}"/>
       <KeyBinding Gesture="Meta+Shift+Z"
                   Command="{Binding RedoSelectedEditorCommand}"/>
+      <KeyBinding Gesture="F1"
+                  Command="{Binding ShowHelpCommand}"/>
     </UserControl.KeyBindings>
 
     <Grid>
@@ -391,6 +393,11 @@
               <Separator/>
               <MenuItem Header="{DynamicResource Loc.Menu.LoadLanguageFile}"
                         Click="LoadLanguageFileMenuItem_Click"/>
+            </MenuItem>
+            <MenuItem Header="{DynamicResource Loc.Menu.Help}">
+              <MenuItem Header="{DynamicResource Loc.Menu.OpenHelp}"
+                        Command="{Binding ShowHelpCommand}"
+                        InputGesture="F1"/>
             </MenuItem>
           </Menu>
           </ScrollViewer>

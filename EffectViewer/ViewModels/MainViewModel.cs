@@ -255,7 +255,8 @@ namespace EffectViewer.ViewModels
         public bool CanSaveCurrentProject => CurrentProject is not null && !string.IsNullOrWhiteSpace(CurrentProject.RootPath);
         public bool CanSaveSelectedFile => CanSaveCurrentProject && SelectedEditor?.SupportsSave == true;
         public bool CanExportSelectedFile => CanSaveCurrentProject && SelectedEditor?.SupportsFileExport == true;
-        public bool CanExportSelectedPreview => SelectedEditor is not null && SelectedEditor.Kind != EffectAssetKind.Project;
+        public bool CanExportSelectedPreview => SelectedEditor is not null &&
+            SelectedEditor.Kind is not (EffectAssetKind.Project or EffectAssetKind.Help);
         public bool CanModifyCurrentProject => CanSaveCurrentProject;
         public bool CanDeleteSelectedResource => CanDeleteResourceItem(SelectedProjectItem);
         public double MainWindowMinWidth => UseMobileLayoutOnWideScreens ? MobileWindowMinWidth : DefaultWindowMinWidth;
@@ -447,7 +448,7 @@ namespace EffectViewer.ViewModels
         private void ApplySavedEditorLayout(EditorViewModelBase editor)
         {
             if (editor is null ||
-                editor.Kind == EffectAssetKind.Project ||
+                editor.Kind is EffectAssetKind.Project or EffectAssetKind.Help ||
                 _settings.Layout?.EditorLayouts is null ||
                 !_settings.Layout.EditorLayouts.TryGetValue(GetEditorLayoutKey(editor.Kind), out EditorLayoutSettings layout))
             {
@@ -464,7 +465,7 @@ namespace EffectViewer.ViewModels
         {
             if (_isApplyingSettings ||
                 editor is null ||
-                editor.Kind == EffectAssetKind.Project)
+                editor.Kind is EffectAssetKind.Project or EffectAssetKind.Help)
             {
                 return;
             }
@@ -2163,6 +2164,23 @@ namespace EffectViewer.ViewModels
                 ShowOpenProjectDialogCommand,
                 RequestImportResourceFolderCommand,
                 RequestImportResourcePakCommand);
+        }
+
+        [RelayCommand]
+        private void ShowHelp()
+        {
+            string documentId = EditorViewModelBase.CreateDocumentId(EffectAssetKind.Help, HelpEditorViewModel.DocumentKey);
+            EditorViewModelBase existing = OpenEditors.FirstOrDefault(editor => editor.DocumentId == documentId);
+            if (existing is not null)
+            {
+                SelectedEditor = existing;
+            }
+            else
+            {
+                OpenEditorTab(new HelpEditorViewModel());
+            }
+
+            StatusText = T("Status.OpenedHelp");
         }
 
         private void RefreshCurrentProject()

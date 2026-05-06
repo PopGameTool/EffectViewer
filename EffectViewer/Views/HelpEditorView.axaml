@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:EffectViewer.ViewModels"
+             x:Class="EffectViewer.Views.HelpEditorView"
+             x:DataType="vm:HelpEditorViewModel">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.help-body">
+      <Setter Property="LineHeight" Value="22"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*"
+        Margin="24"
+        RowSpacing="16">
+    <StackPanel Spacing="4">
+      <TextBlock Text="{Binding Title}"
+                 FontSize="28"
+                 FontWeight="SemiBold"/>
+      <TextBlock Text="{Binding Subtitle}"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+    </StackPanel>
+
+    <Border Grid.Row="1"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+            BorderThickness="1"
+            CornerRadius="6">
+      <Grid ColumnDefinitions="220,5,*">
+        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="0,0,1,0"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+          <ListBox ItemsSource="{Binding Sections}"
+                   SelectedItem="{Binding SelectedSection}"
+                   BorderThickness="0"
+                   Background="Transparent"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:HelpSectionViewModel">
+                <StackPanel Spacing="3"
+                            Margin="6,5">
+                  <TextBlock Text="{Binding Title}"
+                             FontWeight="SemiBold"
+                             TextWrapping="Wrap"/>
+                  <TextBlock Text="{Binding Summary}"
+                             FontSize="12"
+                             TextWrapping="Wrap"
+                             Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Border>
+
+        <GridSplitter Grid.Column="1"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      ResizeDirection="Columns"
+                      Classes="layout-splitter vertical-splitter"/>
+
+        <ScrollViewer Grid.Column="2"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="24"
+                      Spacing="12"
+                      MaxWidth="920">
+            <TextBlock Text="{Binding SelectedSection.Title}"
+                       FontSize="22"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding SelectedSection.Summary}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+            <Separator/>
+            <TextBlock Text="{Binding SelectedSection.Body}"
+                       Classes="help-body"
+                       TextWrapping="Wrap"/>
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

@@ -170,6 +170,13 @@
                                                         Command="{Binding RequestLoadLanguageFileCommand}"/>
                                 </NativeMenu>
                         </NativeMenuItem>
+                        <NativeMenuItem Header="{DynamicResource Loc.Menu.Help}">
+                                <NativeMenu>
+                                        <NativeMenuItem Header="{DynamicResource Loc.Menu.OpenHelp}"
+                                                        Command="{Binding ShowHelpCommand}"
+                                                        Gesture="F1"/>
+                                </NativeMenu>
+                        </NativeMenuItem>
                 </NativeMenu>
         </NativeMenu.Menu>
         <views:MainView />
