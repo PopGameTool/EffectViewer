@@ -118,4 +118,5 @@ See [docs/lua_api.en-US.md](docs/lua_api.en-US.md) for the full scripting API.
 - Package versions are centralized in [Directory.Packages.props](Directory.Packages.props).
 - The shared UI and runtime target `net10.0`; the browser host targets `net10.0-browser`.
 - Desktop and Browser builds are good smoke tests for most shared code.
+- Run the [QuickStart smoke test](docs/quickstart_smoke_test.en-US.md) before release candidates.
 - Mobile builds require their native SDKs even when shared code is unchanged.

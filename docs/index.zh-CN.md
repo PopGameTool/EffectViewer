@@ -17,6 +17,7 @@
 - [预览与导出](preview_export.zh-CN.md)：导出当前预览为 PNG、PNG 序列 Zip、GIF 或 WebP。
 - [布局、标签页、语言和快捷键](layout_language_shortcuts.zh-CN.md)：工作区布局、标签页管理、视口操作、界面语言和常用快捷键。
 - [运行目标与开发启动](runtime_targets.zh-CN.md)：Desktop、Browser、Android 和 iOS 目标的启动与构建。
+- [QuickStart 冒烟测试](quickstart_smoke_test.zh-CN.md)：围绕内置示例项目的自动化和手动发布检查。
 
 ## 支持的资源类型
 

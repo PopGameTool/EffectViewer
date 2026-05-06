@@ -72,6 +72,39 @@ public sealed class PreviewExportWriterTests
     }
 
     [Fact]
+    public void WritePngSequenceZipStopsAfterCapturedFramesWhenCancellationIsRequested()
+    {
+        TestTextureSource textures = new TestTextureSource()
+            .Add("red", 1, 1, [255, 0, 0, 255]);
+        bool stop = false;
+        PreviewExportOptions options = new()
+        {
+            Format = PreviewExportFormat.PngSequenceZip,
+            ReferenceWidth = 8,
+            ReferenceHeight = 6,
+            Fps = 10,
+            DurationSeconds = 5
+        };
+
+        using MemoryStream stream = new();
+        PreviewExportWriter.WritePngSequenceZip(
+            stream,
+            frameIndex =>
+            {
+                stop = frameIndex >= 1;
+                return CreateSpriteFrame("red", new Vector2(4, 3), new Vector2(2, 2));
+            },
+            textures,
+            options,
+            shouldStop: () => stop);
+
+        stream.Position = 0;
+        using ZipArchive archive = new(stream, ZipArchiveMode.Read);
+
+        Assert.Equal(["frame_0001.png", "frame_0002.png"], archive.Entries.Select(entry => entry.FullName).ToArray());
+    }
+
+    [Fact]
     public void WriteGifCapturesAnimationFrames()
     {
         TestTextureSource textures = new TestTextureSource()
@@ -151,6 +184,15 @@ public sealed class PreviewExportWriterTests
         Assert.Equal(10, normalized.StartFrameIndex);
         Assert.Equal(10, normalized.EndFrameIndex);
         Assert.Equal(1, normalized.FrameCount);
+    }
+
+    [Fact]
+    public void PngImageWriterRejectsIncompletePixelData()
+    {
+        using MemoryStream stream = new();
+
+        Assert.Throws<ArgumentException>(() =>
+            PngImageWriter.Write(stream, 2, 2, [255, 0, 0, 255]));
     }
 
     private static RenderFrame CreateSpriteFrame(string textureId, Vector2 position, Vector2 size)

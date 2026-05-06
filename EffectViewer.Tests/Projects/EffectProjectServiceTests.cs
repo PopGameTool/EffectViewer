@@ -122,6 +122,29 @@ public sealed class EffectProjectServiceTests
     }
 
     [Fact]
+    public async Task ImportResourceFileRejectsUnsupportedTypeWithoutMutatingProject()
+    {
+        using TempDirectory temp = new();
+        EffectProjectService service = CreateService(temp);
+        EffectProject project = await service.CreateProjectAsync("Unsupported Import Demo");
+
+        await using MemoryStream stream = new(Encoding.UTF8.GetBytes("not an effect resource"));
+
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            service.ImportResourceFileAsync(project, "notes.txt", stream));
+        Assert.Empty(project.Manifest.Images);
+        Assert.Empty(project.Manifest.Fonts);
+        Assert.Empty(project.Manifest.Reanims);
+        Assert.Empty(project.Manifest.Particles);
+        Assert.Empty(project.Manifest.Trails);
+        Assert.Empty(project.Manifest.Showcases);
+        Assert.Equal([EffectProjectService.ManifestFileName], Directory
+            .EnumerateFiles(project.RootPath)
+            .Select(path => Path.GetFileName(path)!)
+            .ToArray());
+    }
+
+    [Fact]
     public async Task DeleteResourceRemovesOnlySelectedManifestEntryAndFile()
     {
         using TempDirectory temp = new();
@@ -153,6 +176,65 @@ public sealed class EffectProjectServiceTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.ExportProjectFileAsync(project, "../escape.txt", output));
+    }
+
+    [Fact]
+    public async Task LoadNormalizesLegacyManifestDefaultsAndReanimTweens()
+    {
+        using TempDirectory temp = new();
+        EffectProjectService service = CreateService(temp);
+        string projectDirectory = temp.GetPath("legacy");
+        Directory.CreateDirectory(projectDirectory);
+        await File.WriteAllTextAsync(
+            Path.Combine(projectDirectory, EffectProjectService.ManifestFileName),
+            """
+            {
+              "version": 0,
+              "name": "Legacy Demo",
+              "images": [
+                { "id": "IMAGE_BAD", "path": "assets/images/bad.png", "rows": 0, "cols": -3 }
+              ],
+              "fonts": [
+                { "id": "MAIN_FONT", "path": "assets/fonts/main.ttf", "trueType": true, "fontSize": 0, "borderSize": -4 }
+              ],
+              "reanims": [
+                {
+                  "id": "intro",
+                  "path": "assets/reanims/intro.reanim",
+                  "tweens": [
+                    { "trackIndex": -5, "trackName": null, "startFrame": 1, "endFrame": 3, "anchorX": 0.25, "anchorY": 0.75, "properties": [ "x" ] },
+                    { "trackIndex": 1, "startFrame": 5, "endFrame": 2 }
+                  ]
+                }
+              ],
+              "particles": null,
+              "trails": null,
+              "showcases": null
+            }
+            """);
+
+        EffectProject project = await service.LoadAsync(projectDirectory);
+
+        Assert.Equal(1, project.Manifest.Version);
+        ImageAsset image = Assert.Single(project.Manifest.Images);
+        Assert.Equal(1, image.Rows);
+        Assert.Equal(1, image.Cols);
+
+        FontAsset font = Assert.Single(project.Manifest.Fonts);
+        Assert.True(font.TrueType);
+        Assert.Equal(32, font.FontSize);
+        Assert.Equal(0, font.BorderSize);
+
+        ReanimAsset reanim = Assert.Single(project.Manifest.Reanims);
+        ReanimTween tween = Assert.Single(reanim.Tweens);
+        Assert.Equal(0, tween.TrackIndex);
+        Assert.Equal(string.Empty, tween.TrackName);
+        Assert.Equal(1, tween.StartFrame);
+        Assert.Equal(3, tween.EndFrame);
+        Assert.Equal(ReanimTween.CreateTweenedProperties(), tween.Properties);
+        Assert.Empty(project.Manifest.Particles);
+        Assert.Empty(project.Manifest.Trails);
+        Assert.Empty(project.Manifest.Showcases);
     }
 
     private static EffectProjectService CreateService(TempDirectory temp)

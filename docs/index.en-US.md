@@ -17,6 +17,7 @@ This documentation is for users who manage, inspect, edit, preview, and stage ef
 - [Preview Export](preview_export.en-US.md): export the current preview as PNG, PNG sequence Zip, GIF, or WebP.
 - [Layout, Language, Tabs, And Shortcuts](layout_language_shortcuts.en-US.md): workspace layout, tab management, viewport controls, UI language, and common shortcuts.
 - [Runtime Targets And Development Startup](runtime_targets.en-US.md): Desktop, Browser, Android, and iOS startup and build targets.
+- [QuickStart Smoke Test](quickstart_smoke_test.en-US.md): automated and manual release checks for the bundled sample project.
 
 ## Supported Resource Types
 
@@ -48,4 +49,3 @@ EffectViewer projects use `project.effectproj.json` as the project manifest. A m
 - **Project path**: a path stored in the manifest relative to the project root, such as `assets/images/IMAGE_FIRE.png`, `assets/reanims/zombie.reanim`, or `scripts/demo.lua`.
 - **Unsaved marker**: a `*` after a document tab title means that editor has unsaved changes.
 - **Preview viewport**: the shared rendering surface used by resource editors. Use the mouse wheel to zoom, middle-drag to pan, and double-click to reset zoom and pan.
-
