@@ -72,6 +72,12 @@ jobs:
             throw "macOS ApplicationDisplayVersion '$macosDisplayVersion' does not match release version '$version'."
           }
 
+          $ios = [xml](Get-Content EffectViewer.iOS/EffectViewer.iOS.csproj)
+          $iosDisplayVersion = $ios.SelectSingleNode("//ApplicationDisplayVersion").InnerText.Trim()
+          if ($iosDisplayVersion -ne $version) {
+            throw "iOS ApplicationDisplayVersion '$iosDisplayVersion' does not match release version '$version'."
+          }
+
           $changelog = Get-Content CHANGELOG.md -Raw
           $escapedVersion = [regex]::Escape($version)
           $headingPattern = "(?m)^##\s+$escapedVersion\s+-\s+\d{4}-\d{2}-\d{2}\s*$"
@@ -138,28 +144,16 @@ jobs:
           path: TestResults
           if-no-files-found: ignore
 
-  publish-desktop:
-    name: Publish Desktop (${{ matrix.rid }})
-    runs-on: ${{ matrix.os }}
+  publish-windows:
+    name: Publish Windows
+    runs-on: windows-latest
     needs:
       - validate
       - test
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            rid: linux-x64
-            archive: tar.gz
-          - os: windows-latest
-            rid: win-x64
-            archive: zip
-          - os: macos-latest
-            rid: osx-arm64
-            archive: tar.gz
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
+      VERSION: ${{ needs.validate.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -169,44 +163,45 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Install Native AOT dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang zlib1g-dev
-
-      - name: Publish Desktop
-        run: >
-          dotnet publish EffectViewer.Desktop/EffectViewer.Desktop.csproj
-          --configuration Release
-          --runtime ${{ matrix.rid }}
-          --self-contained true
-          --output artifacts/publish/desktop-${{ matrix.rid }}
-          /p:Version=${{ needs.validate.outputs.version }}
-
-      - name: Pack Desktop artifact
-        id: pack
+      - name: Publish Windows x64 and arm64
         shell: pwsh
-        run: |
-          $publishDir = "artifacts/publish/desktop-${{ matrix.rid }}"
-          $artifactBase = "effectviewer-${{ needs.validate.outputs.version }}-desktop-${{ matrix.rid }}"
-          New-Item -ItemType Directory -Path artifacts/dist -Force | Out-Null
+        run: ./scripts/release/publish-windows.ps1
 
-          if ("${{ matrix.archive }}" -eq "zip") {
-            $archivePath = "artifacts/dist/$artifactBase.zip"
-            Compress-Archive -Path "$publishDir/*" -DestinationPath $archivePath -Force
-          } else {
-            $archivePath = "artifacts/dist/$artifactBase.tar.gz"
-            tar -czf $archivePath -C $publishDir .
-          }
-
-          "archive_path=$archivePath" >> $env:GITHUB_OUTPUT
-
-      - name: Upload Desktop artifact
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: effectviewer-${{ needs.validate.outputs.version }}-desktop-${{ matrix.rid }}
-          path: ${{ steps.pack.outputs.archive_path }}
+          name: effectviewer-${{ needs.validate.outputs.version }}-windows
+          path: artifacts/dist/effectviewer-${{ needs.validate.outputs.version }}-windows-*.zip
+          if-no-files-found: error
+
+  publish-linux:
+    name: Publish Linux
+    runs-on: ubuntu-latest
+    needs:
+      - validate
+      - test
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      VERSION: ${{ needs.validate.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Publish Linux x64 and arm64
+        shell: bash
+        run: scripts/release/publish-linux-docker.sh
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: effectviewer-${{ needs.validate.outputs.version }}-linux
+          path: artifacts/dist/effectviewer-${{ needs.validate.outputs.version }}-linux-*.tar.gz
           if-no-files-found: error
 
   publish-browser:
@@ -218,6 +213,7 @@ jobs:
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
+      VERSION: ${{ needs.validate.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -231,26 +227,157 @@ jobs:
         run: dotnet workload restore EffectViewer.Browser/EffectViewer.Browser.csproj --skip-manifest-update
 
       - name: Publish Browser
-        run: >
-          dotnet publish EffectViewer.Browser/EffectViewer.Browser.csproj
-          --configuration Release
-          --output artifacts/publish/browser
-          /p:Version=${{ needs.validate.outputs.version }}
-
-      - name: Pack Browser artifact
-        id: pack
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Path artifacts/dist -Force | Out-Null
-          $archivePath = "artifacts/dist/effectviewer-${{ needs.validate.outputs.version }}-browser.zip"
-          Compress-Archive -Path "artifacts/publish/browser/*" -DestinationPath $archivePath -Force
-          "archive_path=$archivePath" >> $env:GITHUB_OUTPUT
+        shell: bash
+        run: scripts/release/publish-browser.sh
 
       - name: Upload Browser artifact
         uses: actions/upload-artifact@v4
         with:
           name: effectviewer-${{ needs.validate.outputs.version }}-browser
-          path: ${{ steps.pack.outputs.archive_path }}
+          path: artifacts/dist/effectviewer-${{ needs.validate.outputs.version }}-browser.zip
+          if-no-files-found: error
+
+  publish-macos:
+    name: Publish macOS
+    runs-on: macos-latest
+    needs:
+      - validate
+      - test
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      VERSION: ${{ needs.validate.outputs.version }}
+      MACOS_RUNTIME: osx-arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore macOS workload
+        run: dotnet workload restore EffectViewer.macOS/EffectViewer.macOS.csproj --skip-manifest-update
+
+      - name: Publish macOS DMG
+        shell: bash
+        run: scripts/release/publish-macos.sh
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: effectviewer-${{ needs.validate.outputs.version }}-macos
+          path: artifacts/dist/effectviewer-${{ needs.validate.outputs.version }}-macos-*.dmg
+          if-no-files-found: error
+
+  publish-ios:
+    name: Publish iOS
+    runs-on: macos-latest
+    needs:
+      - validate
+      - test
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      VERSION: ${{ needs.validate.outputs.version }}
+      IOS_RUNTIME: ios-arm64
+      IOS_CODESIGN_KEY: ${{ secrets.IOS_CODESIGN_KEY }}
+      IOS_CODESIGN_PROVISION: ${{ secrets.IOS_CODESIGN_PROVISION }}
+      IOS_CODESIGN_KEYCHAIN: ${{ secrets.IOS_CODESIGN_KEYCHAIN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore iOS workload
+        run: dotnet workload restore EffectViewer.iOS/EffectViewer.iOS.csproj --skip-manifest-update
+
+      - name: Publish iOS IPA
+        shell: bash
+        run: scripts/release/publish-ios.sh
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: effectviewer-${{ needs.validate.outputs.version }}-ios
+          path: artifacts/dist/effectviewer-${{ needs.validate.outputs.version }}-ios-*.ipa
+          if-no-files-found: error
+
+  publish-android:
+    name: Publish Android (${{ matrix.host }})
+    runs-on: ${{ matrix.os }}
+    needs:
+      - validate
+      - test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            host: linux
+          - os: windows-latest
+            host: windows
+          - os: macos-latest
+            host: macos
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      VERSION: ${{ needs.validate.outputs.version }}
+      HOST_LABEL: ${{ matrix.host }}
+      ANDROID_NDK_VERSION: 27.2.12479018
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        if: matrix.host != 'windows'
+        shell: bash
+        run: sdkmanager "ndk;$ANDROID_NDK_VERSION"
+
+      - name: Install Android NDK (Windows)
+        if: matrix.host == 'windows'
+        shell: pwsh
+        run: |
+          $sdkManager = Join-Path $env:ANDROID_HOME "cmdline-tools/latest/bin/sdkmanager.bat"
+          & $sdkManager "ndk;$env:ANDROID_NDK_VERSION"
+
+      - name: Restore Android workload
+        run: dotnet workload restore EffectViewer.Android/EffectViewer.Android.csproj --skip-manifest-update
+
+      - name: Publish Android
+        if: matrix.host != 'windows'
+        shell: bash
+        run: scripts/release/publish-android.sh
+
+      - name: Publish Android (Windows)
+        if: matrix.host == 'windows'
+        shell: pwsh
+        run: ./scripts/release/publish-android.ps1
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: effectviewer-${{ needs.validate.outputs.version }}-android-${{ matrix.host }}
+          path: artifacts/dist/effectviewer-${{ needs.validate.outputs.version }}-android-*-${{ matrix.host }}.*
           if-no-files-found: error
 
   github-release:
@@ -258,8 +385,12 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - validate
-      - publish-desktop
+      - publish-windows
+      - publish-linux
       - publish-browser
+      - publish-macos
+      - publish-ios
+      - publish-android
     if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true'
     permissions:
       contents: write

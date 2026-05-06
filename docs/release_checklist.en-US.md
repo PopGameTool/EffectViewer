@@ -50,12 +50,14 @@ It can also be run manually from GitHub Actions. Manual runs can build artifacts
 
 The workflow publishes:
 
-- Desktop `linux-x64`
-- Desktop `win-x64`
-- Desktop `osx-arm64`
-- Browser static WebAssembly build
+- Windows `win-x64` and `win-arm64` zip packages from `EffectViewer.Desktop`.
+- Linux `linux-x64` and `linux-arm64` tarballs from `EffectViewer.Desktop`.
+- Browser static WebAssembly zip package from `EffectViewer.Browser`.
+- macOS `osx-arm64` DMG from `EffectViewer.macOS`.
+- iOS `ios-arm64` IPA from `EffectViewer.iOS` on macOS.
+- Android `android-arm64` packages on Windows, macOS, and Linux.
 
-Android and iOS packaging remain manual because signing, provisioning, and SDK setup are environment-specific.
+The scripts used by the workflow live in `scripts/release`. iOS signing and provisioning must already be available on the macOS runner, or provided through the `IOS_CODESIGN_KEY`, `IOS_CODESIGN_PROVISION`, and `IOS_CODESIGN_KEYCHAIN` environment variables.
 
 ## Final Review
 

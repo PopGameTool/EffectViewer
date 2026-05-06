@@ -50,12 +50,14 @@ git push origin v0.1.0
 
 工作流会发布：
 
-- Desktop `linux-x64`
-- Desktop `win-x64`
-- Desktop `osx-arm64`
-- Browser 静态 WebAssembly 构建
+- 从 `EffectViewer.Desktop` 发布 Windows `win-x64` 和 `win-arm64` zip 包。
+- 从 `EffectViewer.Desktop` 发布 Linux `linux-x64` 和 `linux-arm64` tar 包。
+- 从 `EffectViewer.Browser` 发布 Browser 静态 WebAssembly zip 包。
+- 从 `EffectViewer.macOS` 发布 macOS `osx-arm64` DMG。
+- 在 macOS 上从 `EffectViewer.iOS` 发布 iOS `ios-arm64` IPA。
+- 在 Windows、macOS 和 Linux 上发布 Android `android-arm64` 包。
 
-Android 和 iOS 打包暂时保留为手动流程，因为签名、provisioning 和 SDK 环境都依赖具体机器配置。
+工作流使用的脚本位于 `scripts/release`。iOS 签名与 provisioning 需要提前在 macOS runner 上配置好，或通过 `IOS_CODESIGN_KEY`、`IOS_CODESIGN_PROVISION`、`IOS_CODESIGN_KEYCHAIN` 环境变量传入。
 
 ## 最终检查
 
