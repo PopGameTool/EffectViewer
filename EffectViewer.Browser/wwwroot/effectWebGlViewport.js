@@ -168,6 +168,57 @@ export function renderFrame(
     }
 }
 
+export function readPixels(canvas, rgbaPixels, byteCount) {
+    const state = getState(canvas);
+    const gl = state.gl;
+    const pixelWidth = Math.max(1, canvas.width | 0);
+    const pixelHeight = Math.max(1, canvas.height | 0);
+    const expectedByteCount = pixelWidth * pixelHeight * 4;
+    if (expectedByteCount <= 0 || (byteCount | 0) < expectedByteCount) {
+        return false;
+    }
+
+    const target = toWritableUint8Array(rgbaPixels, expectedByteCount);
+    if (!target || target.byteLength < expectedByteCount) {
+        return false;
+    }
+
+    const source = new Uint8Array(expectedByteCount);
+    gl.readPixels(0, 0, pixelWidth, pixelHeight, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    if (gl.getError() !== gl.NO_ERROR) {
+        return false;
+    }
+
+    const rowByteCount = pixelWidth * 4;
+    for (let y = 0; y < pixelHeight; y++) {
+        const sourceOffset = (pixelHeight - y - 1) * rowByteCount;
+        const targetOffset = y * rowByteCount;
+        target.set(source.subarray(sourceOffset, sourceOffset + rowByteCount), targetOffset);
+    }
+
+    return true;
+}
+
+function toWritableUint8Array(memoryView, byteCount) {
+    const length = Math.max(0, byteCount | 0);
+    if (memoryView instanceof Uint8Array) {
+        return memoryView.byteLength === length ? memoryView : memoryView.subarray(0, length);
+    }
+
+    if (memoryView && typeof memoryView.getView === "function") {
+        const view = memoryView.getView();
+        if (view instanceof Uint8Array) {
+            return view.byteLength === length ? view : view.subarray(0, length);
+        }
+    }
+
+    if (memoryView && typeof memoryView.set === "function" && typeof memoryView.length === "number") {
+        return memoryView.length === length ? memoryView : memoryView.subarray(0, length);
+    }
+
+    return null;
+}
+
 function createPremultipliedPixels(source) {
     const pixels = new Uint8Array(source);
     for (let i = 0; i < pixels.length; i += 4) {
@@ -255,7 +306,9 @@ function createProgram(gl) {
         varying vec4 v_color;
         uniform sampler2D u_texture;
         void main() {
-            gl_FragColor = texture2D(u_texture, v_uv) * v_color;
+            vec4 color = texture2D(u_texture, v_uv) * v_color;
+            color.rgb *= v_color.a;
+            gl_FragColor = color;
         }
     `);
     const program = gl.createProgram();

@@ -55,5 +55,11 @@ namespace EffectViewer.Browser
             int[] batchVertexCounts,
             int[] batchBlendModes,
             string[] batchTextureIds);
+
+        [JSImport("readPixels", ModuleName)]
+        public static partial bool ReadPixels(
+            JSObject canvas,
+            [JSMarshalAs<JSType.MemoryView>] ArraySegment<byte> rgbaPixels,
+            int byteCount);
     }
 }

@@ -28,7 +28,7 @@ internal sealed partial class Program
     public static AppBuilder BuildAvaloniaApp()
     {
         App.ProjectStorageProvider = new EffectViewer.Browser.BrowserProjectStorageProvider();
-        InteractiveEffectViewport.ViewportFactory = static () => new EffectViewer.Browser.BrowserWebGlEffectViewport();
+        InteractiveEffectViewport.ViewportFactory = static () => new EffectViewer.Browser.BrowserAvaloniaWebGlEffectViewport();
         return AppBuilder.Configure<App>();
     }
 }

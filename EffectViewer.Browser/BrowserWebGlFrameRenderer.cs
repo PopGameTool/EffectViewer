@@ -2,19 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices.JavaScript;
-using Avalonia;
-using Avalonia.Browser;
-using Avalonia.Controls;
-using Avalonia.Platform;
 using Avalonia.Styling;
-using Avalonia.VisualTree;
-using EffectViewer.Controls;
 using EffectViewer.Rendering;
 using EffectViewer.Rendering.TextureUpload;
 
 namespace EffectViewer.Browser
 {
-    public sealed class BrowserWebGlEffectViewport : NativeControlHost, IEffectViewport
+    internal sealed class BrowserWebGlFrameRenderer
     {
         private const int FloatsPerVertex = 8;
         private static readonly float[] EmptyVertices = [];
@@ -35,26 +29,10 @@ namespace EffectViewer.Browser
         private readonly Dictionary<string, UploadedTexture> _uploadedTextures = new(StringComparer.Ordinal);
 
         private JSObject? _canvas;
-        private RenderFrame _frame = new();
         private ITextureSource _textureSource = new GeneratedTextureSource();
-        private IRenderFrameProvider? _frameProvider;
-        private DateTime _lastRenderUtc = DateTime.UtcNow;
         private Vector2 _panPixels = Vector2.Zero;
         private float _zoom = 1f;
-        private ViewportBackgroundMode _backgroundMode;
-        private bool _isAttached;
-        private bool _frameQueued;
         private int _maxTextureSize;
-
-        public RenderFrame Frame
-        {
-            get => _frame;
-            set
-            {
-                _frame = value ?? new RenderFrame();
-                QueueRenderFrame();
-            }
-        }
 
         public ITextureSource TextureSource
         {
@@ -68,38 +46,39 @@ namespace EffectViewer.Browser
                 }
 
                 _textureSource = next;
-                _uploadedTextures.Clear();
-                if (_canvas is not null)
-                {
-                    BrowserWebGlInterop.ClearTextures(_canvas);
-                }
-
-                QueueRenderFrame();
+                ClearTextureCache();
             }
         }
 
-        public IRenderFrameProvider FrameProvider
+        public ViewportBackgroundMode BackgroundMode { get; set; }
+
+        public ThemeVariant ActualThemeVariant { get; set; } = ThemeVariant.Default;
+
+        public void AttachCanvas(JSObject canvas)
         {
-            get => _frameProvider!;
-            set
+            if (ReferenceEquals(_canvas, canvas))
             {
-                _frameProvider = value;
-                QueueRenderFrame();
+                return;
             }
+
+            _canvas = canvas;
+            _maxTextureSize = 0;
+            _uploadedTextures.Clear();
         }
 
-        public ViewportBackgroundMode BackgroundMode
+        public void DetachCanvas()
         {
-            get => _backgroundMode;
-            set
-            {
-                if (_backgroundMode == value)
-                {
-                    return;
-                }
+            _canvas = null;
+            _maxTextureSize = 0;
+            _uploadedTextures.Clear();
+        }
 
-                _backgroundMode = value;
-                QueueRenderFrame();
+        public void ClearTextureCache()
+        {
+            _uploadedTextures.Clear();
+            if (_canvas is not null)
+            {
+                BrowserWebGlInterop.ClearTextures(_canvas);
             }
         }
 
@@ -107,97 +86,18 @@ namespace EffectViewer.Browser
         {
             _zoom = Math.Clamp(zoom, 0.05f, 32f);
             _panPixels = panPixels;
-            QueueRenderFrame();
         }
 
-        protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
+        public void Render(RenderFrame frame, int width, int height, double scaling)
         {
-            _canvas = BrowserWebGlInterop.CreateViewport();
-            return new JSObjectControlHandle(_canvas);
-        }
-
-        protected override void DestroyNativeControlCore(IPlatformHandle control)
-        {
-            if (_canvas is not null)
-            {
-                BrowserWebGlInterop.DestroyViewport(_canvas);
-                _canvas = null;
-            }
-
-            _uploadedTextures.Clear();
-            _maxTextureSize = 0;
-            base.DestroyNativeControlCore(control);
-        }
-
-        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
-        {
-            base.OnAttachedToVisualTree(e);
-            _isAttached = true;
-            _lastRenderUtc = DateTime.UtcNow;
-            QueueRenderFrame();
-        }
-
-        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-        {
-            _isAttached = false;
-            base.OnDetachedFromVisualTree(e);
-        }
-
-        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
-        {
-            base.OnPropertyChanged(change);
-
-            if (change.Property == BoundsProperty ||
-                change.Property == IsVisibleProperty ||
-                string.Equals(change.Property.Name, nameof(ActualThemeVariant), StringComparison.Ordinal))
-            {
-                QueueRenderFrame();
-            }
-        }
-
-        private void QueueRenderFrame()
-        {
-            if (!_isAttached || _frameQueued)
+            if (_canvas is null)
             {
                 return;
             }
 
-            TopLevel? topLevel = TopLevel.GetTopLevel(this);
-            if (topLevel is null)
-            {
-                return;
-            }
-
-            _frameQueued = true;
-            topLevel.RequestAnimationFrame(_ =>
-            {
-                _frameQueued = false;
-                RenderNow();
-
-                if (_isAttached)
-                {
-                    QueueRenderFrame();
-                }
-            });
-        }
-
-        private void RenderNow()
-        {
-            if (_canvas is null || Bounds.Width <= 0 || Bounds.Height <= 0)
-            {
-                return;
-            }
-
-            double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1d;
-            PixelSize pixelSize = PixelSize.FromSize(Bounds.Size, scaling);
-            int width = Math.Max(1, pixelSize.Width);
-            int height = Math.Max(1, pixelSize.Height);
-
-            DateTime now = DateTime.UtcNow;
-            double deltaSeconds = Math.Clamp((now - _lastRenderUtc).TotalSeconds, 0d, 0.1d);
-            _lastRenderUtc = now;
-
-            RenderFrame frame = _frameProvider?.GetFrame(deltaSeconds) ?? _frame ?? new RenderFrame();
+            width = Math.Max(1, width);
+            height = Math.Max(1, height);
+            frame ??= new RenderFrame();
             Vector4 clear = GetBackgroundClearColor();
             BuildDrawData(
                 frame,
