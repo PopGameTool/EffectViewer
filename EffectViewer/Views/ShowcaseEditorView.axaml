@@ -71,6 +71,9 @@
                 <Setter Property="HorizontalContentAlignment" Value="Center"/>
                 <Setter Property="VerticalContentAlignment" Value="Center"/>
               </Style>
+              <Style Selector="controls|DockablePanelView.compact-layout Border.showcase-script-editor-frame">
+                <Setter Property="Height" Value="280"/>
+              </Style>
             </Grid.Styles>
 
             <StackPanel Orientation="Horizontal"
@@ -91,6 +94,7 @@
             </StackPanel>
 
             <Border Grid.Row="1"
+                    Classes="showcase-script-editor-frame"
                     Background="{DynamicResource TextControlBackground}"
                     BorderBrush="{DynamicResource TextControlBorderBrush}"
                     BorderThickness="1"
