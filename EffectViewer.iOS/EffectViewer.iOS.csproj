@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <TrimmerRootAssembly Include="MoonSharp.Interpreter" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Avalonia.iOS" />
   </ItemGroup>
 

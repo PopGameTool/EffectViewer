@@ -15,6 +15,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <TrimmerRootAssembly Include="MoonSharp.Interpreter" />
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="Avalonia.Desktop" />
         <PackageReference Include="AvaloniaUI.DiagnosticsSupport" >
             <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>

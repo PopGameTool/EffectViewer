@@ -20,6 +20,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <TrimmerRootAssembly Include="MoonSharp.Interpreter" RootMode="All" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" />
   </ItemGroup>
