@@ -5,6 +5,10 @@
     <SupportedOSPlatformVersion>13.0</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <PublishAot>true</PublishAot>
+    <ApplicationTitle>Effect Viewer</ApplicationTitle>
+    <ApplicationId>com.yingfengtingyu.effectviewer</ApplicationId>
+    <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
     <AppIcon>AppIcon</AppIcon>
   </PropertyGroup>
 
