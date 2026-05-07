@@ -21,6 +21,7 @@ Run these checks from the repository root:
 
 ```bash
 dotnet build EffectViewer.Desktop/EffectViewer.Desktop.csproj --configuration Release
+dotnet build EffectViewer.Windows/EffectViewer.Windows.csproj --configuration Release
 dotnet build EffectViewer.Browser/EffectViewer.Browser.csproj --configuration Release
 dotnet test EffectViewer.Tests/EffectViewer.Tests.csproj --configuration Release
 ```
@@ -50,7 +51,7 @@ It can also be run manually from GitHub Actions. Manual runs can build artifacts
 
 The workflow publishes:
 
-- Windows `win-x64` and `win-arm64` zip packages from `EffectViewer.Desktop`.
+- Windows `win-x64` and `win-arm64` zip packages from `EffectViewer.Windows`.
 - Linux `linux-x64` and `linux-arm64` tarballs from `EffectViewer.Desktop`.
 - Browser static WebAssembly zip package from `EffectViewer.Browser`.
 - macOS `osx-arm64` DMG from `EffectViewer.macOS`.

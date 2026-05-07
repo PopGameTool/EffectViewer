@@ -1,12 +1,13 @@
 # 运行目标与开发启动
 
-EffectViewer 是基于 Avalonia 的跨平台应用。仓库包含共享 UI/运行时代码，以及 Desktop、Browser、Android、iOS 宿主项目。
+EffectViewer 是基于 Avalonia 的跨平台应用。仓库包含共享 UI/运行时代码，以及 Desktop、Windows、Browser、Android、iOS 宿主项目。
 
 ## 项目结构
 
 ```text
 EffectViewer/           共享 Avalonia UI、ViewModel、渲染、运行时和 TodLib 代码
 EffectViewer.Desktop/   桌面应用宿主
+EffectViewer.Windows/   Windows 发布宿主
 EffectViewer.Browser/   浏览器/WebAssembly 应用宿主
 EffectViewer.Android/   Android 应用宿主
 EffectViewer.iOS/       iOS 应用宿主
@@ -21,6 +22,7 @@ docs/                   使用文档和 Lua API 文档
 
 - 支持 `net10.0` 的 .NET SDK。
 - 构建浏览器目标时需要支持 `net10.0-browser`。
+- 构建 Windows 发布目标时需要支持 `net10.0-windows`。
 
 桌面版要求：
 
@@ -49,6 +51,14 @@ dotnet build EffectViewer.Desktop/EffectViewer.Desktop.csproj
 
 如果只修改共享 UI、ViewModel、项目管理、渲染或 TodLib，大多数情况下构建 Desktop 就能完成基础冒烟验证。
 
+## 构建 Windows 发布宿主
+
+```bash
+dotnet build EffectViewer.Windows/EffectViewer.Windows.csproj
+```
+
+Windows 发布宿主使用 `net10.0-windows` 并引用 `YY-Thunks`，发布脚本会从这个项目生成 Windows zip 包。
+
 ## 构建 Browser
 
 ```bash
@@ -67,7 +77,7 @@ dotnet build EffectViewer.slnx
 
 - 完整解决方案包含 Android 和 iOS 项目。
 - 如果本机没有 Android SDK 或 iOS 工具链，完整构建可能在移动端项目失败。
-- 只需要主编辑器时，优先单独构建 Desktop 或 Browser。
+- 只需要主编辑器时，优先单独构建 Desktop、Windows 或 Browser。
 
 ## Android 和 iOS 项目
 
@@ -106,6 +116,7 @@ git diff -- docs
 
 ```bash
 dotnet build EffectViewer.Desktop/EffectViewer.Desktop.csproj
+dotnet build EffectViewer.Windows/EffectViewer.Windows.csproj
 dotnet test EffectViewer.Tests/EffectViewer.Tests.csproj
 ```
 
@@ -116,4 +127,3 @@ dotnet build EffectViewer.Browser/EffectViewer.Browser.csproj
 ```
 
 涉及移动端时，在对应平台 SDK 配置完成后再构建对应项目。
-

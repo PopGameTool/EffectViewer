@@ -1,12 +1,13 @@
 # Runtime Targets And Development Startup
 
-EffectViewer is a cross-platform application built with Avalonia. The repository contains shared UI/runtime code plus Desktop, Browser, Android, and iOS host projects.
+EffectViewer is a cross-platform application built with Avalonia. The repository contains shared UI/runtime code plus Desktop, Windows, Browser, Android, and iOS host projects.
 
 ## Project Layout
 
 ```text
 EffectViewer/           Shared Avalonia UI, view models, rendering, runtime, and TodLib code
 EffectViewer.Desktop/   Desktop app host
+EffectViewer.Windows/   Windows publishing host
 EffectViewer.Browser/   Browser/WebAssembly app host
 EffectViewer.Android/   Android app host
 EffectViewer.iOS/       iOS app host
@@ -21,6 +22,7 @@ Base requirements:
 
 - .NET SDK with `net10.0` support.
 - Browser builds require `net10.0-browser` support.
+- Windows publishing builds require `net10.0-windows` support.
 
 Desktop requirements:
 
@@ -49,6 +51,14 @@ dotnet build EffectViewer.Desktop/EffectViewer.Desktop.csproj
 
 If you only changed shared UI, view models, project management, rendering, or TodLib code, a Desktop build is usually enough for a basic smoke test.
 
+## Build Windows Publishing Host
+
+```bash
+dotnet build EffectViewer.Windows/EffectViewer.Windows.csproj
+```
+
+The Windows publishing host targets `net10.0-windows` and references `YY-Thunks`; the Windows release script packages this project into zip artifacts.
+
 ## Build Browser
 
 ```bash
@@ -67,7 +77,7 @@ Notes:
 
 - The full solution includes Android and iOS projects.
 - If Android SDK or iOS tooling is not configured, the full build may fail on mobile projects.
-- If you only need the main editor, build Desktop or Browser directly.
+- If you only need the main editor, build Desktop, Windows, or Browser directly.
 
 ## Android And iOS Projects
 
@@ -106,6 +116,7 @@ For code changes:
 
 ```bash
 dotnet build EffectViewer.Desktop/EffectViewer.Desktop.csproj
+dotnet build EffectViewer.Windows/EffectViewer.Windows.csproj
 dotnet test EffectViewer.Tests/EffectViewer.Tests.csproj
 ```
 
@@ -116,4 +127,3 @@ dotnet build EffectViewer.Browser/EffectViewer.Browser.csproj
 ```
 
 For mobile changes, build the corresponding mobile project after the required platform SDK is configured.
-

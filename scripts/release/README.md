@@ -27,6 +27,7 @@ VERSION=0.1.0 scripts/release/publish-linux-docker.sh
 
 ```powershell
 # Windows x64 and arm64 zip packages. Must run on Windows.
+# Uses EffectViewer.Windows.
 ./scripts/release/publish-windows.ps1 -Version 0.1.0
 
 # Android arm64 package on Windows. Add -RestoreWorkload on first setup if needed.

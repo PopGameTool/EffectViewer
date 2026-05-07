@@ -25,8 +25,8 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
 
 if (-not $NoClean) {
     @(
-        "EffectViewer.Desktop/bin",
-        "EffectViewer.Desktop/obj",
+        "EffectViewer.Windows/bin",
+        "EffectViewer.Windows/obj",
         "EffectViewer/bin",
         "EffectViewer/obj"
     ) | ForEach-Object {
@@ -41,7 +41,7 @@ foreach ($runtime in $Runtimes) {
     Remove-Item $publishDir -Recurse -Force -ErrorAction Ignore
     New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 
-    dotnet publish "EffectViewer.Desktop/EffectViewer.Desktop.csproj" `
+    dotnet publish "EffectViewer.Windows/EffectViewer.Windows.csproj" `
         --configuration $Configuration `
         --runtime $runtime `
         --self-contained true `

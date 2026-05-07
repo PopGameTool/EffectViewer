@@ -14,13 +14,14 @@ EffectViewer is a cross-platform Avalonia tool for inspecting, editing, and stag
 - Preview particle emitters, float parameter tracks, particle fields, and trail curves.
 - Write and run Lua ShowCase scripts for animated effect scenes.
 - Use English or Simplified Chinese UI text, plus custom JSON language files.
-- Run on Desktop and Browser targets, with Android and iOS project shells included.
+- Run on Desktop, Windows, and Browser targets, with Android and iOS project shells included.
 
 ## Quick Start
 
 ### Requirements
 
 - .NET SDK that supports `net10.0` and `net10.0-browser`.
+- The Windows publishing host targets `net10.0-windows`.
 - Desktop OpenGL support for the desktop app.
 - Optional platform SDKs when building mobile targets:
   - Android SDK for `EffectViewer.Android`
@@ -36,6 +37,7 @@ dotnet run --project EffectViewer.Desktop/EffectViewer.Desktop.csproj
 
 ```bash
 dotnet build EffectViewer.Desktop/EffectViewer.Desktop.csproj
+dotnet build EffectViewer.Windows/EffectViewer.Windows.csproj
 dotnet build EffectViewer.Browser/EffectViewer.Browser.csproj
 ```
 
@@ -70,6 +72,7 @@ To inspect the manifest and Lua script directly, unzip `Samples/QuickStartShowca
 ```text
 EffectViewer/           Shared Avalonia UI, view models, rendering, runtime, and TodLib code
 EffectViewer.Desktop/   Desktop app host
+EffectViewer.Windows/   Windows publishing host
 EffectViewer.Browser/   Browser/WebAssembly app host
 EffectViewer.Android/   Android app host
 EffectViewer.iOS/       iOS app host
@@ -117,8 +120,8 @@ See [docs/lua_api.en-US.md](docs/lua_api.en-US.md) for the full scripting API.
 
 - Package versions are centralized in [Directory.Packages.props](Directory.Packages.props).
 - Product version metadata starts at `0.1.0` in [Directory.Build.props](Directory.Build.props); keep app package display versions and [CHANGELOG.md](CHANGELOG.md) in sync when cutting a release.
-- The shared UI and runtime target `net10.0`; the browser host targets `net10.0-browser`.
-- Desktop and Browser builds are good smoke tests for most shared code.
+- The shared UI and runtime target `net10.0`; the Windows publishing host targets `net10.0-windows`; the browser host targets `net10.0-browser`.
+- Desktop, Windows, and Browser builds are good smoke tests for most shared code.
 - Run the [QuickStart smoke test](docs/quickstart_smoke_test.en-US.md) before release candidates.
 - Use the [release checklist](docs/release_checklist.en-US.md) when tagging a release or creating GitHub release artifacts.
 - Mobile builds require their native SDKs even when shared code is unchanged.

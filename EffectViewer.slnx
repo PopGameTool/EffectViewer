@@ -4,6 +4,7 @@
   </Project>
   <Project Path="EffectViewer.Browser/EffectViewer.Browser.csproj" />
   <Project Path="EffectViewer.Desktop/EffectViewer.Desktop.csproj" />
+  <Project Path="EffectViewer.Windows/EffectViewer.Windows.csproj" />
   <Project Path="EffectViewer.iOS/EffectViewer.iOS.csproj">
     <Deploy />
   </Project>

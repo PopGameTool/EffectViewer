@@ -21,6 +21,7 @@
 
 ```bash
 dotnet build EffectViewer.Desktop/EffectViewer.Desktop.csproj --configuration Release
+dotnet build EffectViewer.Windows/EffectViewer.Windows.csproj --configuration Release
 dotnet build EffectViewer.Browser/EffectViewer.Browser.csproj --configuration Release
 dotnet test EffectViewer.Tests/EffectViewer.Tests.csproj --configuration Release
 ```
@@ -50,7 +51,7 @@ git push origin v0.1.0
 
 工作流会发布：
 
-- 从 `EffectViewer.Desktop` 发布 Windows `win-x64` 和 `win-arm64` zip 包。
+- 从 `EffectViewer.Windows` 发布 Windows `win-x64` 和 `win-arm64` zip 包。
 - 从 `EffectViewer.Desktop` 发布 Linux `linux-x64` 和 `linux-arm64` tar 包。
 - 从 `EffectViewer.Browser` 发布 Browser 静态 WebAssembly zip 包。
 - 从 `EffectViewer.macOS` 发布 macOS `osx-arm64` DMG。

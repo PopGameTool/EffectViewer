@@ -14,13 +14,14 @@ EffectViewer 是一个基于 Avalonia 的跨平台特效资源查看和编辑工
 - 预览粒子发射器、浮点参数轨道、粒子场和拖尾曲线。
 - 编写并运行 Lua ShowCase 脚本，制作可动画演示的特效场景。
 - 使用 English 或简体中文界面，也可以加载自定义 JSON 语言文件。
-- 运行 Desktop 和 Browser 目标，并包含 Android 与 iOS 项目壳。
+- 运行 Desktop、Windows 和 Browser 目标，并包含 Android 与 iOS 项目壳。
 
 ## 快速开始
 
 ### 环境要求
 
 - 支持 `net10.0` 和 `net10.0-browser` 的 .NET SDK。
+- Windows 发布宿主使用 `net10.0-windows`。
 - 桌面版需要系统支持 OpenGL。
 - 构建移动端目标时需要额外平台 SDK：
   - `EffectViewer.Android` 需要 Android SDK。
@@ -36,6 +37,7 @@ dotnet run --project EffectViewer.Desktop/EffectViewer.Desktop.csproj
 
 ```bash
 dotnet build EffectViewer.Desktop/EffectViewer.Desktop.csproj
+dotnet build EffectViewer.Windows/EffectViewer.Windows.csproj
 dotnet build EffectViewer.Browser/EffectViewer.Browser.csproj
 ```
 
@@ -70,6 +72,7 @@ Samples/QuickStartShowcase.zip
 ```text
 EffectViewer/           共享 Avalonia UI、ViewModel、渲染、运行时和 TodLib 代码
 EffectViewer.Desktop/   桌面应用宿主
+EffectViewer.Windows/   Windows 发布宿主
 EffectViewer.Browser/   浏览器/WebAssembly 应用宿主
 EffectViewer.Android/   Android 应用宿主
 EffectViewer.iOS/       iOS 应用宿主
@@ -117,8 +120,8 @@ scene.regist(context)
 
 - NuGet 包版本集中维护在 [Directory.Packages.props](Directory.Packages.props)。
 - 产品版本元数据从 [Directory.Build.props](Directory.Build.props) 中的 `0.1.0` 开始；发布时需要同步应用包显示版本和 [CHANGELOG.md](CHANGELOG.md)。
-- 共享 UI 和运行时代码目标框架为 `net10.0`；浏览器宿主目标框架为 `net10.0-browser`。
-- Desktop 和 Browser 构建可以作为大多数共享代码的基础冒烟测试。
+- 共享 UI 和运行时代码目标框架为 `net10.0`；Windows 发布宿主为 `net10.0-windows`；浏览器宿主目标框架为 `net10.0-browser`。
+- Desktop、Windows 和 Browser 构建可以作为大多数共享代码的基础冒烟测试。
 - 发布候选版本前运行 [QuickStart 冒烟测试](docs/quickstart_smoke_test.zh-CN.md)。
 - 打发布标签或创建 GitHub Release 产物时，使用 [发布检查清单](docs/release_checklist.zh-CN.md)。
 - 移动端构建即使没有改动共享代码，也依然需要对应原生 SDK。
