@@ -5,10 +5,10 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using EffectViewer.Assets;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Particle;
-using EffectViewer.TodLib.Reanim;
-using EffectViewer.TodLib.Trail;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Particle;
+using EffectViewer.EffectRuntime.Reanim;
+using EffectViewer.EffectRuntime.Trail;
 
 namespace EffectViewer.Projects
 {
@@ -168,10 +168,10 @@ namespace EffectViewer.Projects
 
             using (stream)
             {
-            SexyXmlParser parser = SexyXmlParser.FromStream(stream, resourcesPath);
-            while (parser.TryNextElement(out SexyXmlElement element))
+            EffectXmlParser parser = EffectXmlParser.FromStream(stream, resourcesPath);
+            while (parser.TryNextElement(out EffectXmlElement element))
             {
-                if (element.Type == SexyXmlElementType.Start && element.Value is "Image" or "Font")
+                if (element.Type == EffectXmlElementType.Start && element.Value is "Image" or "Font")
                 {
                     count++;
                 }
@@ -208,14 +208,14 @@ namespace EffectViewer.Projects
 
             using (stream)
             {
-            SexyXmlParser parser = SexyXmlParser.FromStream(stream, resourcesPath);
+            EffectXmlParser parser = EffectXmlParser.FromStream(stream, resourcesPath);
             string currentPath = string.Empty;
             string currentPrefix = string.Empty;
             int missingImages = 0;
 
-            while (parser.TryNextElement(out SexyXmlElement element))
+            while (parser.TryNextElement(out EffectXmlElement element))
             {
-                if (element.Type != SexyXmlElementType.Start ||
+                if (element.Type != EffectXmlElementType.Start ||
                     element.Value is not ("SetDefaults" or "Image" or "Font"))
                 {
                     continue;
@@ -800,8 +800,8 @@ namespace EffectViewer.Projects
             }
             else
             {
-                TodParticleDefinition definition = SexyParticleReader.Decode(input);
-                SexyParticleReader.WriteXml(output, definition);
+                ParticleDefinition definition = ParticleDefinitionCodec.Decode(input);
+                ParticleDefinitionCodec.WriteXml(output, definition);
             }
 
             copiedProjectPaths.Add(relativePath);
@@ -907,12 +907,12 @@ namespace EffectViewer.Projects
             }
         }
 
-        private static string ReadAttribute(SexyXmlElement element, string name)
+        private static string ReadAttribute(EffectXmlElement element, string name)
         {
             return element.Attributes.TryGetValue(name, out string value) ? value : null;
         }
 
-        private static int ReadPositiveInt(SexyXmlElement element, string name, int fallback)
+        private static int ReadPositiveInt(EffectXmlElement element, string name, int fallback)
         {
             string value = ReadAttribute(element, name);
             return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed) && parsed > 0

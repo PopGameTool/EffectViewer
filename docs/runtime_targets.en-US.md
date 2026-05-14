@@ -5,7 +5,7 @@ EffectViewer is a cross-platform application built with Avalonia. The repository
 ## Project Layout
 
 ```text
-EffectViewer/           Shared Avalonia UI, view models, rendering, runtime, and TodLib code
+EffectViewer/           Shared Avalonia UI, view models, rendering and runtime code
 EffectViewer.Desktop/   Desktop app host
 EffectViewer.Windows/   Windows publishing host
 EffectViewer.Browser/   Browser/WebAssembly app host
@@ -49,7 +49,7 @@ The desktop target is the best choice for day-to-day editing and debugging, and 
 dotnet build EffectViewer.Desktop/EffectViewer.Desktop.csproj
 ```
 
-If you only changed shared UI, view models, project management, rendering, or TodLib code, a Desktop build is usually enough for a basic smoke test.
+If you only changed shared UI, view models, project management, rendering, or EffectRuntime code, a Desktop build is usually enough for a basic smoke test.
 
 ## Build Windows Publishing Host
 

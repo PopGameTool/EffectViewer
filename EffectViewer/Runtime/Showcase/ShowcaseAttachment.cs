@@ -1,9 +1,9 @@
 using System;
 using System.Numerics;
 using EffectViewer.Runtime.Lua;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Graphics;
-using EffectViewer.TodLib.Reanim.Attachment;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Graphics;
+using EffectViewer.EffectRuntime.Reanim.Attachment;
 using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Showcase
@@ -33,7 +33,7 @@ namespace EffectViewer.Runtime.Showcase
 
         public bool is_dead() => Attachment is null || Attachment.mDead;
         public bool is_empty() => Attachment is null || Attachment.mNumEffects == 0;
-        public bool is_full() => Attachment is not null && Attachment.mNumEffects >= TodLibConstants.MAX_EFFECTS_PER_ATTACHMENT;
+        public bool is_full() => Attachment is not null && Attachment.mNumEffects >= EffectConstants.MAX_EFFECTS_PER_ATTACHMENT;
 
         public ShowcaseAttachment update()
         {
@@ -153,7 +153,7 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseAttachment set_color(double red, double green, double blue, double alpha)
         {
-            Attachment?.OverrideColor(new SexyColor(
+            Attachment?.OverrideColor(new EffectColor(
                 ClampColor(red),
                 ClampColor(green),
                 ClampColor(blue),
@@ -163,7 +163,7 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseAttachment override_color(DynValue red, DynValue green, DynValue blue, DynValue alpha)
         {
-            Attachment?.OverrideColor(new SexyColor(
+            Attachment?.OverrideColor(new EffectColor(
                 LuaApiUtility.ClampColor(LuaApiUtility.NumberOr(red, 255)),
                 LuaApiUtility.ClampColor(LuaApiUtility.NumberOr(green, 255)),
                 LuaApiUtility.ClampColor(LuaApiUtility.NumberOr(blue, 255)),
@@ -199,11 +199,11 @@ namespace EffectViewer.Runtime.Showcase
             double overlayAlpha)
         {
             Attachment?.PropogateColor(
-                new SexyColor(ClampColor(red), ClampColor(green), ClampColor(blue), ClampColor(alpha)),
+                new EffectColor(ClampColor(red), ClampColor(green), ClampColor(blue), ClampColor(alpha)),
                 enableAdditiveColor,
-                new SexyColor(ClampColor(additiveRed), ClampColor(additiveGreen), ClampColor(additiveBlue), ClampColor(additiveAlpha)),
+                new EffectColor(ClampColor(additiveRed), ClampColor(additiveGreen), ClampColor(additiveBlue), ClampColor(additiveAlpha)),
                 enableOverlayColor,
-                new SexyColor(ClampColor(overlayRed), ClampColor(overlayGreen), ClampColor(overlayBlue), ClampColor(overlayAlpha)));
+                new EffectColor(ClampColor(overlayRed), ClampColor(overlayGreen), ClampColor(overlayBlue), ClampColor(overlayAlpha)));
             return this;
         }
 

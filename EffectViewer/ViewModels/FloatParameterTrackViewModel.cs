@@ -2,7 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.Input;
-using EffectViewer.TodLib.Common;
+using EffectViewer.EffectRuntime.Common;
 
 namespace EffectViewer.ViewModels
 {
@@ -81,8 +81,8 @@ namespace EffectViewer.ViewModels
                 TimePercent = time,
                 LowValue = _defaultValue,
                 HighValue = _defaultValue,
-                CurveType = TodCurves.Linear,
-                Distribution = TodCurves.Linear
+                CurveType = CurveType.Linear,
+                Distribution = CurveType.Linear
             });
             RaiseChanged();
         }
@@ -172,8 +172,8 @@ namespace EffectViewer.ViewModels
                 TimePercent = 0d,
                 LowValue = _defaultValue,
                 HighValue = _defaultValue,
-                CurveType = TodCurves.Constant,
-                Distribution = TodCurves.Linear
+                CurveType = CurveType.Constant,
+                Distribution = CurveType.Linear
             };
         }
 

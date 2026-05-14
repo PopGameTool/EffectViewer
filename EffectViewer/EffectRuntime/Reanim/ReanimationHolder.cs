@@ -1,0 +1,38 @@
+namespace EffectViewer.EffectRuntime.Reanim
+{
+    public class ReanimationHolder
+    {
+        public readonly EffectSystem mEffectSystem;
+        public readonly DataArray<Reanimation, ReanimationID> mReanimations = new();
+
+        public ReanimationHolder(EffectSystem effectSystem = null)
+        {
+            mEffectSystem = effectSystem;
+        }
+
+        public void Dispose()
+        {
+            DisposeHolder();
+        }
+
+        public void InitializeHolder()
+        {
+            mReanimations.DataArrayInitialize(1024U, "reanims");
+        }
+
+        public void DisposeHolder()
+        {
+            mReanimations.DataArrayDispose();
+        }
+
+        public Reanimation AllocReanimation(float theX, float theY, int theRenderOrder, string theReanimationType)
+        {
+            Debug.Assert(mReanimations.mSize != mReanimations.mMaxSize);
+            Reanimation aReanim = mReanimations.DataArrayAlloc();
+            aReanim.mReanimationHolder = this;
+            aReanim.mRenderOrder = theRenderOrder;
+            aReanim.ReanimationInitializeType(theX, theY, theReanimationType);
+            return aReanim;
+        }
+    }
+}

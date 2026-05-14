@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using EffectViewer.Projects;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Graphics;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Graphics;
 
 namespace EffectViewer.Runtime
 {

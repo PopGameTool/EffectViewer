@@ -2,20 +2,20 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using EffectViewer.Runtime.Lua;
-using EffectViewer.TodLib.Graphics;
-using EffectViewer.TodLib.Particle;
+using EffectViewer.EffectRuntime.Graphics;
+using EffectViewer.EffectRuntime.Particle;
 using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Showcase
 {
     public sealed class ShowcaseParticleEmitter
     {
-        internal ShowcaseParticleEmitter(TodParticleEmitter emitter)
+        internal ShowcaseParticleEmitter(ParticleEmitter emitter)
         {
             Emitter = emitter;
         }
 
-        internal TodParticleEmitter Emitter { get; }
+        internal ParticleEmitter Emitter { get; }
 
         public ShowcaseParticle particle_system => Emitter?.mParticleSystem is null
             ? null
@@ -364,7 +364,7 @@ namespace EffectViewer.Runtime.Showcase
         {
             if (Emitter is not null)
             {
-                Emitter.mColorOverride = new SexyColor(
+                Emitter.mColorOverride = new EffectColor(
                     ClampColor(red),
                     ClampColor(green),
                     ClampColor(blue),
@@ -443,7 +443,7 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseParticleInstance spawn_particle(int index, int spawnCount)
         {
-            TodParticle particle = Emitter?.SpawnParticle(index, spawnCount);
+            ParticleInstance particle = Emitter?.SpawnParticle(index, spawnCount);
             return particle is null ? null : new ShowcaseParticleInstance(particle);
         }
 
@@ -499,7 +499,7 @@ namespace EffectViewer.Runtime.Showcase
             }
 
             ParticleRenderParams renderParams = default;
-            return TodParticleEmitter.GetRenderParams(particle.Particle, ref renderParams)
+            return ParticleEmitter.GetRenderParams(particle.Particle, ref renderParams)
                 ? new ShowcaseParticleRenderParams(renderParams)
                 : null;
         }
@@ -526,7 +526,7 @@ namespace EffectViewer.Runtime.Showcase
             {
                 if (current++ == index)
                 {
-                    TodParticle particle = Emitter.mParticleSystem.mParticleHolder.mParticles.DataArrayTryToGet(node.Value);
+                    ParticleInstance particle = Emitter.mParticleSystem.mParticleHolder.mParticles.DataArrayTryToGet(node.Value);
                     return particle is null ? null : new ShowcaseParticleInstance(particle);
                 }
             }
@@ -544,7 +544,7 @@ namespace EffectViewer.Runtime.Showcase
             int index = 0;
             for (LinkedListNode<ParticleID> node = Emitter.mParticleList.First; node is not null; node = node.Next)
             {
-                TodParticle current = Emitter.mParticleSystem.mParticleHolder.mParticles.DataArrayTryToGet(node.Value);
+                ParticleInstance current = Emitter.mParticleSystem.mParticleHolder.mParticles.DataArrayTryToGet(node.Value);
                 if (ReferenceEquals(current, particle.Particle))
                 {
                     return index;

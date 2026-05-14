@@ -5,7 +5,7 @@ EffectViewer 是基于 Avalonia 的跨平台应用。仓库包含共享 UI/运�
 ## 项目结构
 
 ```text
-EffectViewer/           共享 Avalonia UI、ViewModel、渲染、运行时和 TodLib 代码
+EffectViewer/           共享 Avalonia UI、ViewModel、渲染和运行时代码
 EffectViewer.Desktop/   桌面应用宿主
 EffectViewer.Windows/   Windows 发布宿主
 EffectViewer.Browser/   浏览器/WebAssembly 应用宿主
@@ -49,7 +49,7 @@ dotnet run --project EffectViewer.Desktop/EffectViewer.Desktop.csproj
 dotnet build EffectViewer.Desktop/EffectViewer.Desktop.csproj
 ```
 
-如果只修改共享 UI、ViewModel、项目管理、渲染或 TodLib，大多数情况下构建 Desktop 就能完成基础冒烟验证。
+如果只修改共享 UI、ViewModel、项目管理、渲染或 EffectRuntime，大多数情况下构建 Desktop 就能完成基础冒烟验证。
 
 ## 构建 Windows 发布宿主
 

@@ -42,7 +42,7 @@ scene.regist(context)
 | `scene.regist(context)` | Lua table | 无 | 注册包含 `update`/`draw` 的上下文。 |
 | `scene.clear()` | 无 | 无 | 清空当前场景对象。 |
 | `scene.reanim(id, x, y)` | 资源 ID，坐标 | Reanimation | 创建 reanim 实例。 |
-| `scene.particle_system(id, x, y)` | 资源 ID，坐标 | TodParticleSystem | 创建粒子系统。 |
+| `scene.particle_system(id, x, y)` | 资源 ID，坐标 | ParticleSystem | 创建粒子系统。 |
 | `scene.trail(id, x, y)` | 资源 ID，坐标 | Trail | 创建 trail 实例。 |
 | `scene.log(message)` | string | 无 | 写入普通日志。 |
 | `scene.warn(message)` | string | 无 | 写入 warning 日志。 |
@@ -55,15 +55,15 @@ scene.regist(context)
 | `scene.resource_exist(id, type)` | 资源 ID, `"reanim"`/`"particle"`/`"trail"`/`"image"`/`"font"` | bool | 判断项目资源是否存在。 |
 | `scene.tri_vertex(pos_x, pos_y, pos_z, r, g, b, a, coordinate_x, coordinate_y)` | 顶点坐标、颜色、UV | TriVertex | 创建纹理三角形顶点。 |
 | `scene.reanim_get_id(reanim)` | Reanimation | number | 获取 reanim 运行时 ID。 |
-| `scene.particle_system_get_id(particle)` | TodParticleSystem | number | 获取粒子系统运行时 ID。 |
-| `scene.emitter_get_id(emitter)` | TodParticleEmitter | number | 获取发射器运行时 ID。 |
-| `scene.particle_get_id(particle_instance)` | TodParticle | number | 获取粒子实例运行时 ID。 |
+| `scene.particle_system_get_id(particle)` | ParticleSystem | number | 获取粒子系统运行时 ID。 |
+| `scene.emitter_get_id(emitter)` | ParticleEmitter | number | 获取发射器运行时 ID。 |
+| `scene.particle_get_id(particle_instance)` | ParticleInstance | number | 获取粒子实例运行时 ID。 |
 | `scene.attachment_get_id(attachment)` | Attachment | number | 获取 attachment 运行时 ID。 |
 | `scene.trail_get_id(trail)` | Trail | number | 获取 trail 运行时 ID。 |
 | `scene.reanim_get(id)` / `scene.reanim_try_to_get(id)` | number | Reanimation 或 nil | 按运行时 ID 获取 reanim。 |
-| `scene.particle_system_get(id)` / `scene.particle_system_try_to_get(id)` | number | TodParticleSystem 或 nil | 按运行时 ID 获取粒子系统。 |
-| `scene.emitter_get(id)` / `scene.emitter_try_to_get(id)` | number | TodParticleEmitter 或 nil | 按运行时 ID 获取发射器。 |
-| `scene.particle_get(id)` / `scene.particle_try_to_get(id)` | number | TodParticle 或 nil | 按运行时 ID 获取粒子实例。 |
+| `scene.particle_system_get(id)` / `scene.particle_system_try_to_get(id)` | number | ParticleSystem 或 nil | 按运行时 ID 获取粒子系统。 |
+| `scene.emitter_get(id)` / `scene.emitter_try_to_get(id)` | number | ParticleEmitter 或 nil | 按运行时 ID 获取发射器。 |
+| `scene.particle_get(id)` / `scene.particle_try_to_get(id)` | number | ParticleInstance 或 nil | 按运行时 ID 获取粒子实例。 |
 | `scene.attachment_get(id)` / `scene.attachment_try_to_get(id)` | number | Attachment 或 nil | 按运行时 ID 获取 attachment。 |
 | `scene.trail_get(id)` / `scene.trail_try_to_get(id)` | number | Trail 或 nil | 按运行时 ID 获取 trail。 |
 
@@ -193,7 +193,7 @@ scene.regist(context)
 | `propogate_color_to_attachments()` | 无 | Reanimation | 把颜色传播给 attachment。 |
 | `should_trigger_timed_event(event_time)` | number | bool | 判断事件时间是否在本帧跨过。 |
 | `get_current_track_image(track_name)` | string | string 或 nil | 获取轨道当前图片名。 |
-| `attach_particle_to_track(track_name, particle, x, y)` | string, TodParticleSystem, 坐标 | `attachment, attach_effect_index` | 挂接粒子，失败返回 nil。 |
+| `attach_particle_to_track(track_name, particle, x, y)` | string, ParticleSystem, 坐标 | `attachment, attach_effect_index` | 挂接粒子，失败返回 nil。 |
 | `get_track_base_pos_matrix(index, [matrix])` | int, Matrix3x3 可选 | Matrix3x3 | 获取轨道基准姿态矩阵。 |
 | `is_track_showing(track_name)` | string | bool | 当前帧是否显示该轨道。 |
 | `set_truncate_disappearing_frames(track_name, enabled)` | string 或 nil, bool | Reanimation | 设置消失帧截断，可传 nil 作用于全部轨道。 |
@@ -209,7 +209,7 @@ scene.regist(context)
 | `reanim_blt_matrix(g, img, matrix, clip_x, clip_y, clip_w, clip_h, r, g, b, a, draw_mode, src_x, src_y, src_w, src_h)` | 绘图参数 | Reanimation | 低层矩阵绘图。 |
 | `find_sub_reanim(reanim_type)` | string | Reanimation 或 nil | 在 attachment 树中查找子 reanim。 |
 
-## TodParticleSystem
+## ParticleSystem
 
 字段：
 
@@ -226,25 +226,25 @@ scene.regist(context)
 | 函数 | 参数 | 返回值 | 作用 |
 | --- | --- | --- | --- |
 | `get_emitter_id(index)` | int | number | 按发射器列表顺序获取 ID。 |
-| `tod_particle_initialize(x, y, effect_type)` | 坐标, string | TodParticleSystem | 设置位置和类型。 |
-| `particle_system_die()` | 无 | TodParticleSystem | 杀死粒子系统。 |
-| `update()` / `draw(g)` | Graphics 可选 | TodParticleSystem | 更新或绘制。 |
-| `system_move(x, y)` | number | TodParticleSystem | 移动系统中心。 |
-| `override_color(emitter_name, r, g, b, a)` | string 或 nil, number | TodParticleSystem | 覆写发射器颜色，emitter_name 为 nil 时作用于全部。 |
-| `override_extra_additive_draw(emitter_name, enabled)` | string 或 nil, bool | TodParticleSystem | 覆写额外叠加绘制开关。 |
-| `override_image(emitter_name, img)` | string 或 nil, Image 或 nil | TodParticleSystem | 覆写或清除图片。 |
-| `override_frame(emitter_name, frame)` | string 或 nil, int | TodParticleSystem | 覆写图片帧。 |
-| `override_scale(emitter_name, scale)` | string 或 nil, number | TodParticleSystem | 覆写缩放。 |
-| `cross_fade(emitter_name)` | string | TodParticleSystem | 交叉淡化到指定发射器定义。 |
-| `find_emitter_by_name(emitter_name)` | string | TodParticleEmitter 或 nil | 查找当前发射器。 |
+| `initialize(x, y, effect_type)` | 坐标, string | ParticleSystem | 设置位置和类型。 |
+| `particle_system_die()` | 无 | ParticleSystem | 杀死粒子系统。 |
+| `update()` / `draw(g)` | Graphics 可选 | ParticleSystem | 更新或绘制。 |
+| `system_move(x, y)` | number | ParticleSystem | 移动系统中心。 |
+| `override_color(emitter_name, r, g, b, a)` | string 或 nil, number | ParticleSystem | 覆写发射器颜色，emitter_name 为 nil 时作用于全部。 |
+| `override_extra_additive_draw(emitter_name, enabled)` | string 或 nil, bool | ParticleSystem | 覆写额外叠加绘制开关。 |
+| `override_image(emitter_name, img)` | string 或 nil, Image 或 nil | ParticleSystem | 覆写或清除图片。 |
+| `override_frame(emitter_name, frame)` | string 或 nil, int | ParticleSystem | 覆写图片帧。 |
+| `override_scale(emitter_name, scale)` | string 或 nil, number | ParticleSystem | 覆写缩放。 |
+| `cross_fade(emitter_name)` | string | ParticleSystem | 交叉淡化到指定发射器定义。 |
+| `find_emitter_by_name(emitter_name)` | string | ParticleEmitter 或 nil | 查找当前发射器。 |
 
-## TodParticleEmitter
+## ParticleEmitter
 
 字段：
 
 | 字段 | 类型 | 作用 |
 | --- | --- | --- |
-| `particle_system` | TodParticleSystem，只读 | 所属粒子系统。 |
+| `particle_system` | ParticleSystem，只读 | 所属粒子系统。 |
 | `spawn_accum` | number | 发射累计量。 |
 | `system_center_x` / `system_center_y` | number | 系统中心。 |
 | `particles_spawned` | int | 已发射粒子数。 |
@@ -269,25 +269,25 @@ scene.regist(context)
 | `update()` / `draw(g)` | Graphics 可选 | emitter | 更新或绘制发射器。 |
 | `system_move(x, y)` | number | emitter | 移动系统中心。 |
 | `get_color_override()` / `set_color_override(r, g, b, a)` | number 或 nil | 多返回值 / emitter | 读写颜色覆写。 |
-| `get_render_params(particle_instance)` | TodParticle | ParticleRenderParams 或 nil | 计算粒子渲染参数。 |
-| `draw_particle(g, particle_instance)` | Graphics, TodParticle | emitter | 绘制单个粒子。 |
+| `get_render_params(particle_instance)` | ParticleInstance | ParticleRenderParams 或 nil | 计算粒子渲染参数。 |
+| `draw_particle(g, particle_instance)` | Graphics, ParticleInstance | emitter | 绘制单个粒子。 |
 | `update_spawning()` | 无 | emitter | 执行发射逻辑。 |
-| `update_particle(particle_instance)` | TodParticle | bool | 更新单个粒子，返回是否仍存活。 |
-| `spawn_particle(index, spawn_count)` | int, int | TodParticle 或 nil | 生成一个粒子。 |
-| `cross_fade_particle(particle_instance, to_emitter)` | TodParticle, emitter | bool | 让单个粒子交叉淡化。 |
+| `update_particle(particle_instance)` | ParticleInstance | bool | 更新单个粒子，返回是否仍存活。 |
+| `spawn_particle(index, spawn_count)` | int, int | ParticleInstance 或 nil | 生成一个粒子。 |
+| `cross_fade_particle(particle_instance, to_emitter)` | ParticleInstance, emitter | bool | 让单个粒子交叉淡化。 |
 | `cross_fade_emitter(to_emitter)` | emitter | emitter | 整个发射器交叉淡化。 |
-| `cross_fade_particle_to_name(particle_instance, emitter_name)` | TodParticle, string | bool | 交叉淡化到指定名称。 |
+| `cross_fade_particle_to_name(particle_instance, emitter_name)` | ParticleInstance, string | bool | 交叉淡化到指定名称。 |
 | `delete_all()` | 无 | emitter | 删除全部粒子。 |
-| `delete_particle(particle_instance)` | TodParticle | emitter | 删除指定粒子。 |
+| `delete_particle(particle_instance)` | ParticleInstance | emitter | 删除指定粒子。 |
 | `delete_non_cross_fading()` | 无 | emitter | 删除非交叉淡化粒子。 |
 
-## TodParticle
+## ParticleInstance
 
 字段：
 
 | 字段 | 类型 | 作用 |
 | --- | --- | --- |
-| `particle_emitter` | TodParticleEmitter，只读 | 所属发射器。 |
+| `particle_emitter` | ParticleEmitter，只读 | 所属发射器。 |
 | `particle_duration` / `particle_age` | int | 粒子持续帧数和年龄。 |
 | `particle_time_value` / `particle_last_time_value` | number | 当前和上一粒子时间值。 |
 | `animation_time_value` | number | 动画循环时间值。 |
@@ -402,7 +402,7 @@ scene.regist(context)
 | `attachment_die(attachment_id)` | ID | attachment_id | 杀死 attachment，返回新 ID，通常为 0。 |
 | `attachment_detach(attachment_id)` | ID | attachment_id | 分离 attachment，返回新 ID，通常为 0。 |
 | `attach_reanim(attachment_id, reanim, offset_x, offset_y)` | ID, Reanimation, 坐标 | `attachment_id, attachment, attach_effect_index` | 添加 reanim attachment。 |
-| `attach_particle(attachment_id, particle, offset_x, offset_y)` | ID, TodParticleSystem, 坐标 | 同上 | 添加 particle attachment。 |
+| `attach_particle(attachment_id, particle, offset_x, offset_y)` | ID, ParticleSystem, 坐标 | 同上 | 添加 particle attachment。 |
 | `attach_trail(attachment_id, trail, offset_x, offset_y)` | ID, Trail, 坐标 | 同上 | 添加 trail attachment。 |
 | `attachment_detach_cross_fade_particle_type(attachment_id, particle_effect, cross_fade_name)` | ID, string, string 或 nil | 无 | 分离指定粒子类型并交叉淡化；cross_fade_name 为 nil 时直接 die。 |
 | `attachment_propogate_color(attachment_id, r, g, b, a, enable_additive, ar, ag, ab, aa, enable_overlay, or, og, ob, oa)` | ID, 颜色和开关 | 无 | 传播颜色。 |

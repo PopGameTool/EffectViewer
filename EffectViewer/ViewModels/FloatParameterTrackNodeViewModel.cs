@@ -1,6 +1,6 @@
 using System;
 using CommunityToolkit.Mvvm.Input;
-using EffectViewer.TodLib.Common;
+using EffectViewer.EffectRuntime.Common;
 
 namespace EffectViewer.ViewModels
 {
@@ -11,10 +11,10 @@ namespace EffectViewer.ViewModels
         private double _timePercent;
         private double _lowValue;
         private double _highValue;
-        private TodCurves _curveType;
-        private TodCurves _distribution;
+        private CurveType _curveType;
+        private CurveType _distribution;
 
-        public TodCurves[] CurveOptions { get; } = Enum.GetValues<TodCurves>();
+        public CurveType[] CurveOptions { get; } = Enum.GetValues<CurveType>();
 
         public double TimePercent
         {
@@ -55,7 +55,7 @@ namespace EffectViewer.ViewModels
             }
         }
 
-        public TodCurves CurveType
+        public CurveType CurveType
         {
             get => _curveType;
             set
@@ -67,7 +67,7 @@ namespace EffectViewer.ViewModels
             }
         }
 
-        public TodCurves Distribution
+        public CurveType Distribution
         {
             get => _distribution;
             set

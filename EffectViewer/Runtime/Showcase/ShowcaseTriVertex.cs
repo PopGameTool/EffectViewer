@@ -1,7 +1,7 @@
 using System.Numerics;
 using EffectViewer.Runtime.Lua;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Graphics;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Graphics;
 
 namespace EffectViewer.Runtime.Showcase
 {
@@ -44,7 +44,7 @@ namespace EffectViewer.Runtime.Showcase
             return new TriVertex
             {
                 Position = new Vector3((float)pos_x, (float)pos_y, (float)pos_z),
-                Color = new SexyColor(
+                Color = new EffectColor(
                     LuaApiUtility.ClampColor(red),
                     LuaApiUtility.ClampColor(green),
                     LuaApiUtility.ClampColor(blue),

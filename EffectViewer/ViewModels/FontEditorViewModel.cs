@@ -12,10 +12,10 @@ using EffectViewer.Rendering.TextureUpload;
 using EffectViewer.Runtime;
 using System.Threading.Tasks;
 using System.Numerics;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Graphics;
-using TodFont = EffectViewer.TodLib.Graphics.Font;
-using TodImage = EffectViewer.TodLib.Graphics.Image;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Graphics;
+using RuntimeFont = EffectViewer.EffectRuntime.Graphics.Font;
+using RuntimeImage = EffectViewer.EffectRuntime.Graphics.Image;
 
 namespace EffectViewer.ViewModels
 {
@@ -31,7 +31,7 @@ namespace EffectViewer.ViewModels
         private readonly List<FontEditorHistorySnapshot> _undoStack = [];
         private readonly List<FontEditorHistorySnapshot> _redoStack = [];
         private bool _isRestoringHistory;
-        private TodFont _previewFont;
+        private RuntimeFont _previewFont;
         private int _savedFontSize;
         private int _savedBorderSize;
 
@@ -276,7 +276,7 @@ namespace EffectViewer.ViewModels
             try
             {
                 ProjectResourceProvider provider = new(_project);
-                TodFont font = provider.GetFont(Asset.Id);
+                RuntimeFont font = provider.GetFont(Asset.Id);
                 if (font is null)
                 {
                     LoadError = LocalizationManager.Instance.Text("FontEditor.DescriptorCouldNotBeRead");
@@ -310,7 +310,7 @@ namespace EffectViewer.ViewModels
                         glyphs.Add(item.Key);
                     }
 
-                    TodImage image = layer.Image;
+                    RuntimeImage image = layer.Image;
                     string imageId = image?.mId ?? string.Empty;
                     int characterCount = layer.CharData.Count();
                     Layers.Add(new FontLayerViewModel(
@@ -546,7 +546,7 @@ namespace EffectViewer.ViewModels
             FrameCaptureGraphics graphics = new()
             {
                 mDrawMode = DrawMode.Normal,
-                mColor = SexyColor.White,
+                mColor = EffectColor.White,
                 mClipRect = new System.Drawing.Rectangle(-8192, -8192, 16384, 16384)
             };
 
@@ -559,14 +559,14 @@ namespace EffectViewer.ViewModels
             return graphics.Frame;
         }
 
-        private static void DrawPreviewLine(FrameCaptureGraphics graphics, TodFont font, string text, float x, float baselineY)
+        private static void DrawPreviewLine(FrameCaptureGraphics graphics, RuntimeFont font, string text, float x, float baselineY)
         {
             Matrix4x4 matrix = Matrix4x4.Identity;
-            TodCommon.SexyMatrix3Translation(ref matrix, x, baselineY);
-            TodCommon.TodDrawStringMatrix(graphics, font, matrix, text, SexyColor.White);
+            EffectUtility.Matrix3Translation(ref matrix, x, baselineY);
+            EffectUtility.DrawStringMatrix(graphics, font, matrix, text, EffectColor.White);
         }
 
-        private static string CreateTrueTypePreviewText(TodFont font)
+        private static string CreateTrueTypePreviewText(RuntimeFont font)
         {
             return font?.SupportsChinese == true
                 ? EnglishPreviewText + " / " + ChinesePreviewText

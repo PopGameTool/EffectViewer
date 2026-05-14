@@ -70,7 +70,7 @@ Samples/QuickStartShowcase.zip
 ## 项目结构
 
 ```text
-EffectViewer/           共享 Avalonia UI、ViewModel、渲染、运行时和 TodLib 代码
+EffectViewer/           共享 Avalonia UI、ViewModel、渲染和运行时代码
 EffectViewer.Desktop/   桌面应用宿主
 EffectViewer.Windows/   Windows 发布宿主
 EffectViewer.Browser/   浏览器/WebAssembly 应用宿主

@@ -1,19 +1,19 @@
 using System;
 using System.Runtime.CompilerServices;
 using EffectViewer.Runtime.Lua;
-using EffectViewer.TodLib.Particle;
+using EffectViewer.EffectRuntime.Particle;
 using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Showcase
 {
     public sealed class ShowcaseParticleInstance
     {
-        internal ShowcaseParticleInstance(TodParticle particle)
+        internal ShowcaseParticleInstance(ParticleInstance particle)
         {
             Particle = particle;
         }
 
-        internal TodParticle Particle { get; }
+        internal ParticleInstance Particle { get; }
 
         public ShowcaseParticleEmitter particle_emitter => emitter();
 

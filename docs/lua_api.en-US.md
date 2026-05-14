@@ -42,7 +42,7 @@ Functions:
 | `scene.regist(context)` | Lua table | none | Registers the script context table. |
 | `scene.clear()` | none | none | Clears current scene objects. |
 | `scene.reanim(id, x, y)` | resource ID, coordinates | Reanimation | Creates a reanimation instance. |
-| `scene.particle_system(id, x, y)` | resource ID, coordinates | TodParticleSystem | Creates a particle system. |
+| `scene.particle_system(id, x, y)` | resource ID, coordinates | ParticleSystem | Creates a particle system. |
 | `scene.trail(id, x, y)` | resource ID, coordinates | Trail | Creates a trail instance. |
 | `scene.log(message)` | string | none | Adds a normal log entry. |
 | `scene.warn(message)` | string | none | Adds a warning log entry. |
@@ -55,15 +55,15 @@ Functions:
 | `scene.resource_exist(id, type)` | ID, `"reanim"` / `"particle"` / `"trail"` / `"image"` / `"font"` | bool | Checks whether a project resource exists. |
 | `scene.tri_vertex(pos_x, pos_y, pos_z, r, g, b, a, coordinate_x, coordinate_y)` | position, color, UV | TriVertex | Creates a textured triangle vertex. |
 | `scene.reanim_get_id(reanim)` | Reanimation | number | Gets a reanimation runtime ID. |
-| `scene.particle_system_get_id(particle)` | TodParticleSystem | number | Gets a particle system runtime ID. |
-| `scene.emitter_get_id(emitter)` | TodParticleEmitter | number | Gets an emitter runtime ID. |
-| `scene.particle_get_id(particle_instance)` | TodParticle | number | Gets a particle instance runtime ID. |
+| `scene.particle_system_get_id(particle)` | ParticleSystem | number | Gets a particle system runtime ID. |
+| `scene.emitter_get_id(emitter)` | ParticleEmitter | number | Gets an emitter runtime ID. |
+| `scene.particle_get_id(particle_instance)` | ParticleInstance | number | Gets a particle instance runtime ID. |
 | `scene.attachment_get_id(attachment)` | Attachment | number | Gets an attachment runtime ID. |
 | `scene.trail_get_id(trail)` | Trail | number | Gets a trail runtime ID. |
 | `scene.reanim_get(id)` / `scene.reanim_try_to_get(id)` | number | Reanimation or nil | Gets a reanimation by runtime ID. |
-| `scene.particle_system_get(id)` / `scene.particle_system_try_to_get(id)` | number | TodParticleSystem or nil | Gets a particle system by runtime ID. |
-| `scene.emitter_get(id)` / `scene.emitter_try_to_get(id)` | number | TodParticleEmitter or nil | Gets an emitter by runtime ID. |
-| `scene.particle_get(id)` / `scene.particle_try_to_get(id)` | number | TodParticle or nil | Gets a particle instance by runtime ID. |
+| `scene.particle_system_get(id)` / `scene.particle_system_try_to_get(id)` | number | ParticleSystem or nil | Gets a particle system by runtime ID. |
+| `scene.emitter_get(id)` / `scene.emitter_try_to_get(id)` | number | ParticleEmitter or nil | Gets an emitter by runtime ID. |
+| `scene.particle_get(id)` / `scene.particle_try_to_get(id)` | number | ParticleInstance or nil | Gets a particle instance by runtime ID. |
 | `scene.attachment_get(id)` / `scene.attachment_try_to_get(id)` | number | Attachment or nil | Gets an attachment by runtime ID. |
 | `scene.trail_get(id)` / `scene.trail_try_to_get(id)` | number | Trail or nil | Gets a trail by runtime ID. |
 
@@ -193,7 +193,7 @@ Functions:
 | `propogate_color_to_attachments()` | none | Reanimation | Propagates color to attachments. |
 | `should_trigger_timed_event(event_time)` | number | bool | Checks whether an event time was crossed this frame. |
 | `get_current_track_image(track_name)` | string | string or nil | Gets current track image name. |
-| `attach_particle_to_track(track_name, particle, x, y)` | string, TodParticleSystem, coordinates | `attachment, attach_effect_index` | Attaches a particle system to a track. |
+| `attach_particle_to_track(track_name, particle, x, y)` | string, ParticleSystem, coordinates | `attachment, attach_effect_index` | Attaches a particle system to a track. |
 | `get_track_base_pos_matrix(index, [matrix])` | int, optional Matrix3x3 | Matrix3x3 | Gets track base-pose matrix. |
 | `is_track_showing(track_name)` | string | bool | Checks whether this track is showing on the current frame. |
 | `set_truncate_disappearing_frames(track_name, enabled)` | string or nil, bool | Reanimation | Sets disappearing-frame truncation; nil track name applies to all tracks. |
@@ -207,7 +207,7 @@ Functions:
 | `reanim_blt_matrix(g, img, matrix, clip_x, clip_y, clip_w, clip_h, r, g, b, a, draw_mode, src_x, src_y, src_w, src_h)` | draw args | Reanimation | Low-level matrix image draw. |
 | `find_sub_reanim(reanim_type)` | string | Reanimation or nil | Finds a child reanimation in the attachment tree. |
 
-## TodParticleSystem
+## ParticleSystem
 
 Fields:
 
@@ -224,25 +224,25 @@ Functions:
 | Function | Parameters | Returns | Description |
 | --- | --- | --- | --- |
 | `get_emitter_id(index)` | int | number | Gets an emitter ID by emitter list order. |
-| `tod_particle_initialize(x, y, effect_type)` | coordinates, string | TodParticleSystem | Sets position and type. |
-| `particle_system_die()` | none | TodParticleSystem | Kills the particle system. |
-| `update()` / `draw(g)` | optional Graphics | TodParticleSystem | Updates or draws. |
-| `system_move(x, y)` | numbers | TodParticleSystem | Moves system center. |
-| `override_color(emitter_name, r, g, b, a)` | string or nil, color | TodParticleSystem | Overrides emitter color; nil emitter name applies to all. |
-| `override_extra_additive_draw(emitter_name, enabled)` | string or nil, bool | TodParticleSystem | Overrides additive drawing. |
-| `override_image(emitter_name, img)` | string or nil, Image or nil | TodParticleSystem | Sets or clears image override. |
-| `override_frame(emitter_name, frame)` | string or nil, int | TodParticleSystem | Overrides image frame. |
-| `override_scale(emitter_name, scale)` | string or nil, number | TodParticleSystem | Overrides scale. |
-| `cross_fade(emitter_name)` | string | TodParticleSystem | Cross-fades to an emitter definition. |
-| `find_emitter_by_name(emitter_name)` | string | TodParticleEmitter or nil | Finds a current emitter. |
+| `initialize(x, y, effect_type)` | coordinates, string | ParticleSystem | Sets position and type. |
+| `particle_system_die()` | none | ParticleSystem | Kills the particle system. |
+| `update()` / `draw(g)` | optional Graphics | ParticleSystem | Updates or draws. |
+| `system_move(x, y)` | numbers | ParticleSystem | Moves system center. |
+| `override_color(emitter_name, r, g, b, a)` | string or nil, color | ParticleSystem | Overrides emitter color; nil emitter name applies to all. |
+| `override_extra_additive_draw(emitter_name, enabled)` | string or nil, bool | ParticleSystem | Overrides additive drawing. |
+| `override_image(emitter_name, img)` | string or nil, Image or nil | ParticleSystem | Sets or clears image override. |
+| `override_frame(emitter_name, frame)` | string or nil, int | ParticleSystem | Overrides image frame. |
+| `override_scale(emitter_name, scale)` | string or nil, number | ParticleSystem | Overrides scale. |
+| `cross_fade(emitter_name)` | string | ParticleSystem | Cross-fades to an emitter definition. |
+| `find_emitter_by_name(emitter_name)` | string | ParticleEmitter or nil | Finds a current emitter. |
 
-## TodParticleEmitter
+## ParticleEmitter
 
 Fields:
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `particle_system` | TodParticleSystem, read-only | Owning particle system. |
+| `particle_system` | ParticleSystem, read-only | Owning particle system. |
 | `spawn_accum` | number | Spawn accumulator. |
 | `system_center_x` / `system_center_y` | number | System center. |
 | `particles_spawned` | int | Total spawned particle count. |
@@ -267,25 +267,25 @@ Functions:
 | `update()` / `draw(g)` | optional Graphics | emitter | Updates or draws. |
 | `system_move(x, y)` | numbers | emitter | Moves system center. |
 | `get_color_override()` / `set_color_override(r, g, b, a)` | number or nil | multi-return / emitter | Reads or writes color override. |
-| `get_render_params(particle_instance)` | TodParticle | ParticleRenderParams or nil | Computes particle render parameters. |
-| `draw_particle(g, particle_instance)` | Graphics, TodParticle | emitter | Draws one particle. |
+| `get_render_params(particle_instance)` | ParticleInstance | ParticleRenderParams or nil | Computes particle render parameters. |
+| `draw_particle(g, particle_instance)` | Graphics, ParticleInstance | emitter | Draws one particle. |
 | `update_spawning()` | none | emitter | Runs spawning logic. |
-| `update_particle(particle_instance)` | TodParticle | bool | Updates one particle and returns whether it remains alive. |
-| `spawn_particle(index, spawn_count)` | int, int | TodParticle or nil | Spawns one particle. |
-| `cross_fade_particle(particle_instance, to_emitter)` | TodParticle, emitter | bool | Cross-fades one particle. |
+| `update_particle(particle_instance)` | ParticleInstance | bool | Updates one particle and returns whether it remains alive. |
+| `spawn_particle(index, spawn_count)` | int, int | ParticleInstance or nil | Spawns one particle. |
+| `cross_fade_particle(particle_instance, to_emitter)` | ParticleInstance, emitter | bool | Cross-fades one particle. |
 | `cross_fade_emitter(to_emitter)` | emitter | emitter | Cross-fades the whole emitter. |
-| `cross_fade_particle_to_name(particle_instance, emitter_name)` | TodParticle, string | bool | Cross-fades to a named emitter. |
+| `cross_fade_particle_to_name(particle_instance, emitter_name)` | ParticleInstance, string | bool | Cross-fades to a named emitter. |
 | `delete_all()` | none | emitter | Deletes all particles. |
-| `delete_particle(particle_instance)` | TodParticle | emitter | Deletes one particle. |
+| `delete_particle(particle_instance)` | ParticleInstance | emitter | Deletes one particle. |
 | `delete_non_cross_fading()` | none | emitter | Deletes non-cross-fading particles. |
 
-## TodParticle
+## ParticleInstance
 
 Fields:
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `particle_emitter` | TodParticleEmitter, read-only | Owning emitter. |
+| `particle_emitter` | ParticleEmitter, read-only | Owning emitter. |
 | `particle_duration` / `particle_age` | int | Particle duration and age. |
 | `particle_time_value` / `particle_last_time_value` | number | Current and previous particle time. |
 | `animation_time_value` | number | Animation loop time. |
@@ -400,7 +400,7 @@ The global `global_attachment` and `scene.global_attachment` reference the same 
 | `attachment_die(attachment_id)` | ID | attachment_id | Kills attachment and returns the new ID, usually 0. |
 | `attachment_detach(attachment_id)` | ID | attachment_id | Detaches attachment and returns the new ID, usually 0. |
 | `attach_reanim(attachment_id, reanim, offset_x, offset_y)` | ID, Reanimation, coordinates | `attachment_id, attachment, attach_effect_index` | Adds a reanimation attachment. |
-| `attach_particle(attachment_id, particle, offset_x, offset_y)` | ID, TodParticleSystem, coordinates | same | Adds a particle attachment. |
+| `attach_particle(attachment_id, particle, offset_x, offset_y)` | ID, ParticleSystem, coordinates | same | Adds a particle attachment. |
 | `attach_trail(attachment_id, trail, offset_x, offset_y)` | ID, Trail, coordinates | same | Adds a trail attachment. |
 | `attachment_detach_cross_fade_particle_type(attachment_id, particle_effect, cross_fade_name)` | ID, string, string or nil | none | Detaches a particle type and cross-fades it; nil cross-fade name kills directly. |
 | `attachment_propogate_color(attachment_id, r, g, b, a, enable_additive, ar, ag, ab, aa, enable_overlay, or, og, ob, oa)` | ID, colors and flags | none | Propagates colors. |

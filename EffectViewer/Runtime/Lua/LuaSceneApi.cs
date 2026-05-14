@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using EffectViewer.Projects;
 using EffectViewer.Runtime.Showcase;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Graphics;
-using EffectViewer.TodLib.Particle;
-using EffectViewer.TodLib.Reanim;
-using EffectViewer.TodLib.Reanim.Attachment;
-using EffectViewer.TodLib.Trail;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Graphics;
+using EffectViewer.EffectRuntime.Particle;
+using EffectViewer.EffectRuntime.Reanim;
+using EffectViewer.EffectRuntime.Reanim.Attachment;
+using EffectViewer.EffectRuntime.Trail;
 using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Lua
@@ -275,19 +275,19 @@ namespace EffectViewer.Runtime.Lua
 
         public ShowcaseParticle particle_system_try_to_get(double id)
         {
-            TodParticleSystem particle = _scene.GetParticleSystemById(id);
+            ParticleSystem particle = _scene.GetParticleSystemById(id);
             return particle is null ? null : new ShowcaseParticle(_scene, particle.mEffectType, particle);
         }
 
         public ShowcaseParticleEmitter emitter_try_to_get(double id)
         {
-            TodParticleEmitter emitter = _scene.GetEmitterById(id);
+            ParticleEmitter emitter = _scene.GetEmitterById(id);
             return emitter is null ? null : new ShowcaseParticleEmitter(emitter);
         }
 
         public ShowcaseParticleInstance particle_try_to_get(double id)
         {
-            TodParticle particle = _scene.GetParticleById(id);
+            ParticleInstance particle = _scene.GetParticleById(id);
             return particle is null ? null : new ShowcaseParticleInstance(particle);
         }
 

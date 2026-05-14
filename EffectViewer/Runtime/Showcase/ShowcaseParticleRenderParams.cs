@@ -1,4 +1,4 @@
-using EffectViewer.TodLib.Particle;
+using EffectViewer.EffectRuntime.Particle;
 
 namespace EffectViewer.Runtime.Showcase
 {

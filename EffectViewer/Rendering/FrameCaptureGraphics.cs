@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using EffectViewer.TodLib.Graphics;
-using EffectViewer.TodLib.Common;
-using InlineArray3TriVertex = System.Runtime.CompilerServices.InlineArray3<EffectViewer.TodLib.Common.TriVertex>;
+using EffectViewer.EffectRuntime.Graphics;
+using EffectViewer.EffectRuntime.Common;
+using InlineArray3TriVertex = System.Runtime.CompilerServices.InlineArray3<EffectViewer.EffectRuntime.Common.TriVertex>;
 
 namespace EffectViewer.Rendering
 {
@@ -28,7 +28,7 @@ namespace EffectViewer.Rendering
             }
 
             List<RenderVertex> vertices = new(theVertices.Length * 3);
-            Vector4 globalColor = ToVector4(mColorizeImages ? mColor : SexyColor.White);
+            Vector4 globalColor = ToVector4(mColorizeImages ? mColor : EffectColor.White);
             foreach (InlineArray3TriVertex triangle in theVertices)
             {
                 AppendClippedTriangle(
@@ -217,7 +217,7 @@ namespace EffectViewer.Rendering
             return new RenderVertex(vertex.Position, vertex.Uv, vertex.Color);
         }
 
-        private static bool IsZeroColor(SexyColor color)
+        private static bool IsZeroColor(EffectColor color)
         {
             return color.mRed == 0 &&
                    color.mGreen == 0 &&
@@ -225,7 +225,7 @@ namespace EffectViewer.Rendering
                    color.mAlpha == 0;
         }
 
-        private static Vector4 ToVector4(SexyColor color)
+        private static Vector4 ToVector4(EffectColor color)
         {
             return new Vector4(
                 color.mRed / 255f,

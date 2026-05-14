@@ -1,10 +1,10 @@
 using System;
 using System.Runtime.CompilerServices;
 using EffectViewer.Runtime.Lua;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Graphics;
-using EffectViewer.TodLib.Reanim;
-using EffectViewer.TodLib.Reanim.Attachment;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Graphics;
+using EffectViewer.EffectRuntime.Reanim;
+using EffectViewer.EffectRuntime.Reanim.Attachment;
 using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Showcase
@@ -152,7 +152,7 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseReanimationTrack set_color(double red, double green, double blue, double alpha)
         {
-            Track.mTrackColor = new SexyColor(
+            Track.mTrackColor = new EffectColor(
                 ClampColor(red),
                 ClampColor(green),
                 ClampColor(blue),
@@ -230,13 +230,13 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseReanimationTrack show()
         {
-            Track.mRenderGroup = ReanimatorXnaHelpers.RENDER_GROUP_NORMAL;
+            Track.mRenderGroup = ReanimatorUtility.RENDER_GROUP_NORMAL;
             return this;
         }
 
         public ShowcaseReanimationTrack hide()
         {
-            Track.mRenderGroup = ReanimatorXnaHelpers.RENDER_GROUP_HIDDEN;
+            Track.mRenderGroup = ReanimatorUtility.RENDER_GROUP_HIDDEN;
             return this;
         }
 

@@ -15,7 +15,7 @@ using EffectViewer.Rendering;
 using EffectViewer.Runtime;
 using EffectViewer.Runtime.Lua;
 using EffectViewer.Runtime.Showcase;
-using EffectViewer.TodLib.Common;
+using EffectViewer.EffectRuntime.Common;
 
 namespace EffectViewer.ViewModels
 {
@@ -137,7 +137,7 @@ namespace EffectViewer.ViewModels
 
             if (result.FrameProvider is ShowcaseScene scene)
             {
-                scene.MaxUpdateStepsPerFrame = TodLibConstants.TICKS_PER_SECOND * 2;
+                scene.MaxUpdateStepsPerFrame = EffectConstants.TICKS_PER_SECOND * 2;
             }
 
             return new ExportShowcaseFrameProvider(exportWorld, result.FrameProvider);

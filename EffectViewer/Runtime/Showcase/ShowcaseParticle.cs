@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using EffectViewer.Runtime.Lua;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Graphics;
-using EffectViewer.TodLib.Particle;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Graphics;
+using EffectViewer.EffectRuntime.Particle;
 using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Showcase
@@ -11,14 +11,14 @@ namespace EffectViewer.Runtime.Showcase
     {
         private readonly ShowcaseScene _scene;
 
-        internal ShowcaseParticle(ShowcaseScene scene, string id, TodParticleSystem particleSystem)
+        internal ShowcaseParticle(ShowcaseScene scene, string id, ParticleSystem particleSystem)
         {
             _scene = scene;
             id_ = id;
             ParticleSystem = particleSystem;
         }
 
-        internal TodParticleSystem ParticleSystem { get; }
+        internal ParticleSystem ParticleSystem { get; }
 
         public string id_ { get; }
         public string type
@@ -93,13 +93,13 @@ namespace EffectViewer.Runtime.Showcase
 
         public double get_x()
         {
-            TodParticleEmitter emitter = FirstEmitter();
+            ParticleEmitter emitter = FirstEmitter();
             return emitter?.mSystemCenter.X ?? 0;
         }
 
         public double get_y()
         {
-            TodParticleEmitter emitter = FirstEmitter();
+            ParticleEmitter emitter = FirstEmitter();
             return emitter?.mSystemCenter.Y ?? 0;
         }
 
@@ -114,7 +114,7 @@ namespace EffectViewer.Runtime.Showcase
             return _scene?.GetEmitterId(emitter_at(index)) ?? 0d;
         }
 
-        public ShowcaseParticle tod_particle_initialize(double x, double y, string effectType)
+        public ShowcaseParticle initialize(double x, double y, string effectType)
         {
             type = effectType;
             set_position(x, y);
@@ -143,7 +143,7 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseParticle set_color(double red, double green, double blue, double alpha)
         {
-            ParticleSystem?.OverrideColor(null, new SexyColor(
+            ParticleSystem?.OverrideColor(null, new EffectColor(
                 ClampColor(red),
                 ClampColor(green),
                 ClampColor(blue),
@@ -155,7 +155,7 @@ namespace EffectViewer.Runtime.Showcase
         {
             ParticleSystem?.OverrideColor(
                 LuaApiUtility.StringOr(emitterName),
-                new SexyColor(
+                new EffectColor(
                     LuaApiUtility.ClampColor(LuaApiUtility.NumberOr(red, 255)),
                     LuaApiUtility.ClampColor(LuaApiUtility.NumberOr(green, 255)),
                     LuaApiUtility.ClampColor(LuaApiUtility.NumberOr(blue, 255)),
@@ -170,7 +170,7 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseParticle set_emitter_color(string emitterName, double red, double green, double blue, double alpha)
         {
-            ParticleSystem?.OverrideColor(NormalizeEmitterName(emitterName), new SexyColor(
+            ParticleSystem?.OverrideColor(NormalizeEmitterName(emitterName), new EffectColor(
                 ClampColor(red),
                 ClampColor(green),
                 ClampColor(blue),
@@ -270,7 +270,7 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseParticleEmitter emitter(string emitterName)
         {
-            TodParticleEmitter emitter = ParticleSystem?.FindEmitterByName(emitterName);
+            ParticleEmitter emitter = ParticleSystem?.FindEmitterByName(emitterName);
             return emitter is null ? null : new ShowcaseParticleEmitter(emitter);
         }
 
@@ -291,7 +291,7 @@ namespace EffectViewer.Runtime.Showcase
             {
                 if (current++ == index)
                 {
-                    TodParticleEmitter emitter = ParticleSystem.mParticleHolder.mEmitters.DataArrayTryToGet(node.Value);
+                    ParticleEmitter emitter = ParticleSystem.mParticleHolder.mEmitters.DataArrayTryToGet(node.Value);
                     return emitter is null ? null : new ShowcaseParticleEmitter(emitter);
                 }
             }
@@ -319,7 +319,7 @@ namespace EffectViewer.Runtime.Showcase
             int index = 0;
             for (LinkedListNode<ParticleEmitterID> node = ParticleSystem.mEmitterList.First; node is not null; node = node.Next)
             {
-                TodParticleEmitter emitter = ParticleSystem.mParticleHolder.mEmitters.DataArrayTryToGet(node.Value);
+                ParticleEmitter emitter = ParticleSystem.mParticleHolder.mEmitters.DataArrayTryToGet(node.Value);
                 if (emitter is not null && string.Equals(emitter.mEmitterDef?.mName, emitterName, System.StringComparison.OrdinalIgnoreCase))
                 {
                     return index;
@@ -333,13 +333,13 @@ namespace EffectViewer.Runtime.Showcase
 
         public string emitter_definition_name(int index)
         {
-            TodEmitterDefinition definition = emitter_definition_at(index);
+            ParticleEmitterDefinition definition = emitter_definition_at(index);
             return definition?.mName;
         }
 
         public string emitter_definition_image_id(int index)
         {
-            TodEmitterDefinition definition = emitter_definition_at(index);
+            ParticleEmitterDefinition definition = emitter_definition_at(index);
             return definition?.mImage;
         }
 
@@ -349,7 +349,7 @@ namespace EffectViewer.Runtime.Showcase
             {
                 foreach (ParticleEmitterID emitterId in ParticleSystem.mEmitterList)
                 {
-                    TodParticleEmitter emitter = ParticleSystem.mParticleHolder.mEmitters.DataArrayTryToGet(emitterId);
+                    ParticleEmitter emitter = ParticleSystem.mParticleHolder.mEmitters.DataArrayTryToGet(emitterId);
                     emitter?.DeleteAll();
                 }
             }
@@ -395,7 +395,7 @@ namespace EffectViewer.Runtime.Showcase
             return die();
         }
 
-        private TodParticleEmitter FirstEmitter()
+        private ParticleEmitter FirstEmitter()
         {
             if (ParticleSystem?.mEmitterList.First is null)
             {
@@ -415,7 +415,7 @@ namespace EffectViewer.Runtime.Showcase
             return System.Math.Clamp((int)System.Math.Round(value), 0, 255);
         }
 
-        private TodEmitterDefinition emitter_definition_at(int index)
+        private ParticleEmitterDefinition emitter_definition_at(int index)
         {
             return ParticleSystem?.mParticleDef?.mEmitterDefs is null ||
                 index < 0 ||

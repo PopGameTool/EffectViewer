@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using EffectViewer.Projects;
-using EffectViewer.TodLib.Graphics;
+using EffectViewer.EffectRuntime.Graphics;
 
 namespace EffectViewer.Rendering.TextureUpload
 {

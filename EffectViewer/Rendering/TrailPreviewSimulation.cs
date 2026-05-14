@@ -4,16 +4,16 @@ using System.IO;
 using System.Numerics;
 using EffectViewer.Projects;
 using EffectViewer.Rendering.Export;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Trail;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Trail;
 
 namespace EffectViewer.Rendering
 {
     public sealed class TrailPreviewSimulation : ISeekableRenderFrameProvider, ICompletableRenderFrameProvider
     {
-        private const double UpdateStepSeconds = 1.0 / TodLibConstants.TICKS_PER_SECOND;
-        private const int MaxRestartTicks = TodLibConstants.TICKS_PER_SECOND * 12;
-        private const int MaxSeekTicks = TodLibConstants.TICKS_PER_SECOND * (int)PreviewExportOptions.MaximumTimeSeconds;
+        private const double UpdateStepSeconds = 1.0 / EffectConstants.TICKS_PER_SECOND;
+        private const int MaxRestartTicks = EffectConstants.TICKS_PER_SECOND * 12;
+        private const int MaxSeekTicks = EffectConstants.TICKS_PER_SECOND * (int)PreviewExportOptions.MaximumTimeSeconds;
 
         private readonly TrailDefinition _definition;
         private readonly string _textureId;
@@ -76,7 +76,7 @@ namespace EffectViewer.Rendering
         public RenderFrame GetFrameAtTime(double elapsedSeconds)
         {
             int targetTick = Math.Clamp(
-                (int)Math.Round(Math.Max(0d, elapsedSeconds) * TodLibConstants.TICKS_PER_SECOND),
+                (int)Math.Round(Math.Max(0d, elapsedSeconds) * EffectConstants.TICKS_PER_SECOND),
                 0,
                 MaxSeekTicks);
             if (targetTick < _elapsedTicks)
@@ -164,7 +164,7 @@ namespace EffectViewer.Rendering
 
         private int EvaluateDuration()
         {
-            float interp = TodCommon.RandRangeFloat(0f, 1f);
+            float interp = EffectUtility.RandRangeFloat(0f, 1f);
             int duration = (int)Definition.FloatTrackEvaluate(_definition.mTrailDuration, 0f, interp);
             return Math.Max(2, duration);
         }

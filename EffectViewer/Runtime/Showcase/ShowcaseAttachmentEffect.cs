@@ -1,5 +1,5 @@
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Reanim.Attachment;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Reanim.Attachment;
 
 namespace EffectViewer.Runtime.Showcase
 {

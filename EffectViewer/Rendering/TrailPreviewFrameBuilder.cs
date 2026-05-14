@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using EffectViewer.Projects;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Trail;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Trail;
 
 namespace EffectViewer.Rendering
 {
@@ -250,7 +250,7 @@ namespace EffectViewer.Rendering
             return (low + high) * 0.5f;
         }
 
-        private static Vector4 ToVector4(SexyColor color, float alpha)
+        private static Vector4 ToVector4(EffectColor color, float alpha)
         {
             return new Vector4(
                 color.mRed / 255f,

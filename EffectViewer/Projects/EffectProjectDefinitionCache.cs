@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using EffectViewer.Assets;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Particle;
-using EffectViewer.TodLib.Reanim;
-using EffectViewer.TodLib.Trail;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Particle;
+using EffectViewer.EffectRuntime.Reanim;
+using EffectViewer.EffectRuntime.Trail;
 
 namespace EffectViewer.Projects
 {
@@ -13,7 +13,7 @@ namespace EffectViewer.Projects
     {
         private readonly EffectProject _project;
         private readonly Dictionary<string, ReanimatorDefinition> _reanimsByPath = new(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, TodParticleDefinition> _particlesByPath = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, ParticleDefinition> _particlesByPath = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, TrailDefinition> _trailsByPath = new(StringComparer.OrdinalIgnoreCase);
         private readonly object _gate = new();
 
@@ -133,38 +133,38 @@ namespace EffectViewer.Projects
             SetDefinition(_reanimsByPath, path, CloneReanimDefinition(definition));
         }
 
-        public bool TryGetParticleDefinition(string assetId, out TodParticleDefinition definition)
+        public bool TryGetParticleDefinition(string assetId, out ParticleDefinition definition)
         {
             definition = null;
             return _project?.Assets?.Particles.TryGetValue(assetId, out EffectAsset asset) == true &&
                 TryGetParticleDefinition(asset, out definition);
         }
 
-        public bool TryGetParticleDefinition(EffectAsset asset, out TodParticleDefinition definition)
+        public bool TryGetParticleDefinition(EffectAsset asset, out ParticleDefinition definition)
         {
             return TryGetDefinition(_particlesByPath, asset?.Path, LoadParticleDefinition, out definition);
         }
 
-        public bool TryGetParticleDefinitionByPath(string path, out TodParticleDefinition definition)
+        public bool TryGetParticleDefinitionByPath(string path, out ParticleDefinition definition)
         {
             return TryGetDefinition(_particlesByPath, path, LoadParticleDefinition, out definition);
         }
 
-        public TodParticleDefinition GetParticleDefinitionClone(string assetId)
+        public ParticleDefinition GetParticleDefinitionClone(string assetId)
         {
-            return TryGetParticleDefinition(assetId, out TodParticleDefinition definition)
+            return TryGetParticleDefinition(assetId, out ParticleDefinition definition)
                 ? ParticleDefinitionUtility.Clone(definition)
                 : null;
         }
 
-        public TodParticleDefinition GetParticleDefinitionCloneByPath(string path)
+        public ParticleDefinition GetParticleDefinitionCloneByPath(string path)
         {
-            return TryGetParticleDefinitionByPath(path, out TodParticleDefinition definition)
+            return TryGetParticleDefinitionByPath(path, out ParticleDefinition definition)
                 ? ParticleDefinitionUtility.Clone(definition)
                 : null;
         }
 
-        public void SetParticleDefinition(string path, TodParticleDefinition definition)
+        public void SetParticleDefinition(string path, ParticleDefinition definition)
         {
             SetDefinition(_particlesByPath, path, ParticleDefinitionUtility.Clone(definition));
         }
@@ -245,8 +245,8 @@ namespace EffectViewer.Projects
         {
             (Dictionary<string, ReanimationParams> parameters, Dictionary<string, ReanimatorDefinition> definitions) =
                 CreateReanimationRuntimeDictionaries();
-            ReanimatorXnaHelpers.gReanimationParamArray = parameters;
-            ReanimatorXnaHelpers.gReanimatorDefArray = definitions;
+            ReanimatorUtility.gReanimationParamArray = parameters;
+            ReanimatorUtility.gReanimatorDefArray = definitions;
         }
 
         private bool TryGetDefinition<T>(
@@ -314,13 +314,13 @@ namespace EffectViewer.Projects
         private static ReanimatorDefinition LoadReanimDefinition(string fullPath)
         {
             ReanimatorDefinition definition = null;
-            ReanimatorXnaHelpers.ReanimationLoadDefinition(fullPath, ref definition);
+            ReanimatorUtility.ReanimationLoadDefinition(fullPath, ref definition);
             return definition ?? new ReanimatorDefinition();
         }
 
-        private static TodParticleDefinition LoadParticleDefinition(string fullPath)
+        private static ParticleDefinition LoadParticleDefinition(string fullPath)
         {
-            return TodParticleGlobal.TodParticleLoadADef(out TodParticleDefinition definition, fullPath)
+            return ParticleUtility.LoadDefinition(out ParticleDefinition definition, fullPath)
                 ? definition
                 : ParticleDefinitionUtility.CreateEmpty();
         }

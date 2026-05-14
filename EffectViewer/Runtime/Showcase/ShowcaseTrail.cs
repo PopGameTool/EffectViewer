@@ -1,8 +1,8 @@
 using System.Numerics;
 using EffectViewer.Runtime.Lua;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Graphics;
-using EffectViewer.TodLib.Trail;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Graphics;
+using EffectViewer.EffectRuntime.Trail;
 using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Showcase
@@ -169,7 +169,7 @@ namespace EffectViewer.Runtime.Showcase
             {
                 if (Trail?.mDefinition is not null)
                 {
-                    Trail.mDefinition.mMaxPoints = System.Math.Clamp(value, 2, TodLibConstants.MAX_TRAIL_POINTS);
+                    Trail.mDefinition.mMaxPoints = System.Math.Clamp(value, 2, EffectConstants.MAX_TRAIL_POINTS);
                 }
             }
         }
@@ -297,7 +297,7 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseTrail set_color(double red, double green, double blue, double alpha)
         {
-            Trail.mColorOverride = new SexyColor(
+            Trail.mColorOverride = new EffectColor(
                 ClampColor(red),
                 ClampColor(green),
                 ClampColor(blue),

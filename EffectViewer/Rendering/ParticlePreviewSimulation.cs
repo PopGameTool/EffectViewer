@@ -3,26 +3,26 @@ using System.IO;
 using EffectViewer.Projects;
 using EffectViewer.Rendering.Export;
 using EffectViewer.Runtime;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Graphics;
-using EffectViewer.TodLib.Particle;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Graphics;
+using EffectViewer.EffectRuntime.Particle;
 
 namespace EffectViewer.Rendering
 {
     public sealed class ParticlePreviewSimulation : ISeekableRenderFrameProvider, ICompletableRenderFrameProvider, IDisposable
     {
-        private const double UpdateStepSeconds = 1.0 / TodLibConstants.TICKS_PER_SECOND;
-        private const int MaxRestartTicks = TodLibConstants.TICKS_PER_SECOND * 12;
-        private const int MaxSeekTicks = TodLibConstants.TICKS_PER_SECOND * (int)PreviewExportOptions.MaximumTimeSeconds;
+        private const double UpdateStepSeconds = 1.0 / EffectConstants.TICKS_PER_SECOND;
+        private const int MaxRestartTicks = EffectConstants.TICKS_PER_SECOND * 12;
+        private const int MaxSeekTicks = EffectConstants.TICKS_PER_SECOND * (int)PreviewExportOptions.MaximumTimeSeconds;
 
         private readonly EffectProject _project;
         private readonly string _path;
         private readonly string _assetId;
         private readonly float _x;
         private readonly float _y;
-        private readonly TodParticleHolder _holder = new();
-        private TodParticleDefinition _definition;
-        private TodParticleSystem _system;
+        private readonly ParticleHolder _holder = new();
+        private ParticleDefinition _definition;
+        private ParticleSystem _system;
         private double _accumulator;
         private int _ticksSinceRestart;
         private int _elapsedTicks;
@@ -47,7 +47,7 @@ namespace EffectViewer.Rendering
             Reset();
         }
 
-        public ParticlePreviewSimulation(EffectProject project, TodParticleDefinition definition, string assetId, float x = 400f, float y = 300f)
+        public ParticlePreviewSimulation(EffectProject project, ParticleDefinition definition, string assetId, float x = 400f, float y = 300f)
         {
             _project = project;
             _path = string.Empty;
@@ -88,7 +88,7 @@ namespace EffectViewer.Rendering
             }
 
             int targetTick = Math.Clamp(
-                (int)Math.Round(Math.Max(0d, elapsedSeconds) * TodLibConstants.TICKS_PER_SECOND),
+                (int)Math.Round(Math.Max(0d, elapsedSeconds) * EffectConstants.TICKS_PER_SECOND),
                 0,
                 MaxSeekTicks);
             if (targetTick < _elapsedTicks)
@@ -172,7 +172,7 @@ namespace EffectViewer.Rendering
             FrameCaptureGraphics graphics = new()
             {
                 mClipRect = new Rectangle(-16384, -16384, 16384 * 3, 16384 * 3),
-                mColor = SexyColor.White,
+                mColor = EffectColor.White,
                 mDrawMode = DrawMode.Normal
             };
 
@@ -180,9 +180,9 @@ namespace EffectViewer.Rendering
             return graphics.Frame;
         }
 
-        private TodParticleDefinition LoadDefinition()
+        private ParticleDefinition LoadDefinition()
         {
-            TodParticleDefinition cached = _project?.Definitions?.GetParticleDefinitionClone(_assetId);
+            ParticleDefinition cached = _project?.Definitions?.GetParticleDefinitionClone(_assetId);
             if (cached is not null)
             {
                 return cached;
@@ -198,7 +198,7 @@ namespace EffectViewer.Rendering
             {
                 if (!string.IsNullOrWhiteSpace(fullPath) &&
                     File.Exists(fullPath) &&
-                    TodParticleGlobal.TodParticleLoadADef(out TodParticleDefinition definition, fullPath))
+                    ParticleUtility.LoadDefinition(out ParticleDefinition definition, fullPath))
                 {
                     return definition;
                 }

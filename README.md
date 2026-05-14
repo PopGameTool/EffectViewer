@@ -70,7 +70,7 @@ To inspect the manifest and Lua script directly, unzip `Samples/QuickStartShowca
 ## Project Layout
 
 ```text
-EffectViewer/           Shared Avalonia UI, view models, rendering, runtime, and TodLib code
+EffectViewer/           Shared Avalonia UI, view models, rendering and runtime code
 EffectViewer.Desktop/   Desktop app host
 EffectViewer.Windows/   Windows publishing host
 EffectViewer.Browser/   Browser/WebAssembly app host

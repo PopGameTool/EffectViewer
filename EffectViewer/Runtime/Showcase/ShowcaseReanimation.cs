@@ -1,10 +1,10 @@
 using System;
 using System.Globalization;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Filter;
-using EffectViewer.TodLib.Graphics;
-using EffectViewer.TodLib.Reanim;
-using EffectViewer.TodLib.Reanim.Attachment;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Filter;
+using EffectViewer.EffectRuntime.Graphics;
+using EffectViewer.EffectRuntime.Reanim;
+using EffectViewer.EffectRuntime.Reanim.Attachment;
 using EffectViewer.Runtime.Lua;
 using MoonSharp.Interpreter;
 
@@ -310,7 +310,7 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseReanimation set_color(double red, double green, double blue, double alpha)
         {
-            Reanimation.mColorOverride = new SexyColor(
+            Reanimation.mColorOverride = new EffectColor(
                 ClampColor(red),
                 ClampColor(green),
                 ClampColor(blue),
@@ -326,7 +326,7 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseReanimation set_extra_additive_color(double red, double green, double blue, double alpha)
         {
-            Reanimation.mExtraAdditiveColor = new SexyColor(
+            Reanimation.mExtraAdditiveColor = new EffectColor(
                 ClampColor(red),
                 ClampColor(green),
                 ClampColor(blue),
@@ -343,7 +343,7 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseReanimation set_extra_overlay_color(double red, double green, double blue, double alpha)
         {
-            Reanimation.mExtraOverlayColor = new SexyColor(
+            Reanimation.mExtraOverlayColor = new EffectColor(
                 ClampColor(red),
                 ClampColor(green),
                 ClampColor(blue),
@@ -544,26 +544,26 @@ namespace EffectViewer.Runtime.Showcase
         public ShowcaseReanimation hide_track(string trackName)
         {
             EnsureTrack(trackName);
-            Reanimation.AssignRenderGroupToTrack(trackName, ReanimatorXnaHelpers.RENDER_GROUP_HIDDEN);
+            Reanimation.AssignRenderGroupToTrack(trackName, ReanimatorUtility.RENDER_GROUP_HIDDEN);
             return this;
         }
 
         public ShowcaseReanimation show_track(string trackName)
         {
             EnsureTrack(trackName);
-            Reanimation.AssignRenderGroupToTrack(trackName, ReanimatorXnaHelpers.RENDER_GROUP_NORMAL);
+            Reanimation.AssignRenderGroupToTrack(trackName, ReanimatorUtility.RENDER_GROUP_NORMAL);
             return this;
         }
 
         public ShowcaseReanimation show_prefix(string trackNamePrefix)
         {
-            Reanimation.AssignRenderGroupToPrefix(trackNamePrefix, ReanimatorXnaHelpers.RENDER_GROUP_NORMAL);
+            Reanimation.AssignRenderGroupToPrefix(trackNamePrefix, ReanimatorUtility.RENDER_GROUP_NORMAL);
             return this;
         }
 
         public ShowcaseReanimation hide_prefix(string trackNamePrefix)
         {
-            Reanimation.AssignRenderGroupToPrefix(trackNamePrefix, ReanimatorXnaHelpers.RENDER_GROUP_HIDDEN);
+            Reanimation.AssignRenderGroupToPrefix(trackNamePrefix, ReanimatorUtility.RENDER_GROUP_HIDDEN);
             return this;
         }
 
@@ -1180,7 +1180,7 @@ namespace EffectViewer.Runtime.Showcase
                     (int)Math.Round(clip_rect_y),
                     (int)Math.Round(clip_rect_width),
                     (int)Math.Round(clip_rect_height)),
-                new SexyColor(ClampColor(red), ClampColor(green), ClampColor(blue), ClampColor(alpha)),
+                new EffectColor(ClampColor(red), ClampColor(green), ClampColor(blue), ClampColor(alpha)),
                 mode,
                 new Rectangle(
                     (int)Math.Round(src_rect_x),

@@ -1,4 +1,4 @@
-using EffectViewer.TodLib.Trail;
+using EffectViewer.EffectRuntime.Trail;
 
 namespace EffectViewer.Runtime.Showcase
 {

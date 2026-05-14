@@ -1,6 +1,6 @@
 using System;
 using EffectViewer.Runtime.Showcase;
-using EffectViewer.TodLib.Graphics;
+using EffectViewer.EffectRuntime.Graphics;
 using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Lua
@@ -37,16 +37,16 @@ namespace EffectViewer.Runtime.Lua
             return Math.Clamp((int)Math.Round(value), 0, 255);
         }
 
-        public static SexyColor MergeColor(SexyColor current, DynValue red, DynValue green, DynValue blue, DynValue alpha)
+        public static EffectColor MergeColor(EffectColor current, DynValue red, DynValue green, DynValue blue, DynValue alpha)
         {
-            return new SexyColor(
+            return new EffectColor(
                 IsNil(red) ? current.mRed : ClampColor(NumberOr(red, current.mRed)),
                 IsNil(green) ? current.mGreen : ClampColor(NumberOr(green, current.mGreen)),
                 IsNil(blue) ? current.mBlue : ClampColor(NumberOr(blue, current.mBlue)),
                 IsNil(alpha) ? current.mAlpha : ClampColor(NumberOr(alpha, current.mAlpha)));
         }
 
-        public static DynValue ColorTuple(SexyColor color)
+        public static DynValue ColorTuple(EffectColor color)
         {
             return DynValue.NewTuple(
                 DynValue.NewNumber(color.mRed),

@@ -1,12 +1,12 @@
 using System;
 using System.Runtime.CompilerServices;
 using EffectViewer.Runtime.Showcase;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Graphics;
-using EffectViewer.TodLib.Particle;
-using EffectViewer.TodLib.Reanim;
-using EffectViewer.TodLib.Reanim.Attachment;
-using EffectViewer.TodLib.Trail;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Graphics;
+using EffectViewer.EffectRuntime.Particle;
+using EffectViewer.EffectRuntime.Reanim;
+using EffectViewer.EffectRuntime.Reanim.Attachment;
+using EffectViewer.EffectRuntime.Trail;
 using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Lua
@@ -39,7 +39,7 @@ namespace EffectViewer.Runtime.Lua
             GlobalMembersAttachment.AttachmentOverrideColor(
                 _scene.EffectSystem,
                 IdFromNumber<AttachmentID>(attachmentId),
-                new SexyColor(
+                new EffectColor(
                     LuaApiUtility.ClampColor(red),
                     LuaApiUtility.ClampColor(green),
                     LuaApiUtility.ClampColor(blue),
@@ -128,11 +128,11 @@ namespace EffectViewer.Runtime.Lua
             GlobalMembersAttachment.AttachmentPropogateColor(
                 _scene.EffectSystem,
                 IdFromNumber<AttachmentID>(attachmentId),
-                new SexyColor(LuaApiUtility.ClampColor(red), LuaApiUtility.ClampColor(green), LuaApiUtility.ClampColor(blue), LuaApiUtility.ClampColor(alpha)),
+                new EffectColor(LuaApiUtility.ClampColor(red), LuaApiUtility.ClampColor(green), LuaApiUtility.ClampColor(blue), LuaApiUtility.ClampColor(alpha)),
                 enableAdditiveColor,
-                new SexyColor(LuaApiUtility.ClampColor(additiveRed), LuaApiUtility.ClampColor(additiveGreen), LuaApiUtility.ClampColor(additiveBlue), LuaApiUtility.ClampColor(additiveAlpha)),
+                new EffectColor(LuaApiUtility.ClampColor(additiveRed), LuaApiUtility.ClampColor(additiveGreen), LuaApiUtility.ClampColor(additiveBlue), LuaApiUtility.ClampColor(additiveAlpha)),
                 enableOverlayColor,
-                new SexyColor(LuaApiUtility.ClampColor(overlayRed), LuaApiUtility.ClampColor(overlayGreen), LuaApiUtility.ClampColor(overlayBlue), LuaApiUtility.ClampColor(overlayAlpha)));
+                new EffectColor(LuaApiUtility.ClampColor(overlayRed), LuaApiUtility.ClampColor(overlayGreen), LuaApiUtility.ClampColor(overlayBlue), LuaApiUtility.ClampColor(overlayAlpha)));
         }
 
         public ShowcaseReanimation find_reanim_attachment(double attachmentId)

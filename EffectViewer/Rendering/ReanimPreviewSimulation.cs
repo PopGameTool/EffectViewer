@@ -5,14 +5,14 @@ using System.Linq;
 using EffectViewer.Assets;
 using EffectViewer.Projects;
 using EffectViewer.Runtime;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Reanim;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Reanim;
 
 namespace EffectViewer.Rendering
 {
     public sealed class ReanimPreviewSimulation : ISeekableRenderFrameProvider, IDisposable
     {
-        private const double UpdateStepSeconds = 1.0 / TodLibConstants.TICKS_PER_SECOND;
+        private const double UpdateStepSeconds = 1.0 / EffectConstants.TICKS_PER_SECOND;
         private readonly EffectSystem _effectSystem = new();
         private readonly ProjectResourceProvider _resourceProvider;
         private readonly Dictionary<string, ReanimationParams> _reanimationParams;
@@ -210,8 +210,8 @@ namespace EffectViewer.Rendering
             }
 
             _reanimation.mTrackInstances[trackIndex].mRenderGroup = visible
-                ? ReanimatorXnaHelpers.RENDER_GROUP_NORMAL
-                : ReanimatorXnaHelpers.RENDER_GROUP_HIDDEN;
+                ? ReanimatorUtility.RENDER_GROUP_NORMAL
+                : ReanimatorUtility.RENDER_GROUP_HIDDEN;
         }
 
         public void SetAllTracksVisible(bool visible)
@@ -565,7 +565,7 @@ namespace EffectViewer.Rendering
             FrameCaptureGraphics graphics = new()
             {
                 mClipRect = new Rectangle(-16384, -16384, 16384 * 3, 16384 * 3),
-                mColor = SexyColor.White,
+                mColor = EffectColor.White,
                 mDrawMode = DrawMode.Normal,
                 mTransX = _x,
                 mTransY = _y
@@ -582,7 +582,7 @@ namespace EffectViewer.Rendering
             {
                 try
                 {
-                    ReanimatorXnaHelpers.ReanimationLoadDefinition(fullPath, ref definition);
+                    ReanimatorUtility.ReanimationLoadDefinition(fullPath, ref definition);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or FormatException or ArgumentException)
                 {
@@ -602,9 +602,9 @@ namespace EffectViewer.Rendering
             _reanimation.mAnimRate = definition?.mFPS ?? 12f;
             _reanimation.mLastFrameTime = -1f;
             _reanimation.mOverlayMatrix = Matrix4x4.Identity;
-            _reanimation.mColorOverride = SexyColor.White;
-            _reanimation.mExtraAdditiveColor = SexyColor.White;
-            _reanimation.mExtraOverlayColor = SexyColor.White;
+            _reanimation.mColorOverride = EffectColor.White;
+            _reanimation.mExtraAdditiveColor = EffectColor.White;
+            _reanimation.mExtraOverlayColor = EffectColor.White;
 
             if (definition?.mTrackCount > 0)
             {
@@ -615,7 +615,7 @@ namespace EffectViewer.Rendering
                     _reanimation.mTrackInstances[i].Reset();
                     string trackName = definition.mTracks[i].mName;
                     _reanimation.mTrackInstances[i].mIsAttacher =
-                        ReanimatorXnaHelpers.gReanimationParamArray != null &&
+                        ReanimatorUtility.gReanimationParamArray != null &&
                         !string.IsNullOrEmpty(trackName) &&
                         trackName.StartsWith(Reanimation.Attacher, StringComparison.OrdinalIgnoreCase);
                 }
@@ -691,8 +691,8 @@ namespace EffectViewer.Rendering
 
         private void ApplyProjectReanimations()
         {
-            ReanimatorXnaHelpers.gReanimationParamArray = _reanimationParams;
-            ReanimatorXnaHelpers.gReanimatorDefArray = _reanimationDefinitions;
+            ReanimatorUtility.gReanimationParamArray = _reanimationParams;
+            ReanimatorUtility.gReanimatorDefArray = _reanimationDefinitions;
         }
 
         private static (Dictionary<string, ReanimationParams> Parameters, Dictionary<string, ReanimatorDefinition> Definitions) BuildProjectReanimations(EffectProject project)

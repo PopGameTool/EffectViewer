@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using EffectViewer.TodLib.Particle;
-using EffectViewer.TodLib.Reanim;
-using EffectViewer.TodLib.Trail;
+using EffectViewer.EffectRuntime.Particle;
+using EffectViewer.EffectRuntime.Reanim;
+using EffectViewer.EffectRuntime.Trail;
 
 namespace EffectViewer.Projects
 {
@@ -86,18 +86,18 @@ namespace EffectViewer.Projects
 
         private static EffectFileSummary AnalyzeParticle(EffectProject project, string fullPath)
         {
-            TodParticleDefinition definition;
+            ParticleDefinition definition;
             if (project?.Definitions?.TryGetParticleDefinitionByPath(fullPath, out definition) != true)
             {
                 using FileStream stream = File.OpenRead(fullPath);
-                definition = SexyParticleReader.Decode(stream);
+                definition = ParticleDefinitionCodec.Decode(stream);
             }
 
             HashSet<string> images = new(StringComparer.OrdinalIgnoreCase);
             int fieldCount = 0;
             if (definition.mEmitterDefs != null)
             {
-                foreach (TodEmitterDefinition emitter in definition.mEmitterDefs)
+                foreach (ParticleEmitterDefinition emitter in definition.mEmitterDefs)
                 {
                     if (!string.IsNullOrWhiteSpace(emitter.mImage))
                     {

@@ -2,10 +2,10 @@ using System;
 using System.Numerics;
 using EffectViewer.Rendering;
 using EffectViewer.Runtime.Showcase;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Graphics;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Graphics;
 using MoonSharp.Interpreter;
-using InlineArray3TriVertex = System.Runtime.CompilerServices.InlineArray3<EffectViewer.TodLib.Common.TriVertex>;
+using InlineArray3TriVertex = System.Runtime.CompilerServices.InlineArray3<EffectViewer.EffectRuntime.Common.TriVertex>;
 
 namespace EffectViewer.Runtime.Lua
 {
@@ -62,7 +62,7 @@ namespace EffectViewer.Runtime.Lua
 
         public LuaGraphicsApi set_color(double red, double green, double blue, double alpha)
         {
-            _graphics.mColor = new SexyColor(
+            _graphics.mColor = new EffectColor(
                 ClampColor(red),
                 ClampColor(green),
                 ClampColor(blue),
@@ -145,7 +145,7 @@ namespace EffectViewer.Runtime.Lua
             Matrix4x4 transform = Matrix4x4.Identity;
             transform.M41 = (float)(x + width * 0.5d + _graphics.mTransX);
             transform.M42 = (float)(y + height * 0.5d + _graphics.mTransY);
-            TodCommon.TodBltMatrix(
+            EffectUtility.BlitMatrix(
                 _graphics,
                 image.Image,
                 transform,
@@ -172,7 +172,7 @@ namespace EffectViewer.Runtime.Lua
             Matrix4x4 matrix = transform.ToMatrix4x4();
             matrix.M41 += _graphics.mTransX;
             matrix.M42 += _graphics.mTransY;
-            TodCommon.TodBltMatrix(
+            EffectUtility.BlitMatrix(
                 _graphics,
                 image.Image,
                 matrix,
@@ -197,7 +197,7 @@ namespace EffectViewer.Runtime.Lua
             Matrix4x4 matrix = Matrix4x4.Identity;
             matrix.M41 = (float)(x + _graphics.mTransX);
             matrix.M42 = (float)(y + _graphics.mTransY);
-            TodCommon.TodDrawStringMatrix(_graphics, font.Font, matrix, msg ?? string.Empty, _graphics.mColor);
+            EffectUtility.DrawStringMatrix(_graphics, font.Font, matrix, msg ?? string.Empty, _graphics.mColor);
             return this;
         }
 
@@ -211,7 +211,7 @@ namespace EffectViewer.Runtime.Lua
             Matrix4x4 matrix = transform.ToMatrix4x4();
             matrix.M41 += _graphics.mTransX;
             matrix.M42 += _graphics.mTransY;
-            TodCommon.TodDrawStringMatrix(_graphics, font.Font, matrix, msg ?? string.Empty, _graphics.mColor);
+            EffectUtility.DrawStringMatrix(_graphics, font.Font, matrix, msg ?? string.Empty, _graphics.mColor);
             return this;
         }
 
@@ -241,7 +241,7 @@ namespace EffectViewer.Runtime.Lua
         {
             _graphics.mTransX = 0;
             _graphics.mTransY = 0;
-            _graphics.mColor = SexyColor.White;
+            _graphics.mColor = EffectColor.White;
             _graphics.mDrawMode = DrawMode.Normal;
             clear_clip_rect();
             return this;
@@ -252,9 +252,9 @@ namespace EffectViewer.Runtime.Lua
             return Math.Clamp((int)Math.Round(value), 0, 255);
         }
 
-        private SexyColor GetImageColor()
+        private EffectColor GetImageColor()
         {
-            return _graphics.mColorizeImages ? _graphics.mColor : SexyColor.White;
+            return _graphics.mColorizeImages ? _graphics.mColor : EffectColor.White;
         }
 
         private static DrawMode ParseDrawMode(string value)

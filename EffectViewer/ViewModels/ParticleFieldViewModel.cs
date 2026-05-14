@@ -1,7 +1,7 @@
 using System;
 using CommunityToolkit.Mvvm.Input;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Particle;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Particle;
 
 namespace EffectViewer.ViewModels
 {
@@ -112,8 +112,8 @@ namespace EffectViewer.ViewModels
             FloatParameterTrackNode node = track.mNodes[0];
             bool isDefaultConstant = node.mTime == 0f &&
                 node.mLowValue == node.mHighValue &&
-                node.mCurveType == TodCurves.Constant &&
-                node.mDistribution == TodCurves.Linear &&
+                node.mCurveType == CurveType.Constant &&
+                node.mDistribution == CurveType.Linear &&
                 Math.Abs(node.mLowValue - defaultValue) < 0.0005f;
             if (isDefaultConstant)
             {
@@ -122,11 +122,11 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
-            if (node.mCurveType == TodCurves.Constant &&
+            if (node.mCurveType == CurveType.Constant &&
                 node.mLowValue == node.mHighValue &&
                 Math.Abs(node.mLowValue - defaultValue) >= 0.0005f)
             {
-                node.mCurveType = TodCurves.Linear;
+                node.mCurveType = CurveType.Linear;
             }
         }
     }

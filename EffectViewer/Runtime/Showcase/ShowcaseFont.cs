@@ -1,16 +1,16 @@
 using System;
-using TodFont = EffectViewer.TodLib.Graphics.Font;
+using RuntimeFont = EffectViewer.EffectRuntime.Graphics.Font;
 
 namespace EffectViewer.Runtime.Showcase
 {
     public sealed class ShowcaseFont
     {
-        internal ShowcaseFont(TodFont font)
+        internal ShowcaseFont(RuntimeFont font)
         {
             Font = font;
         }
 
-        internal TodFont Font { get; }
+        internal RuntimeFont Font { get; }
 
         public string id => Font?.mId ?? string.Empty;
         public bool is_true_type => Font?.IsTrueType == true;

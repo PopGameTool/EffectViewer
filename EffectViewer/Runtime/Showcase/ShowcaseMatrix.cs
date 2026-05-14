@@ -1,6 +1,6 @@
 using System.Numerics;
 using EffectViewer.Runtime.Lua;
-using EffectViewer.TodLib.Common;
+using EffectViewer.EffectRuntime.Common;
 using MoonSharp.Interpreter;
 
 namespace EffectViewer.Runtime.Showcase
@@ -141,21 +141,21 @@ namespace EffectViewer.Runtime.Showcase
 
         public ShowcaseMatrix transpose(ShowcaseMatrix source)
         {
-            TodCommon.SexyMatrix3Transpose(source?.ToMatrix4x4() ?? Matrix4x4.Identity, out Matrix4x4 result);
+            EffectUtility.Matrix3Transpose(source?.ToMatrix4x4() ?? Matrix4x4.Identity, out Matrix4x4 result);
             FromMatrix4x4(result);
             return this;
         }
 
         public ShowcaseMatrix inverse(ShowcaseMatrix source)
         {
-            TodCommon.SexyMatrix3Inverse(source?.ToMatrix4x4() ?? Matrix4x4.Identity, out Matrix4x4 result);
+            EffectUtility.Matrix3Inverse(source?.ToMatrix4x4() ?? Matrix4x4.Identity, out Matrix4x4 result);
             FromMatrix4x4(result);
             return this;
         }
 
         public DynValue extract_scale()
         {
-            TodCommon.SexyMatrix3ExtractScale(ToMatrix4x4(), out float scaleX, out float scaleY);
+            EffectUtility.Matrix3ExtractScale(ToMatrix4x4(), out float scaleX, out float scaleY);
             return DynValue.NewTuple(DynValue.NewNumber(scaleX), DynValue.NewNumber(scaleY));
         }
 

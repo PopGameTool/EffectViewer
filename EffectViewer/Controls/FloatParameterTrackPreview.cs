@@ -4,7 +4,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
-using EffectViewer.TodLib.Common;
+using EffectViewer.EffectRuntime.Common;
 using EffectViewer.ViewModels;
 
 namespace EffectViewer.Controls

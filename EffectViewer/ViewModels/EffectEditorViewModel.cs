@@ -14,11 +14,11 @@ using EffectViewer.Projects;
 using EffectViewer.Rendering;
 using EffectViewer.Rendering.Export;
 using EffectViewer.Runtime;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Graphics;
-using EffectViewer.TodLib.Particle;
-using EffectViewer.TodLib.Reanim;
-using EffectViewer.TodLib.Trail;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Graphics;
+using EffectViewer.EffectRuntime.Particle;
+using EffectViewer.EffectRuntime.Reanim;
+using EffectViewer.EffectRuntime.Trail;
 
 namespace EffectViewer.ViewModels
 {
@@ -47,8 +47,8 @@ namespace EffectViewer.ViewModels
         private FloatParameterTrack _savedTrailWidthOverTime;
         private FloatParameterTrack _savedTrailAlphaOverTime;
         private FloatParameterTrack _savedTrailDuration;
-        private TodParticleDefinition _particleDefinition;
-        private TodParticleDefinition _savedParticleDefinition;
+        private ParticleDefinition _particleDefinition;
+        private ParticleDefinition _savedParticleDefinition;
         private string _selectedReanimLayer;
         private ReanimTrackViewModel _selectedReanimTrack;
         private int _selectedReanimFrameIndex;
@@ -178,7 +178,7 @@ namespace EffectViewer.ViewModels
             get => _trailMaxPoints;
             set
             {
-                int clamped = System.Math.Clamp(value, 2, TodLibConstants.MAX_TRAIL_POINTS);
+                int clamped = System.Math.Clamp(value, 2, EffectConstants.MAX_TRAIL_POINTS);
                 if (SetProperty(ref _trailMaxPoints, clamped))
                 {
                     ApplyTrailPropertyChanges();
@@ -406,13 +406,13 @@ namespace EffectViewer.ViewModels
 
             if (Kind == EffectAssetKind.Particle)
             {
-                TodParticleDefinition definition = _particleDefinition ?? LoadParticleDefinitionFromFile();
+                ParticleDefinition definition = _particleDefinition ?? LoadParticleDefinitionFromFile();
                 if (_particleDefinition is not null && !TryApplyParticleEmitters())
                 {
                     throw new InvalidDataException(ParticleDefinitionError);
                 }
 
-                SexyParticleReader.Encode(outputStream, definition, targetFileName);
+                ParticleDefinitionCodec.Encode(outputStream, definition, targetFileName);
                 return Task.CompletedTask;
             }
 
@@ -557,14 +557,14 @@ namespace EffectViewer.ViewModels
                 EffectAssetKind.Reanim when _reanimDefinition is not null => CreateReanimExportProvider(),
                 EffectAssetKind.Particle when _particleDefinition is not null => new ParticlePreviewSimulation(_project, _particleDefinition, AssetId)
                 {
-                    MaxUpdateStepsPerFrame = TodLibConstants.TICKS_PER_SECOND * 2,
-                    RestartAfterTicks = TodLibConstants.TICKS_PER_SECOND * (int)PreviewExportOptions.MaximumTimeSeconds,
+                    MaxUpdateStepsPerFrame = EffectConstants.TICKS_PER_SECOND * 2,
+                    RestartAfterTicks = EffectConstants.TICKS_PER_SECOND * (int)PreviewExportOptions.MaximumTimeSeconds,
                     RestartOnComplete = false
                 },
                 EffectAssetKind.Trail when _trailDefinition is not null => new TrailPreviewSimulation(_trailDefinition, AssetId)
                 {
-                    MaxUpdateStepsPerFrame = TodLibConstants.TICKS_PER_SECOND * 2,
-                    RestartAfterTicks = TodLibConstants.TICKS_PER_SECOND * (int)PreviewExportOptions.MaximumTimeSeconds,
+                    MaxUpdateStepsPerFrame = EffectConstants.TICKS_PER_SECOND * 2,
+                    RestartAfterTicks = EffectConstants.TICKS_PER_SECOND * (int)PreviewExportOptions.MaximumTimeSeconds,
                     RestartOnComplete = false
                 },
                 _ => null
@@ -575,7 +575,7 @@ namespace EffectViewer.ViewModels
         {
             ReanimPreviewSimulation simulation = new(_project, Path)
             {
-                MaxUpdateStepsPerFrame = TodLibConstants.TICKS_PER_SECOND * 2
+                MaxUpdateStepsPerFrame = EffectConstants.TICKS_PER_SECOND * 2
             };
             simulation.SetDefinition(_reanimDefinition);
             simulation.SetAnimRate((float)ReanimFps);
@@ -1268,7 +1268,7 @@ namespace EffectViewer.ViewModels
             }
 
             RecordUndoSnapshot();
-            TodEmitterDefinition[] emitters = _particleDefinition.mEmitterDefs ?? [];
+            ParticleEmitterDefinition[] emitters = _particleDefinition.mEmitterDefs ?? [];
             int index = _particleDefinition.mEmitterDefCount;
             System.Array.Resize(ref emitters, index + 1);
             emitters[index] = CreateDefaultEmitter(index);
@@ -1301,7 +1301,7 @@ namespace EffectViewer.ViewModels
             }
 
             RecordUndoSnapshot();
-            TodEmitterDefinition[] emitters = new TodEmitterDefinition[count - 1];
+            ParticleEmitterDefinition[] emitters = new ParticleEmitterDefinition[count - 1];
             int targetIndex = 0;
             for (int i = 0; i < count; i++)
             {
@@ -1423,7 +1423,7 @@ namespace EffectViewer.ViewModels
                 }
 
                 await using FileStream particleStream = File.Create(particleFullPath);
-                SexyParticleReader.Encode(particleStream, _particleDefinition, particleFullPath);
+                ParticleDefinitionCodec.Encode(particleStream, _particleDefinition, particleFullPath);
                 project.Definitions.SetParticleDefinition(Path, _particleDefinition);
                 AcceptSavedState();
                 return;
@@ -1557,7 +1557,7 @@ namespace EffectViewer.ViewModels
                 _trailDefinition.mImage ?? string.Empty,
                 _trailDefinition.mMaxPoints,
                 _trailDefinition.mMinPointDistance,
-                TodCommon.TestBit((uint)_trailDefinition.mTrailFlags, (int)TrailFlags.Loops),
+                EffectUtility.TestBit((uint)_trailDefinition.mTrailFlags, (int)TrailFlags.Loops),
                 _trailDefinition.mWidthOverLength,
                 _trailDefinition.mAlphaOverLength,
                 _trailDefinition.mWidthOverTime,
@@ -1571,16 +1571,16 @@ namespace EffectViewer.ViewModels
 
         private void InitializeParticleEditor()
         {
-            TodParticleDefinition definition = LoadParticleDefinitionFromFile();
+            ParticleDefinition definition = LoadParticleDefinitionFromFile();
             LoadParticleDefinition(definition, markDirty: false);
             AcceptSavedState();
             RefreshParticlePreview();
             OnPropertyChanged(nameof(HasParticleControls));
         }
 
-        private TodParticleDefinition LoadParticleDefinitionFromFile()
+        private ParticleDefinition LoadParticleDefinitionFromFile()
         {
-            TodParticleDefinition cached = _project?.Definitions?.GetParticleDefinitionClone(AssetId) ??
+            ParticleDefinition cached = _project?.Definitions?.GetParticleDefinitionClone(AssetId) ??
                 _project?.Definitions?.GetParticleDefinitionCloneByPath(Path);
             if (cached is not null)
             {
@@ -1594,7 +1594,7 @@ namespace EffectViewer.ViewModels
             }
 
             using FileStream stream = File.OpenRead(fullPath);
-            return SexyParticleReader.Decode(stream) ?? ParticleDefinitionUtility.CreateEmpty();
+            return ParticleDefinitionCodec.Decode(stream) ?? ParticleDefinitionUtility.CreateEmpty();
         }
 
         private ReanimatorDefinition LoadReanimDefinitionFromFile()
@@ -3470,7 +3470,7 @@ namespace EffectViewer.ViewModels
 
         private static bool IsPlaceholder(float value)
         {
-            return value == ReanimatorXnaHelpers.DEFAULT_FIELD_PLACEHOLDER;
+            return value == ReanimatorUtility.DEFAULT_FIELD_PLACEHOLDER;
         }
 
         private static double RoundToThreeDecimals(double value)
@@ -3479,7 +3479,7 @@ namespace EffectViewer.ViewModels
             return rounded == -0d ? 0d : rounded;
         }
 
-        private void LoadParticleDefinition(TodParticleDefinition definition, bool markDirty)
+        private void LoadParticleDefinition(ParticleDefinition definition, bool markDirty)
         {
             _suppressParticlePropertyChanges = true;
             _particleDefinition = definition ?? ParticleDefinitionUtility.CreateEmpty();
@@ -3538,9 +3538,9 @@ namespace EffectViewer.ViewModels
             OnPropertyChanged(nameof(ParticleEmitters));
         }
 
-        private static TodEmitterDefinition CreateDefaultEmitter(int index)
+        private static ParticleEmitterDefinition CreateDefaultEmitter(int index)
         {
-            return new TodEmitterDefinition
+            return new ParticleEmitterDefinition
             {
                 mName = F("EffectEditor.DefaultEmitterName", index + 1)
             };
@@ -3585,7 +3585,7 @@ namespace EffectViewer.ViewModels
             }
 
             _trailDefinition.mImage = string.IsNullOrWhiteSpace(TrailImageId) ? null : TrailImageId.Trim();
-            _trailDefinition.mMaxPoints = System.Math.Clamp(TrailMaxPoints, 2, TodLibConstants.MAX_TRAIL_POINTS);
+            _trailDefinition.mMaxPoints = System.Math.Clamp(TrailMaxPoints, 2, EffectConstants.MAX_TRAIL_POINTS);
             _trailDefinition.mMinPointDistance = (float)System.Math.Max(0d, TrailMinPointDistance);
             SetTrailFlag(TrailFlags.Loops, TrailLoops);
 
@@ -3815,7 +3815,7 @@ namespace EffectViewer.ViewModels
             public List<ReanimTween> ReanimTweens { get; init; } = [];
             public int SelectedReanimTrackIndex { get; init; }
             public int SelectedReanimFrameIndex { get; init; }
-            public TodParticleDefinition ParticleDefinition { get; init; }
+            public ParticleDefinition ParticleDefinition { get; init; }
             public int SelectedParticleEmitterIndex { get; init; }
             public TrailDefinition TrailDefinition { get; init; }
         }

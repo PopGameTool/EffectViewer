@@ -6,17 +6,17 @@ using System.Runtime.CompilerServices;
 using EffectViewer.Assets;
 using EffectViewer.Projects;
 using EffectViewer.Rendering;
-using EffectViewer.TodLib.Common;
-using EffectViewer.TodLib.Graphics;
-using EffectViewer.TodLib.Particle;
-using EffectViewer.TodLib.Reanim;
-using EffectViewer.TodLib.Trail;
+using EffectViewer.EffectRuntime.Common;
+using EffectViewer.EffectRuntime.Graphics;
+using EffectViewer.EffectRuntime.Particle;
+using EffectViewer.EffectRuntime.Reanim;
+using EffectViewer.EffectRuntime.Trail;
 
 namespace EffectViewer.Runtime.Showcase
 {
     public sealed class ShowcaseScene : IRenderFrameProvider, IDisposable
     {
-        private const double UpdateStepSeconds = 1.0 / TodLibConstants.TICKS_PER_SECOND;
+        private const double UpdateStepSeconds = 1.0 / EffectConstants.TICKS_PER_SECOND;
 
         private readonly EffectProject _project;
         private readonly EffectSystem _effectSystem = new();
@@ -78,8 +78,8 @@ namespace EffectViewer.Runtime.Showcase
                 throw new InvalidOperationException($"Particle '{id}' was not found in the current project.");
             }
 
-            TodParticleDefinition definition = LoadParticleDefinition(asset);
-            TodParticleSystem system = _effectSystem.mParticleHolder.AllocParticleSystemFromDef(
+            ParticleDefinition definition = LoadParticleDefinition(asset);
+            ParticleSystem system = _effectSystem.mParticleHolder.AllocParticleSystemFromDef(
                 (float)x,
                 (float)y,
                 _reanims.Count + _particles.Count + _trails.Count,
@@ -146,7 +146,7 @@ namespace EffectViewer.Runtime.Showcase
             FrameCaptureGraphics graphics = new()
             {
                 mClipRect = new Rectangle(-16384, -16384, 16384 * 3, 16384 * 3),
-                mColor = SexyColor.White,
+                mColor = EffectColor.White,
                 mDrawMode = DrawMode.Normal
             };
 
@@ -277,17 +277,17 @@ namespace EffectViewer.Runtime.Showcase
             return _effectSystem.mReanimationHolder.mReanimations.DataArrayTryToGet(IdFromNumber<ReanimationID>(id));
         }
 
-        internal TodParticleSystem GetParticleSystemById(double id)
+        internal ParticleSystem GetParticleSystemById(double id)
         {
             return _effectSystem.mParticleHolder.mParticleSystems.DataArrayTryToGet(IdFromNumber<ParticleSystemID>(id));
         }
 
-        internal TodParticleEmitter GetEmitterById(double id)
+        internal ParticleEmitter GetEmitterById(double id)
         {
             return _effectSystem.mParticleHolder.mEmitters.DataArrayTryToGet(IdFromNumber<ParticleEmitterID>(id));
         }
 
-        internal TodParticle GetParticleById(double id)
+        internal ParticleInstance GetParticleById(double id)
         {
             return _effectSystem.mParticleHolder.mParticles.DataArrayTryToGet(IdFromNumber<ParticleID>(id));
         }
@@ -333,7 +333,7 @@ namespace EffectViewer.Runtime.Showcase
 
             foreach (ShowcaseParticle particle in _particles)
             {
-                TodParticleSystem system = particle.ParticleSystem;
+                ParticleSystem system = particle.ParticleSystem;
                 if (system is { mIsAttachment: false, mDead: false })
                 {
                     system.Draw(graphics);
@@ -398,7 +398,7 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
-        private void EnsureSameEffectSystem(TodParticleSystem particleSystem)
+        private void EnsureSameEffectSystem(ParticleSystem particleSystem)
         {
             if (!ReferenceEquals(particleSystem.mParticleHolder?.mEffectSystem, _effectSystem))
             {
@@ -442,9 +442,9 @@ namespace EffectViewer.Runtime.Showcase
             reanimation.mAnimRate = definition?.mFPS ?? 12f;
             reanimation.mLastFrameTime = -1f;
             reanimation.mOverlayMatrix = Matrix4x4.Identity;
-            reanimation.mColorOverride = SexyColor.White;
-            reanimation.mExtraAdditiveColor = SexyColor.White;
-            reanimation.mExtraOverlayColor = SexyColor.White;
+            reanimation.mColorOverride = EffectColor.White;
+            reanimation.mExtraAdditiveColor = EffectColor.White;
+            reanimation.mExtraOverlayColor = EffectColor.White;
             reanimation.SetPosition(x, y);
 
             if (definition?.mTrackCount > 0)
@@ -456,7 +456,7 @@ namespace EffectViewer.Runtime.Showcase
                     reanimation.mTrackInstances[i].Reset();
                     string trackName = definition.mTracks[i].mName;
                     reanimation.mTrackInstances[i].mIsAttacher =
-                        ReanimatorXnaHelpers.gReanimationParamArray != null &&
+                        ReanimatorUtility.gReanimationParamArray != null &&
                         !string.IsNullOrEmpty(trackName) &&
                         trackName.StartsWith(Reanimation.Attacher, StringComparison.OrdinalIgnoreCase);
                 }
@@ -468,9 +468,9 @@ namespace EffectViewer.Runtime.Showcase
             }
         }
 
-        private TodParticleDefinition LoadParticleDefinition(EffectAsset asset)
+        private ParticleDefinition LoadParticleDefinition(EffectAsset asset)
         {
-            TodParticleDefinition cached = _project.Definitions.GetParticleDefinitionCloneByPath(asset.Path);
+            ParticleDefinition cached = _project.Definitions.GetParticleDefinitionCloneByPath(asset.Path);
             if (cached is not null)
             {
                 return cached;
@@ -481,7 +481,7 @@ namespace EffectViewer.Runtime.Showcase
             {
                 if (!string.IsNullOrWhiteSpace(fullPath) &&
                     File.Exists(fullPath) &&
-                    TodParticleGlobal.TodParticleLoadADef(out TodParticleDefinition definition, fullPath))
+                    ParticleUtility.LoadDefinition(out ParticleDefinition definition, fullPath))
                 {
                     return definition;
                 }
@@ -490,7 +490,7 @@ namespace EffectViewer.Runtime.Showcase
             {
             }
 
-            return new TodParticleDefinition
+            return new ParticleDefinition
             {
                 mEmitterDefs = [],
                 mEmitterDefCount = 0

@@ -7,9 +7,9 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia.Platform.Storage;
 using EffectViewer.Assets;
-using EffectViewer.TodLib.Particle;
-using EffectViewer.TodLib.Reanim;
-using EffectViewer.TodLib.Trail;
+using EffectViewer.EffectRuntime.Particle;
+using EffectViewer.EffectRuntime.Reanim;
+using EffectViewer.EffectRuntime.Trail;
 
 namespace EffectViewer.Projects
 {
@@ -911,7 +911,7 @@ namespace EffectViewer.Projects
                     return;
 
                 case EffectAssetKind.Particle:
-                    SexyParticleReader.Encode(stream, ParticleDefinitionUtility.CreateEmpty(), targetFileName);
+                    ParticleDefinitionCodec.Encode(stream, ParticleDefinitionUtility.CreateEmpty(), targetFileName);
                     return;
 
                 case EffectAssetKind.Trail:
