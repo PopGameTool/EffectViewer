@@ -26,7 +26,8 @@ namespace EffectViewer.Projects
         public async Task<FolderImportResult> ImportAsync(
             IResourceFolderSource source,
             string projectDirectory,
-            IProgress<ProjectTransferProgress> progress = null)
+            IProgress<ProjectTransferProgress> progress = null,
+            bool preserveAssetIdConflicts = false)
         {
             if (source is null)
             {
@@ -46,7 +47,9 @@ namespace EffectViewer.Projects
 
             IReadOnlyList<ResourceFolderFile> files = await source.EnumerateFilesAsync(progress);
             Dictionary<string, ResourceFolderFile> fileIndex = files.ToDictionary(file => file.RelativePath, StringComparer.OrdinalIgnoreCase);
-            int totalWorkItems = await CountImportWorkItemsAsync(source, files, fileIndex);
+            bool hasCompiledDirectory = await source.DirectoryExistsAsync("compiled");
+            bool hasReanimDirectory = await source.DirectoryExistsAsync("reanim");
+            int totalWorkItems = await CountImportWorkItemsAsync(source, files, fileIndex, hasCompiledDirectory, hasReanimDirectory);
             FolderImportProgress importProgress = new(progress, totalWorkItems);
 
             Directory.CreateDirectory(projectDirectory);
@@ -80,18 +83,27 @@ namespace EffectViewer.Projects
             }
 
             await AddImagesByConventionAsync(source, files, fileIndex, projectDirectory, images, copiedProjectPaths, knownSourceFiles, importProgress);
-            if (await source.DirectoryExistsAsync("compiled"))
+            if (hasCompiledDirectory)
             {
                 await AddCompiledReanimFilesAsync(source, fileIndex, projectDirectory, "compiled/reanim", ReanimsDirectory, manifest.Reanims, copiedProjectPaths, importProgress);
                 await AddCompiledEffectFilesAsync(source, fileIndex, projectDirectory, "compiled/particles", ".xml.compiled", ".xml", ParticlesDirectory, manifest.Particles, copiedProjectPaths, importProgress);
                 await AddCompiledEffectFilesAsync(source, fileIndex, projectDirectory, "compiled/particles", ".trail.compiled", ".trail", TrailsDirectory, manifest.Trails, copiedProjectPaths, importProgress);
                 await AddCompiledEffectFilesAsync(source, fileIndex, projectDirectory, "compiled/trails", ".trail.compiled", ".trail", TrailsDirectory, manifest.Trails, copiedProjectPaths, importProgress);
             }
-            else
+            else if (hasReanimDirectory)
             {
                 await AddReanimFilesAsync(source, files, projectDirectory, "reanim", ".reanim", ReanimsDirectory, manifest.Reanims, copiedProjectPaths, importProgress);
                 await AddEffectFilesAsync(source, files, projectDirectory, "particles", ".xml", ParticlesDirectory, manifest.Particles, copiedProjectPaths, importProgress);
                 await AddEffectFilesAsync(source, files, projectDirectory, "particles", ".trail", TrailsDirectory, manifest.Trails, copiedProjectPaths, importProgress);
+            }
+            else
+            {
+                await AddLooseReanimFilesAsync(source, files, projectDirectory, ".reanim", ReanimsDirectory, manifest.Reanims, copiedProjectPaths, importProgress, preserveAssetIdConflicts);
+                await AddLooseCompiledReanimFilesAsync(source, files, projectDirectory, ".reanim.compiled", ReanimsDirectory, manifest.Reanims, copiedProjectPaths, importProgress, preserveAssetIdConflicts);
+                await AddLooseEffectFilesAsync(source, files, projectDirectory, ".xml", ParticlesDirectory, manifest.Particles, copiedProjectPaths, importProgress, preserveAssetIdConflicts);
+                await AddLooseCompiledEffectFilesAsync(source, files, projectDirectory, ".xml.compiled", ".xml", ParticlesDirectory, manifest.Particles, copiedProjectPaths, importProgress, preserveAssetIdConflicts);
+                await AddLooseEffectFilesAsync(source, files, projectDirectory, ".trail", TrailsDirectory, manifest.Trails, copiedProjectPaths, importProgress, preserveAssetIdConflicts);
+                await AddLooseCompiledEffectFilesAsync(source, files, projectDirectory, ".trail.compiled", ".trail", TrailsDirectory, manifest.Trails, copiedProjectPaths, importProgress, preserveAssetIdConflicts);
             }
 
             manifest.Images = images.Values
@@ -125,7 +137,9 @@ namespace EffectViewer.Projects
         private static async Task<int> CountImportWorkItemsAsync(
             IResourceFolderSource source,
             IReadOnlyList<ResourceFolderFile> files,
-            IReadOnlyDictionary<string, ResourceFolderFile> fileIndex)
+            IReadOnlyDictionary<string, ResourceFolderFile> fileIndex,
+            bool hasCompiledDirectory,
+            bool hasReanimDirectory)
         {
             int count = 2;
 
@@ -136,18 +150,27 @@ namespace EffectViewer.Projects
 
             count += files.Count(file => IsImageFile(file.RelativePath));
 
-            if (await source.DirectoryExistsAsync("compiled"))
+            if (hasCompiledDirectory)
             {
                 count += CountFiles(files, "compiled/reanim", ".reanim.compiled");
                 count += CountFiles(files, "compiled/particles", ".xml.compiled");
                 count += CountFiles(files, "compiled/particles", ".trail.compiled");
                 count += CountFiles(files, "compiled/trails", ".trail.compiled");
             }
-            else
+            else if (hasReanimDirectory)
             {
                 count += CountFiles(files, "reanim", ".reanim");
                 count += CountFiles(files, "particles", ".xml");
                 count += CountFiles(files, "particles", ".trail");
+            }
+            else
+            {
+                count += CountLooseFiles(files, ".reanim");
+                count += CountLooseFiles(files, ".reanim.compiled");
+                count += CountLooseFiles(files, ".xml");
+                count += CountLooseFiles(files, ".xml.compiled");
+                count += CountLooseFiles(files, ".trail");
+                count += CountLooseFiles(files, ".trail.compiled");
             }
 
             return count;
@@ -186,6 +209,11 @@ namespace EffectViewer.Projects
             string directory = ResourceFolderPath.Normalize(relativeDirectory);
             return files.Count(file => IsInDirectory(file.RelativePath, directory) &&
                                        file.RelativePath.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static int CountLooseFiles(IReadOnlyList<ResourceFolderFile> files, string suffix)
+        {
+            return files.Count(file => IsImportableLooseEffectFile(file.RelativePath, suffix));
         }
 
         private static async Task<int> ImportResourcesXmlAsync(
@@ -406,6 +434,73 @@ namespace EffectViewer.Projects
             }
         }
 
+        private static async Task AddLooseEffectFilesAsync(
+            IResourceFolderSource source,
+            IReadOnlyList<ResourceFolderFile> files,
+            string projectDirectory,
+            string extension,
+            string assetDirectory,
+            IList<EffectAsset> target,
+            HashSet<string> copiedProjectPaths,
+            FolderImportProgress progress,
+            bool preserveAssetIdConflicts)
+        {
+            foreach (ResourceFolderFile file in files.Where(file => IsImportableLooseEffectFile(file.RelativePath, extension)))
+            {
+                string id = CreateImportedAssetId(target, ResourceFolderPath.GetFileNameWithoutExtension(file.RelativePath), preserveAssetIdConflicts);
+
+                progress.Report($"Importing {id}");
+                string assetPath = await CopyAssetFileAsync(source, projectDirectory, file, assetDirectory, id, copiedProjectPaths, progress);
+                if (assetPath is null)
+                {
+                    continue;
+                }
+
+                target.Add(new EffectAsset
+                {
+                    Id = id,
+                    Path = assetPath
+                });
+                progress.Advance($"Imported {id}");
+            }
+        }
+
+        private static async Task AddLooseCompiledEffectFilesAsync(
+            IResourceFolderSource source,
+            IReadOnlyList<ResourceFolderFile> files,
+            string projectDirectory,
+            string suffix,
+            string sourceExtension,
+            string assetDirectory,
+            IList<EffectAsset> target,
+            HashSet<string> copiedProjectPaths,
+            FolderImportProgress progress,
+            bool preserveAssetIdConflicts)
+        {
+            foreach (ResourceFolderFile file in files.Where(file => IsImportableLooseEffectFile(file.RelativePath, suffix)))
+            {
+                string name = ResourceFolderPath.GetFileName(file.RelativePath);
+                string preferredId = name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)
+                    ? name[..^suffix.Length]
+                    : ResourceFolderPath.GetFileNameWithoutExtension(file.RelativePath);
+                string id = CreateImportedAssetId(target, preferredId, preserveAssetIdConflicts);
+
+                progress.Report($"Converting {id}");
+                string assetPath = await ConvertCompiledEffectFileAsync(source, projectDirectory, file, assetDirectory, id, sourceExtension, copiedProjectPaths, progress);
+                if (assetPath is null)
+                {
+                    continue;
+                }
+
+                target.Add(new EffectAsset
+                {
+                    Id = id,
+                    Path = assetPath
+                });
+                progress.Advance($"Converted {id}");
+            }
+        }
+
         private static async Task AddCompiledEffectFilesAsync(
             IResourceFolderSource source,
             IReadOnlyDictionary<string, ResourceFolderFile> fileIndex,
@@ -477,6 +572,72 @@ namespace EffectViewer.Projects
                     Path = assetPath
                 });
                 progress.Advance($"Imported {id}");
+            }
+        }
+
+        private static async Task AddLooseReanimFilesAsync(
+            IResourceFolderSource source,
+            IReadOnlyList<ResourceFolderFile> files,
+            string projectDirectory,
+            string extension,
+            string assetDirectory,
+            IList<ReanimAsset> target,
+            HashSet<string> copiedProjectPaths,
+            FolderImportProgress progress,
+            bool preserveAssetIdConflicts)
+        {
+            foreach (ResourceFolderFile file in files.Where(file => IsImportableLooseEffectFile(file.RelativePath, extension)))
+            {
+                string id = CreateImportedAssetId(target, ResourceFolderPath.GetFileNameWithoutExtension(file.RelativePath), preserveAssetIdConflicts);
+
+                progress.Report($"Importing {id}");
+                string assetPath = await CopyAssetFileAsync(source, projectDirectory, file, assetDirectory, id, copiedProjectPaths, progress);
+                if (assetPath is null)
+                {
+                    continue;
+                }
+
+                target.Add(new ReanimAsset
+                {
+                    Id = id,
+                    Path = assetPath
+                });
+                progress.Advance($"Imported {id}");
+            }
+        }
+
+        private static async Task AddLooseCompiledReanimFilesAsync(
+            IResourceFolderSource source,
+            IReadOnlyList<ResourceFolderFile> files,
+            string projectDirectory,
+            string suffix,
+            string assetDirectory,
+            IList<ReanimAsset> target,
+            HashSet<string> copiedProjectPaths,
+            FolderImportProgress progress,
+            bool preserveAssetIdConflicts)
+        {
+            foreach (ResourceFolderFile file in files.Where(file => IsImportableLooseEffectFile(file.RelativePath, suffix)))
+            {
+                string name = ResourceFolderPath.GetFileName(file.RelativePath);
+                string preferredId = name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)
+                    ? name[..^suffix.Length]
+                    : ResourceFolderPath.GetFileNameWithoutExtension(file.RelativePath);
+                string id = CreateImportedAssetId(target, preferredId, preserveAssetIdConflicts);
+
+                progress.Report($"Converting {id}");
+                string assetPath = await ConvertCompiledReanimFileAsync(source, projectDirectory, file, assetDirectory, id, copiedProjectPaths, progress);
+                if (assetPath is null)
+                {
+                    continue;
+                }
+
+                target.Add(new ReanimAsset
+                {
+                    Id = id,
+                    Path = assetPath
+                });
+                progress.Advance($"Converted {id}");
             }
         }
 
@@ -884,6 +1045,27 @@ namespace EffectViewer.Projects
             return assets.Any(asset => string.Equals(asset.Id, id, StringComparison.OrdinalIgnoreCase));
         }
 
+        private static string CreateImportedAssetId<TAsset>(
+            IEnumerable<TAsset> assets,
+            string preferredId,
+            bool preserveAssetIdConflicts)
+            where TAsset : EffectAsset
+        {
+            string baseId = string.IsNullOrWhiteSpace(preferredId) ? "asset" : preferredId;
+            if (preserveAssetIdConflicts)
+            {
+                return baseId;
+            }
+
+            string id = baseId;
+            for (int i = 2; ContainsAssetId(assets, id); i++)
+            {
+                id = $"{baseId}_{i}";
+            }
+
+            return id;
+        }
+
         private static string EnsureUniquePath(string relativePath, HashSet<string> copiedProjectPaths)
         {
             if (!copiedProjectPaths.Contains(relativePath))
@@ -924,6 +1106,17 @@ namespace EffectViewer.Projects
         {
             string extension = ResourceFolderPath.GetExtension(path);
             return ImageExtensions.Any(item => string.Equals(item, extension, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool IsImportableLooseEffectFile(string path, string suffix)
+        {
+            return !IsResourceManifestPath(path) &&
+                   path.EndsWith(suffix, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsResourceManifestPath(string path)
+        {
+            return string.Equals(ResourceFolderPath.Normalize(path), "properties/resources.xml", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool IsAlphaCompanionFile(string path)

@@ -216,7 +216,7 @@ namespace EffectViewer.Projects
             try
             {
                 ResourceFolderImporter importer = new();
-                FolderImportResult imported = await importer.ImportAsync(source, importDirectory, progress);
+                FolderImportResult imported = await importer.ImportAsync(source, importDirectory, progress, preserveAssetIdConflicts: true);
                 FolderImportResult result = await MergeImportedProjectAsync(project, imported.Project, imported.MissingImageCount, conflictResolver);
                 await SaveAsync(project);
                 project.RebuildAssetIndex();
