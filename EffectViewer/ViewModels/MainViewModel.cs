@@ -1122,12 +1122,6 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
-            if (!await ConfirmAllUnsavedChangesAsync())
-            {
-                StatusText = T("Status.CanceledResourceImport");
-                return;
-            }
-
             try
             {
                 ProjectResourceResult result = await _projectService.ImportResourceFileAsync(CurrentProject, sourceFileName, sourceStream);
@@ -1171,12 +1165,6 @@ namespace EffectViewer.ViewModels
                 : NewResourceId.Trim();
 
             IsNewResourceDialogOpen = false;
-            if (!await ConfirmAllUnsavedChangesAsync())
-            {
-                StatusText = T("Status.CanceledCreatingResource");
-                IsNewResourceDialogOpen = true;
-                return;
-            }
 
             try
             {
