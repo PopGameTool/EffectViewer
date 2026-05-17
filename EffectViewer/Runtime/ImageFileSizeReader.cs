@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using System.IO;
+using System.Runtime.CompilerServices;
 
 namespace EffectViewer.Runtime
 {
@@ -37,8 +38,8 @@ namespace EffectViewer.Runtime
             width = 0;
             height = 0;
             stream.Position = 0;
-            Span<byte> header = stackalloc byte[24];
-            if (stream.Read(header) != header.Length ||
+            InlineArray24<byte> header = new InlineArray24<byte>();
+            if (stream.Read(header) != 24 ||
                 header[0] != 0x89 ||
                 header[1] != (byte)'P' ||
                 header[2] != (byte)'N' ||
@@ -111,8 +112,8 @@ namespace EffectViewer.Runtime
             width = 0;
             height = 0;
             stream.Position = 0;
-            Span<byte> header = stackalloc byte[10];
-            if (stream.Read(header) != header.Length ||
+            InlineArray10<byte> header = new InlineArray10<byte>();
+            if (stream.Read(header) != 10 ||
                 header[0] != (byte)'G' ||
                 header[1] != (byte)'I' ||
                 header[2] != (byte)'F')

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using EffectViewer.EffectRuntime.Graphics;
 using EffectViewer.EffectRuntime.Common;
 using InlineArray3TriVertex = System.Runtime.CompilerServices.InlineArray3<EffectViewer.EffectRuntime.Common.TriVertex>;
@@ -11,7 +12,6 @@ namespace EffectViewer.Rendering
     {
         public const string WhiteTextureId = "__builtin_white_pixel";
         private const float ClipEpsilon = 0.0001f;
-        private const int MaxClipVertexCount = 8;
 
         private readonly RenderFrame _frame = new();
 
@@ -130,8 +130,10 @@ namespace EffectViewer.Rendering
                 return;
             }
 
-            Span<ClipVertex> polygon = stackalloc ClipVertex[MaxClipVertexCount];
-            Span<ClipVertex> scratch = stackalloc ClipVertex[MaxClipVertexCount];
+            InlineArray8<ClipVertex> polygonMemory = new InlineArray8<ClipVertex>();
+            InlineArray8<ClipVertex> scratchMemory = new InlineArray8<ClipVertex>();
+            Span<ClipVertex> polygon = polygonMemory;
+            Span<ClipVertex> scratch = scratchMemory;
             polygon[0] = a;
             polygon[1] = b;
             polygon[2] = c;

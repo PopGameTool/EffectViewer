@@ -8,6 +8,12 @@ namespace EffectViewer.EffectRuntime.Common
         private T _buffer;
     }
 
+    [InlineArray(24)]
+    public struct InlineArray24<T>
+    {
+        private T _buffer;
+    }
+
     [InlineArray(38)]
     public struct InlineArray38<T>
     {

@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace EffectViewer.Tests.TestUtilities;
@@ -58,21 +59,21 @@ internal static class PakBuilder
 
     private static void WriteUInt32(Stream stream, uint value)
     {
-        Span<byte> buffer = stackalloc byte[4];
+        InlineArray4<byte> buffer = new InlineArray4<byte>();
         BinaryPrimitives.WriteUInt32LittleEndian(buffer, value);
         WriteBytes(stream, buffer);
     }
 
     private static void WriteInt32(Stream stream, int value)
     {
-        Span<byte> buffer = stackalloc byte[4];
+        InlineArray4<byte> buffer = new InlineArray4<byte>();
         BinaryPrimitives.WriteInt32LittleEndian(buffer, value);
         WriteBytes(stream, buffer);
     }
 
     private static void WriteInt64(Stream stream, long value)
     {
-        Span<byte> buffer = stackalloc byte[8];
+        InlineArray8<byte> buffer = new InlineArray8<byte>();
         BinaryPrimitives.WriteInt64LittleEndian(buffer, value);
         WriteBytes(stream, buffer);
     }

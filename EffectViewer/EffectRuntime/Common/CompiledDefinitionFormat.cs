@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace EffectViewer.EffectRuntime.Common
@@ -91,14 +92,14 @@ namespace EffectViewer.EffectRuntime.Common
 
         public void WriteInt32(int value)
         {
-            Span<byte> buffer = stackalloc byte[sizeof(int)];
+            InlineArray4<byte> buffer = new InlineArray4<byte>();
             BinaryPrimitives.WriteInt32LittleEndian(buffer, value);
             _stream.Write(buffer);
         }
 
         public void WriteUInt32(uint value)
         {
-            Span<byte> buffer = stackalloc byte[sizeof(uint)];
+            InlineArray4<byte> buffer = new InlineArray4<byte>();
             BinaryPrimitives.WriteUInt32LittleEndian(buffer, value);
             _stream.Write(buffer);
         }
@@ -136,7 +137,7 @@ namespace EffectViewer.EffectRuntime.Common
             }
 
             long position = stream.Position;
-            Span<byte> header = stackalloc byte[sizeof(uint)];
+            InlineArray4<byte> header = new InlineArray4<byte>();
             int read = stream.Read(header);
             stream.Position = position;
             return read == sizeof(uint) && BinaryPrimitives.ReadUInt32LittleEndian(header) == Cookie;
@@ -341,7 +342,7 @@ namespace EffectViewer.EffectRuntime.Common
 
         private static void AppendInt32(ref uint hash, int value)
         {
-            Span<byte> buffer = stackalloc byte[sizeof(int)];
+            InlineArray4<byte> buffer = new InlineArray4<byte>();
             BinaryPrimitives.WriteInt32LittleEndian(buffer, value);
             hash = Crc32.Update(hash, buffer);
         }

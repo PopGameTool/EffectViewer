@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 
 namespace EffectViewer.Rendering.TextureUpload
 {
     public static class TextureTileClipper
     {
         private const float Epsilon = 0.000001f;
-        private const int MaxClipVertexCount = 8;
 
         public static IReadOnlyList<TextureTileDrawBatch> CreateBatches(
             TextureTileLayout layout,
@@ -48,8 +48,10 @@ namespace EffectViewer.Rendering.TextureUpload
                 return;
             }
 
-            Span<ClipVertex> polygonBuffer = stackalloc ClipVertex[MaxClipVertexCount];
-            Span<ClipVertex> scratchBuffer = stackalloc ClipVertex[MaxClipVertexCount];
+            InlineArray8<ClipVertex> polygonBufferMemory = new InlineArray8<ClipVertex>();
+            InlineArray8<ClipVertex> scratchBufferMemory = new InlineArray8<ClipVertex>();
+            Span<ClipVertex> polygonBuffer = polygonBufferMemory;
+            Span<ClipVertex> scratchBuffer = scratchBufferMemory;
             foreach (TextureTile tile in layout.Tiles)
             {
                 if (tile.SourceRight < minU - Epsilon ||

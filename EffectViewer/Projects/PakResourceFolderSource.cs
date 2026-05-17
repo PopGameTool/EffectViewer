@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -172,21 +173,21 @@ namespace EffectViewer.Projects
 
         private int ReadInt32(ref int position)
         {
-            Span<byte> buffer = stackalloc byte[4];
+            InlineArray4<byte> buffer = new InlineArray4<byte>();
             ReadBytes(ref position, buffer);
             return BinaryPrimitives.ReadInt32LittleEndian(buffer);
         }
 
         private uint ReadUInt32(ref int position)
         {
-            Span<byte> buffer = stackalloc byte[4];
+            InlineArray4<byte> buffer = new InlineArray4<byte>();
             ReadBytes(ref position, buffer);
             return BinaryPrimitives.ReadUInt32LittleEndian(buffer);
         }
 
         private long ReadInt64(ref int position)
         {
-            Span<byte> buffer = stackalloc byte[8];
+            InlineArray8<byte> buffer = new InlineArray8<byte>();
             ReadBytes(ref position, buffer);
             return BinaryPrimitives.ReadInt64LittleEndian(buffer);
         }
