@@ -11,6 +11,7 @@ namespace EffectViewer.Rendering
     {
         public const string WhiteTextureId = "__builtin_white_pixel";
         private const float ClipEpsilon = 0.0001f;
+        private const int MaxClipVertexCount = 8;
 
         private readonly RenderFrame _frame = new();
 
@@ -121,18 +122,52 @@ namespace EffectViewer.Rendering
             ClipVertex c,
             Rectangle clipRect)
         {
-            List<ClipVertex> polygon = [a, b, c];
-            polygon = ClipPolygon(polygon, clipRect, ClipEdge.Left);
-            polygon = ClipPolygon(polygon, clipRect, ClipEdge.Right);
-            polygon = ClipPolygon(polygon, clipRect, ClipEdge.Top);
-            polygon = ClipPolygon(polygon, clipRect, ClipEdge.Bottom);
-            if (polygon.Count < 3)
+            if (IsInside(a, clipRect) && IsInside(b, clipRect) && IsInside(c, clipRect))
+            {
+                output.Add(ToRenderVertex(a));
+                output.Add(ToRenderVertex(b));
+                output.Add(ToRenderVertex(c));
+                return;
+            }
+
+            Span<ClipVertex> polygon = stackalloc ClipVertex[MaxClipVertexCount];
+            Span<ClipVertex> scratch = stackalloc ClipVertex[MaxClipVertexCount];
+            polygon[0] = a;
+            polygon[1] = b;
+            polygon[2] = c;
+
+            int polygonCount = 3;
+            polygonCount = ClipLeft(polygon, polygonCount, scratch, clipRect.Left);
+            if (polygonCount < 3)
             {
                 return;
             }
 
+            Swap(ref polygon, ref scratch);
+            polygonCount = ClipRight(polygon, polygonCount, scratch, clipRect.Right);
+            if (polygonCount < 3)
+            {
+                return;
+            }
+
+            Swap(ref polygon, ref scratch);
+            polygonCount = ClipTop(polygon, polygonCount, scratch, clipRect.Top);
+            if (polygonCount < 3)
+            {
+                return;
+            }
+
+            Swap(ref polygon, ref scratch);
+            polygonCount = ClipBottom(polygon, polygonCount, scratch, clipRect.Bottom);
+            if (polygonCount < 3)
+            {
+                return;
+            }
+
+            Swap(ref polygon, ref scratch);
+
             ClipVertex first = polygon[0];
-            for (int i = 1; i < polygon.Count - 1; i++)
+            for (int i = 1; i < polygonCount - 1; i++)
             {
                 output.Add(ToRenderVertex(first));
                 output.Add(ToRenderVertex(polygon[i]));
@@ -140,67 +175,142 @@ namespace EffectViewer.Rendering
             }
         }
 
-        private static List<ClipVertex> ClipPolygon(IReadOnlyList<ClipVertex> input, Rectangle clipRect, ClipEdge edge)
+        private static void Swap(ref Span<ClipVertex> left, ref Span<ClipVertex> right)
         {
-            if (input.Count == 0)
+            Span<ClipVertex> temp = left;
+            left = right;
+            right = temp;
+        }
+
+        private static int ClipLeft(ReadOnlySpan<ClipVertex> input, int inputCount, Span<ClipVertex> output, float left)
+        {
+            return ClipX(input, inputCount, output, left, keepGreater: true);
+        }
+
+        private static int ClipRight(ReadOnlySpan<ClipVertex> input, int inputCount, Span<ClipVertex> output, float right)
+        {
+            return ClipX(input, inputCount, output, right, keepGreater: false);
+        }
+
+        private static int ClipTop(ReadOnlySpan<ClipVertex> input, int inputCount, Span<ClipVertex> output, float top)
+        {
+            return ClipY(input, inputCount, output, top, keepGreater: true);
+        }
+
+        private static int ClipBottom(ReadOnlySpan<ClipVertex> input, int inputCount, Span<ClipVertex> output, float bottom)
+        {
+            return ClipY(input, inputCount, output, bottom, keepGreater: false);
+        }
+
+        private static int ClipX(
+            ReadOnlySpan<ClipVertex> input,
+            int inputCount,
+            Span<ClipVertex> output,
+            float x,
+            bool keepGreater)
+        {
+            if (inputCount == 0)
             {
-                return [];
+                return 0;
             }
 
-            List<ClipVertex> output = new(input.Count + 1);
-            ClipVertex previous = input[^1];
-            bool previousInside = IsInside(previous, clipRect, edge);
-            for (int i = 0; i < input.Count; i++)
+            int outputCount = 0;
+            ClipVertex previous = input[inputCount - 1];
+            bool previousInside = IsInsideX(previous, x, keepGreater);
+            for (int i = 0; i < inputCount; i++)
             {
                 ClipVertex current = input[i];
-                bool currentInside = IsInside(current, clipRect, edge);
+                bool currentInside = IsInsideX(current, x, keepGreater);
                 if (currentInside)
                 {
                     if (!previousInside)
                     {
-                        output.Add(Intersect(previous, current, clipRect, edge));
+                        output[outputCount++] = IntersectX(previous, current, x);
                     }
 
-                    output.Add(current);
+                    output[outputCount++] = current;
                 }
                 else if (previousInside)
                 {
-                    output.Add(Intersect(previous, current, clipRect, edge));
+                    output[outputCount++] = IntersectX(previous, current, x);
                 }
 
                 previous = current;
                 previousInside = currentInside;
             }
 
-            return output;
+            return outputCount;
         }
 
-        private static bool IsInside(ClipVertex vertex, Rectangle clipRect, ClipEdge edge)
+        private static int ClipY(
+            ReadOnlySpan<ClipVertex> input,
+            int inputCount,
+            Span<ClipVertex> output,
+            float y,
+            bool keepGreater)
         {
-            return edge switch
+            if (inputCount == 0)
             {
-                ClipEdge.Left => vertex.Position.X >= clipRect.Left,
-                ClipEdge.Right => vertex.Position.X <= clipRect.Right,
-                ClipEdge.Top => vertex.Position.Y >= clipRect.Top,
-                ClipEdge.Bottom => vertex.Position.Y <= clipRect.Bottom,
-                _ => true
-            };
+                return 0;
+            }
+
+            int outputCount = 0;
+            ClipVertex previous = input[inputCount - 1];
+            bool previousInside = IsInsideY(previous, y, keepGreater);
+            for (int i = 0; i < inputCount; i++)
+            {
+                ClipVertex current = input[i];
+                bool currentInside = IsInsideY(current, y, keepGreater);
+                if (currentInside)
+                {
+                    if (!previousInside)
+                    {
+                        output[outputCount++] = IntersectY(previous, current, y);
+                    }
+
+                    output[outputCount++] = current;
+                }
+                else if (previousInside)
+                {
+                    output[outputCount++] = IntersectY(previous, current, y);
+                }
+
+                previous = current;
+                previousInside = currentInside;
+            }
+
+            return outputCount;
         }
 
-        private static ClipVertex Intersect(ClipVertex start, ClipVertex end, Rectangle clipRect, ClipEdge edge)
+        private static bool IsInside(ClipVertex vertex, Rectangle clipRect)
         {
-            float boundary = edge switch
-            {
-                ClipEdge.Left => clipRect.Left,
-                ClipEdge.Right => clipRect.Right,
-                ClipEdge.Top => clipRect.Top,
-                ClipEdge.Bottom => clipRect.Bottom,
-                _ => 0f
-            };
-            float startValue = edge is ClipEdge.Left or ClipEdge.Right ? start.Position.X : start.Position.Y;
-            float endValue = edge is ClipEdge.Left or ClipEdge.Right ? end.Position.X : end.Position.Y;
-            float delta = endValue - startValue;
-            float t = Math.Abs(delta) <= ClipEpsilon ? 0f : (boundary - startValue) / delta;
+            return vertex.Position.X >= clipRect.Left &&
+                   vertex.Position.X <= clipRect.Right &&
+                   vertex.Position.Y >= clipRect.Top &&
+                   vertex.Position.Y <= clipRect.Bottom;
+        }
+
+        private static bool IsInsideX(ClipVertex vertex, float x, bool keepGreater)
+        {
+            return keepGreater ? vertex.Position.X >= x : vertex.Position.X <= x;
+        }
+
+        private static bool IsInsideY(ClipVertex vertex, float y, bool keepGreater)
+        {
+            return keepGreater ? vertex.Position.Y >= y : vertex.Position.Y <= y;
+        }
+
+        private static ClipVertex IntersectX(ClipVertex start, ClipVertex end, float x)
+        {
+            float delta = end.Position.X - start.Position.X;
+            float t = Math.Abs(delta) <= ClipEpsilon ? 0f : (x - start.Position.X) / delta;
+            return Lerp(start, end, Math.Clamp(t, 0f, 1f));
+        }
+
+        private static ClipVertex IntersectY(ClipVertex start, ClipVertex end, float y)
+        {
+            float delta = end.Position.Y - start.Position.Y;
+            float t = Math.Abs(delta) <= ClipEpsilon ? 0f : (y - start.Position.Y) / delta;
             return Lerp(start, end, Math.Clamp(t, 0f, 1f));
         }
 
@@ -240,13 +350,5 @@ namespace EffectViewer.Rendering
         }
 
         private readonly record struct ClipVertex(Vector2 Position, Vector2 Uv, Vector4 Color);
-
-        private enum ClipEdge
-        {
-            Left,
-            Right,
-            Top,
-            Bottom
-        }
     }
 }
