@@ -87,7 +87,7 @@ namespace EffectViewer.ViewModels
 
                     常用工作流
 
-                    1. 新建或导入项目：使用“项目 -> 新建项目...”，或用“项目 -> 导入项目 Zip...”“资源 -> 导入资源文件夹...”“资源 -> 导入资源 Pak...”把现有素材转成项目。
+                    1. 新建、打开或导入项目：使用“项目 -> 新建项目...”“项目 -> 打开项目...”或“项目 -> 导入项目 Zip...”。已有当前项目后，可用“资源 -> 导入资源文件夹...”或“资源 -> 导入资源 Pak...”追加素材。
                     2. 管理资源：在项目资源管理器中展开图像、字体、动画、粒子、轨迹、展示分组；也可以用搜索框按 ID、路径或类型过滤。
                     3. 打开资源编辑：点击资源后会打开对应编辑器。图像和字体用于检查贴图/字形，动画、粒子、拖尾和 Showcase 用于编辑特效行为。
                     4. 在预览中验证：大多数编辑器都有中央预览视口。滚轮缩放，中键拖动画布，双击重置视图。
@@ -135,7 +135,8 @@ namespace EffectViewer.ViewModels
                     导入资源文件夹
 
                     - 入口：资源 -> 导入资源文件夹...
-                    - 用途：把外部素材目录转换成新的 EffectViewer 项目。它会创建并切换到新项目，而不是追加到当前项目。
+                    - 用途：把外部素材目录追加到当前项目，并加入项目清单。
+                    - 冲突处理：如果导入资源的 ID 已存在，会询问跳过、覆盖或同时保留；也可以对后续冲突执行相同操作。
                     - 推荐结构：
                       properties/resources.xml
                       reanim/*.reanim
@@ -152,13 +153,13 @@ namespace EffectViewer.ViewModels
                     导入资源 Pak
 
                     - 入口：资源 -> 导入资源 Pak...
-                    - 用途：把 .pak 当作资源文件夹读取，并转换成新的 EffectViewer 项目。
-                    - 行为：与导入资源文件夹类似，会创建新内部项目并切换过去。
+                    - 用途：把 .pak 当作资源文件夹读取，并追加到当前项目。
+                    - 行为：与导入资源文件夹类似，会按冲突选择跳过、覆盖或同时保留重复 ID。
 
                     拖放导入
 
                     - 可把单个支持资源文件或 .pak 拖到项目资源管理器。
-                    - 单个资源文件需要当前已有可写项目；.pak 会走 Pak 导入流程并创建新项目。
+                    - 单个资源文件和 .pak 都需要当前已有可写项目；.pak 会走 Pak 导入流程并追加到当前项目。
                     - 资源文件夹和项目 Zip 不支持拖放导入。
 
                     导出当前文件
@@ -589,7 +590,7 @@ namespace EffectViewer.ViewModels
 
                     Common workflow
 
-                    1. Create or import a project: use Project -> New Project..., or import existing content with Project -> Import Project Zip..., Resource -> Import Resource Folder..., or Resource -> Import Resource Pak....
+                    1. Create, open, or import a project: use Project -> New Project..., Project -> Open Project..., or Project -> Import Project Zip.... Once a current project exists, use Resource -> Import Resource Folder... or Resource -> Import Resource Pak... to append assets.
                     2. Manage resources: expand Images, Fonts, Reanim, Particles, Trails, or Showcases in the Project Explorer. Use the search box to filter by ID, path, or type.
                     3. Open a resource editor: click a resource to open the matching editor. Images and fonts help you inspect source assets; reanim, particle, trail, and Showcase editors handle effect behavior.
                     4. Verify in preview: most editors have a central preview viewport. Use the mouse wheel to zoom, middle-button drag to pan, and double-click to reset the view.
@@ -637,7 +638,8 @@ namespace EffectViewer.ViewModels
                     Import Resource Folder
 
                     - Entry: Resource -> Import Resource Folder...
-                    - Purpose: convert an external resource directory into a new EffectViewer project. This creates and switches to a new internal project; it does not append the folder to the current project.
+                    - Purpose: append an external resource directory to the current project and add imported assets to the manifest.
+                    - Conflict handling: if an imported resource ID already exists, choose Skip, Overwrite, or Keep Both. The same choice can be applied to remaining conflicts.
                     - Recommended structure:
                       properties/resources.xml
                       reanim/*.reanim
@@ -654,13 +656,13 @@ namespace EffectViewer.ViewModels
                     Import Resource Pak
 
                     - Entry: Resource -> Import Resource Pak...
-                    - Purpose: read a .pak as a resource folder and convert it into a new EffectViewer project.
-                    - Behavior: this follows the resource-folder import flow, creates a new internal project, and switches to it.
+                    - Purpose: read a .pak as a resource folder and append it to the current project.
+                    - Behavior: this follows the resource-folder import flow and uses the same Skip, Overwrite, or Keep Both choices for duplicate IDs.
 
                     Drag and drop import
 
                     - You can drop a supported single resource file or a .pak onto the Project Explorer.
-                    - Single resource files require a writable current project. A .pak follows Pak import and creates a new project.
+                    - Single resource files and .pak files require a writable current project. A .pak follows Pak import and appends to the current project.
                     - Resource folders and project Zip files are not supported through drag and drop.
 
                     Export Current File

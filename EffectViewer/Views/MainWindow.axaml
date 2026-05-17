@@ -49,9 +49,11 @@
                                                         IsEnabled="{Binding CanModifyCurrentProject}"/>
                                         <NativeMenuItem Header="{DynamicResource Loc.Menu.ImportResourceFolder}"
                                                         Command="{Binding RequestImportResourceFolderCommand}"
-                                                        Gesture="Meta+Shift+I"/>
+                                                        Gesture="Meta+Shift+I"
+                                                        IsEnabled="{Binding CanModifyCurrentProject}"/>
                                         <NativeMenuItem Header="{DynamicResource Loc.Menu.ImportResourcePak}"
-                                                        Command="{Binding RequestImportResourcePakCommand}"/>
+                                                        Command="{Binding RequestImportResourcePakCommand}"
+                                                        IsEnabled="{Binding CanModifyCurrentProject}"/>
                                         <NativeMenuItemSeparator/>
                                         <NativeMenuItem Header="{DynamicResource Loc.Menu.DeleteResource}"
                                                         Command="{Binding ShowDeleteSelectedResourceDialogCommand}"

@@ -38,6 +38,9 @@ namespace EffectViewer.ViewModels
         private readonly EffectWorld _effectWorld = new();
         private LuaHost _luaHost;
         private TaskCompletionSource<UnsavedChangesChoice> _unsavedChangesCompletion;
+        private TaskCompletionSource<ImportConflictResolution> _importConflictCompletion;
+        private ImportConflictResolution? _repeatedImportConflictResolution;
+        private ImportAssetConflict _activeImportConflict;
         private ProjectListItemViewModel _projectBeingRenamed;
         private ProjectListItemViewModel _projectBeingDeleted;
         private ProjectExplorerItemViewModel _resourceBeingDeleted;
@@ -130,6 +133,15 @@ namespace EffectViewer.ViewModels
 
         [ObservableProperty]
         private string _deleteResourceMessage;
+
+        [ObservableProperty]
+        private bool _isImportConflictDialogOpen;
+
+        [ObservableProperty]
+        private string _importConflictMessage;
+
+        [ObservableProperty]
+        private bool _applyImportConflictResolutionToRemaining;
 
         [ObservableProperty]
         private bool _isProjectTransferInProgress;
@@ -579,6 +591,11 @@ namespace EffectViewer.ViewModels
                 UnsavedChangesMessage = F("Dialog.UnsavedChangesMessage", SelectedEditor.Title);
             }
 
+            if (IsImportConflictDialogOpen && _activeImportConflict is not null)
+            {
+                ImportConflictMessage = FormatImportConflictMessage(_activeImportConflict);
+            }
+
             RefreshPreviewExportTimelineOptions();
             NotifyPreviewExportProperties();
         }
@@ -937,19 +954,20 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
-            if (!await ConfirmAllUnsavedChangesAsync())
+            if (!CanModifyCurrentProject)
             {
-                StatusText = T("Status.CanceledFolderImport");
+                StatusText = T("Status.CreateWritableProjectForImport");
                 return;
             }
 
             try
             {
+                ResetImportConflictResolutionForImport();
                 BeginProjectTransfer(T("Transfer.ImportingResourceFolder"), T("Transfer.ScanningResourceFolder"));
                 Progress<ProjectTransferProgress> progress = new(UpdateProjectTransferProgress);
-                FolderImportResult result = await _projectService.ImportFolderAsync(sourceDirectory, progress);
+                FolderImportResult result = await _projectService.ImportFolderAsync(CurrentProject, sourceDirectory, progress, ResolveImportConflictAsync);
 
-                LoadProject(result.Project);
+                RefreshCurrentProject();
                 StatusText = F("Status.ImportedFolder", result.ImageCount, result.FontCount, result.ReanimCount, result.ParticleCount, result.TrailCount, result.MissingImageCount);
             }
             catch (Exception ex)
@@ -969,19 +987,20 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
-            if (!await ConfirmAllUnsavedChangesAsync())
+            if (!CanModifyCurrentProject)
             {
-                StatusText = T("Status.CanceledFolderImport");
+                StatusText = T("Status.CreateWritableProjectForImport");
                 return;
             }
 
             try
             {
+                ResetImportConflictResolutionForImport();
                 BeginProjectTransfer(T("Transfer.ImportingResourceFolder"), T("Transfer.ReadingFolder"));
                 Progress<ProjectTransferProgress> progress = new(UpdateProjectTransferProgress);
-                FolderImportResult result = await _projectService.ImportFolderAsync(sourceFolder, progress);
+                FolderImportResult result = await _projectService.ImportFolderAsync(CurrentProject, sourceFolder, progress, ResolveImportConflictAsync);
 
-                LoadProject(result.Project);
+                RefreshCurrentProject();
                 StatusText = F("Status.ImportedFolder", result.ImageCount, result.FontCount, result.ReanimCount, result.ParticleCount, result.TrailCount, result.MissingImageCount);
             }
             catch (Exception ex)
@@ -1001,19 +1020,20 @@ namespace EffectViewer.ViewModels
                 return;
             }
 
-            if (!await ConfirmAllUnsavedChangesAsync())
+            if (!CanModifyCurrentProject)
             {
-                StatusText = T("Status.CanceledPakImport");
+                StatusText = T("Status.CreateWritableProjectForImport");
                 return;
             }
 
             try
             {
+                ResetImportConflictResolutionForImport();
                 BeginProjectTransfer(T("Transfer.ImportingResourcePak"), T("Transfer.ReadingPak"));
                 Progress<ProjectTransferProgress> progress = new(UpdateProjectTransferProgress);
-                FolderImportResult result = await _projectService.ImportPakAsync(sourceFileName, sourceStream, progress);
+                FolderImportResult result = await _projectService.ImportPakAsync(CurrentProject, sourceFileName, sourceStream, progress, ResolveImportConflictAsync);
 
-                LoadProject(result.Project);
+                RefreshCurrentProject();
                 StatusText = F("Status.ImportedPak", result.ImageCount, result.FontCount, result.ReanimCount, result.ParticleCount, result.TrailCount, result.MissingImageCount);
             }
             catch (Exception ex)
@@ -1059,12 +1079,24 @@ namespace EffectViewer.ViewModels
         [RelayCommand]
         private void RequestImportResourceFolder()
         {
+            if (!CanModifyCurrentProject)
+            {
+                StatusText = T("Status.CreateWritableProjectForImport");
+                return;
+            }
+
             ImportResourceFolderRequested?.Invoke(this, EventArgs.Empty);
         }
 
         [RelayCommand]
         private void RequestImportResourcePak()
         {
+            if (!CanModifyCurrentProject)
+            {
+                StatusText = T("Status.CreateWritableProjectForImport");
+                return;
+            }
+
             ImportResourcePakRequested?.Invoke(this, EventArgs.Empty);
         }
 
@@ -2167,8 +2199,7 @@ namespace EffectViewer.ViewModels
             return new WelcomeEditorViewModel(
                 ShowNewProjectDialogCommand,
                 ShowOpenProjectDialogCommand,
-                RequestImportResourceFolderCommand,
-                RequestImportResourcePakCommand);
+                RequestImportProjectZipCommand);
         }
 
         [RelayCommand]
@@ -2741,6 +2772,72 @@ namespace EffectViewer.ViewModels
 
             OpenEditors.Clear();
             SelectedEditor = null;
+        }
+
+        private void ResetImportConflictResolutionForImport()
+        {
+            _repeatedImportConflictResolution = null;
+            _activeImportConflict = null;
+            ApplyImportConflictResolutionToRemaining = false;
+            IsImportConflictDialogOpen = false;
+        }
+
+        private Task<ImportConflictResolution> ResolveImportConflictAsync(ImportAssetConflict conflict)
+        {
+            if (_repeatedImportConflictResolution.HasValue)
+            {
+                return Task.FromResult(_repeatedImportConflictResolution.Value);
+            }
+
+            _activeImportConflict = conflict;
+            _importConflictCompletion = new TaskCompletionSource<ImportConflictResolution>();
+            ApplyImportConflictResolutionToRemaining = false;
+            ImportConflictMessage = FormatImportConflictMessage(conflict);
+            IsImportConflictDialogOpen = true;
+            return _importConflictCompletion.Task;
+        }
+
+        private string FormatImportConflictMessage(ImportAssetConflict conflict)
+        {
+            string kind = Loc.Text($"DocumentKind.{conflict.Kind}");
+            string existingPath = string.IsNullOrWhiteSpace(conflict.ExistingProjectPath)
+                ? "-"
+                : conflict.ExistingProjectPath;
+            string incomingPath = string.IsNullOrWhiteSpace(conflict.IncomingProjectPath)
+                ? "-"
+                : conflict.IncomingProjectPath;
+            return F("Dialog.ImportConflictMessage", kind, conflict.AssetId, existingPath, incomingPath);
+        }
+
+        [RelayCommand]
+        private void SkipImportConflict()
+        {
+            CompleteImportConflictPrompt(ImportConflictResolution.Skip);
+        }
+
+        [RelayCommand]
+        private void OverwriteImportConflict()
+        {
+            CompleteImportConflictPrompt(ImportConflictResolution.Overwrite);
+        }
+
+        [RelayCommand]
+        private void KeepBothImportConflict()
+        {
+            CompleteImportConflictPrompt(ImportConflictResolution.KeepBoth);
+        }
+
+        private void CompleteImportConflictPrompt(ImportConflictResolution resolution)
+        {
+            if (ApplyImportConflictResolutionToRemaining)
+            {
+                _repeatedImportConflictResolution = resolution;
+            }
+
+            IsImportConflictDialogOpen = false;
+            _activeImportConflict = null;
+            _importConflictCompletion?.TrySetResult(resolution);
+            _importConflictCompletion = null;
         }
 
         public async Task<bool> ConfirmAllUnsavedChangesAsync()

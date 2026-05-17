@@ -52,6 +52,51 @@ public sealed class MainViewModelResourceWorkflowTests
             editor => editor.AssetId == "IMAGE_NEW_IMAGE");
     }
 
+    [Fact]
+    public async Task ImportResourceFolderKeepsDirtyCurrentResourceOpen()
+    {
+        using TempDirectory temp = new();
+        MainViewModel viewModel = await CreateProjectViewModelAsync(temp);
+        ShowcaseEditorViewModel dirtyEditor = await CreateDirtyShowcaseEditorAsync(viewModel, "intro");
+        string unsavedScript = dirtyEditor.ScriptText;
+        string sourceDirectory = CreateImageSourceDirectory(temp, "Folder Image.png");
+
+        await AssertCompletesWithoutUnsavedPromptAsync(
+            viewModel.ImportResourceFolderAsync(sourceDirectory),
+            viewModel);
+
+        Assert.True(dirtyEditor.IsDirty);
+        Assert.Equal(unsavedScript, dirtyEditor.ScriptText);
+        Assert.Contains(viewModel.OpenEditors, editor => ReferenceEquals(editor, dirtyEditor));
+        Assert.Contains(viewModel.CurrentProject.Manifest.Images, image => image.Id == "IMAGE_FOLDER_IMAGE");
+    }
+
+    [Fact]
+    public async Task ImportResourceFolderPromptsForDuplicateIdAndCanKeepBoth()
+    {
+        using TempDirectory temp = new();
+        MainViewModel viewModel = await CreateProjectViewModelAsync(temp);
+        await using (MemoryStream stream = new(PngHeader))
+        {
+            await viewModel.ImportResourceFileAsync("Sun.png", stream);
+        }
+
+        string sourceDirectory = CreateImageSourceDirectory(temp, "Sun.png");
+
+        Task importTask = viewModel.ImportResourceFolderAsync(sourceDirectory);
+        await WaitUntilAsync(() => viewModel.IsImportConflictDialogOpen);
+
+        Assert.False(string.IsNullOrWhiteSpace(viewModel.ImportConflictMessage));
+        viewModel.ApplyImportConflictResolutionToRemaining = true;
+        viewModel.KeepBothImportConflictCommand.Execute(null);
+        await importTask;
+
+        Assert.False(viewModel.IsImportConflictDialogOpen);
+        Assert.Equal(
+            ["IMAGE_SUN", "IMAGE_SUN_2"],
+            viewModel.CurrentProject.Manifest.Images.Select(image => image.Id).ToArray());
+    }
+
     private static async Task<MainViewModel> CreateProjectViewModelAsync(TempDirectory temp)
     {
         MainViewModel viewModel = new(new TestProjectStorageProvider(temp.Path));
@@ -87,5 +132,28 @@ public sealed class MainViewModelResourceWorkflowTests
         Assert.Same(task, completed);
         await task;
         Assert.False(viewModel.IsUnsavedChangesPromptOpen);
+    }
+
+    private static string CreateImageSourceDirectory(TempDirectory temp, string fileName)
+    {
+        string sourceDirectory = temp.GetPath("source-assets-" + Guid.NewGuid().ToString("N"));
+        string imageDirectory = Path.Combine(sourceDirectory, "images");
+        Directory.CreateDirectory(imageDirectory);
+        File.WriteAllBytes(Path.Combine(imageDirectory, fileName), PngHeader);
+        return sourceDirectory;
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> predicate)
+    {
+        DateTime deadline = DateTime.UtcNow.AddSeconds(2);
+        while (!predicate())
+        {
+            if (DateTime.UtcNow >= deadline)
+            {
+                throw new TimeoutException("The expected view model state was not reached.");
+            }
+
+            await Task.Delay(10);
+        }
     }
 }

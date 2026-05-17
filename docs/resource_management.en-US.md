@@ -117,12 +117,13 @@ Shortcuts:
 - Windows/Linux: `Ctrl+Shift+I`
 - macOS/iOS: `Command+Shift+I`
 
-Resource-folder import converts an external resource directory into a new EffectViewer project. It does not append the folder to the current project.
+Resource-folder import appends an external resource directory to the current project and adds recognized resources to the project manifest.
 
 Before import:
 
-- If the current project has unsaved changes, the app asks whether to save, discard, or cancel.
-- After a successful import, the workspace switches to the new imported project.
+- A writable current project must already be open.
+- If an imported resource ID already exists, choose `Skip`, `Overwrite`, or `Keep Both`.
+- Enable "Apply this choice to remaining conflicts" to reuse the selected action for later duplicate IDs in the same import.
 
 Recommended source structure:
 
@@ -143,7 +144,7 @@ compiled/particles/*.trail.compiled
 compiled/trails/*.trail.compiled
 ```
 
-Imported project directories:
+Target project directories:
 
 ```text
 assets/images
@@ -161,7 +162,8 @@ Resource-folder import rules:
 - Image `rows` and `cols` are read from `resources.xml`.
 - Font resources resolve to `.txt` image font descriptors or `.ttf` TrueType fonts.
 - Images not listed in `resources.xml` are also imported by file-name convention.
-- Compiled reanim, particle, and trail files are converted to source format in the imported project.
+- Compiled reanim, particle, and trail files are converted to source format in the current project.
+- When `Keep Both` is selected, duplicate IDs get a numeric suffix; imported reanim, particle, and trail files try to remap references to imported images.
 
 Alpha companion image rules:
 
@@ -173,13 +175,12 @@ Alpha companion image rules:
 
 Menu: `Resource -> Import Resource Pak...`
 
-Use this to read a `.pak` resource archive as a resource folder and convert it into a new EffectViewer project.
+Use this to read a `.pak` resource archive as a resource folder and append it to the current project.
 
 Pak import behaves like resource-folder import:
 
-- It creates a new internal project.
 - It imports images, fonts, reanims, particles, and trails according to the archive contents and resource manifest.
-- The workspace switches to the new project after import.
+- Duplicate IDs use the same Skip, Overwrite, or Keep Both choices.
 
 ## Drag-And-Drop Import
 
@@ -196,7 +197,7 @@ Not supported:
 - Project Zip files.
 - Unsupported file types.
 
-Dropping a single resource file requires a writable current project. Dropping a `.pak` file runs the Pak import flow and creates a new project.
+Dropping a single resource file or `.pak` file requires a writable current project. Dropping a `.pak` file runs the Pak import flow and appends to the current project.
 
 ## Delete Resource
 
@@ -258,9 +259,9 @@ Export rules:
 
 ## FAQ
 
-### Why did importing a resource folder replace my current project?
+### What should I do when resource-folder import finds duplicate IDs?
 
-That is expected. Resource-folder import means "convert an external resource folder into a new project." To add individual resources to the current project, use `Resource -> Import Resource File...`.
+Choose `Skip` to keep the current project resource, `Overwrite` to replace it with the imported content, or `Keep Both` to generate a new ID. Enable "Apply this choice to remaining conflicts" to reuse the same action for later conflicts in this import.
 
 ### Why are image and font missing from the New Resource dialog?
 
@@ -269,4 +270,3 @@ Images require actual image files, and fonts require font files or font descript
 ### Why did folder import not pick up `.webp` or `.tga` images?
 
 Single-file import supports `.webp` and `.tga`. Folder import currently scans `.png`, `.jpg`, `.jpeg`, and `.gif` images by convention.
-

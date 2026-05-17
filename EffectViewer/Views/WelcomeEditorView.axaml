@@ -38,12 +38,9 @@
             <Button Content="{DynamicResource Loc.Welcome.OpenProjectAction}"
                     MinWidth="110"
                     Command="{Binding OpenProjectCommand}"/>
-            <Button Content="{DynamicResource Loc.Welcome.ImportResourceFolderAction}"
-                    MinWidth="130"
-                    Command="{Binding ImportResourceFolderCommand}"/>
-            <Button Content="{DynamicResource Loc.Welcome.ImportResourcePakAction}"
+            <Button Content="{DynamicResource Loc.Welcome.ImportProjectZipAction}"
                     MinWidth="110"
-                    Command="{Binding ImportResourcePakCommand}"/>
+                    Command="{Binding ImportProjectZipCommand}"/>
           </WrapPanel>
         </Grid>
       </Border>

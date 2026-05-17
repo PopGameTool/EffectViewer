@@ -39,14 +39,16 @@ public sealed class PakResourceFolderSourceTests
     {
         using TempDirectory temp = new();
         EffectProjectService service = new(new TestProjectStorageProvider(temp.Path));
+        EffectProject project = await service.CreateProjectAsync("Current Project");
         byte[] pak = PakBuilder.Create(
             ("particles/spark.xml", Encoding.UTF8.GetBytes("<ParticleEffect/>")),
             ("images/Sun.png", [137, 80, 78, 71, 13, 10, 26, 10]));
 
         await using MemoryStream stream = new(pak);
-        FolderImportResult result = await service.ImportPakAsync("resources.pak", stream);
+        FolderImportResult result = await service.ImportPakAsync(project, "resources.pak", stream);
 
-        Assert.Equal("resources", result.Project.Manifest.Name);
+        Assert.Same(project, result.Project);
+        Assert.Equal("Current Project", result.Project.Manifest.Name);
         Assert.Equal(1, result.ImageCount);
         Assert.Equal(1, result.ParticleCount);
         Assert.Equal(0, result.MissingImageCount);

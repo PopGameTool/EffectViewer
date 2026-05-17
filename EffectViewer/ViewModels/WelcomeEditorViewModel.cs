@@ -30,21 +30,18 @@ namespace EffectViewer.ViewModels
 
         public ICommand CreateProjectCommand { get; }
         public ICommand OpenProjectCommand { get; }
-        public ICommand ImportResourceFolderCommand { get; }
-        public ICommand ImportResourcePakCommand { get; }
+        public ICommand ImportProjectZipCommand { get; }
         public override bool CanClose => false;
 
         public WelcomeEditorViewModel(
             ICommand createProjectCommand,
             ICommand openProjectCommand,
-            ICommand importResourceFolderCommand,
-            ICommand importResourcePakCommand)
+            ICommand importProjectZipCommand)
             : base(LocalizationManager.Instance.Text("Welcome.Title"), EffectAssetKind.Project)
         {
             CreateProjectCommand = createProjectCommand;
             OpenProjectCommand = openProjectCommand;
-            ImportResourceFolderCommand = importResourceFolderCommand;
-            ImportResourcePakCommand = importResourcePakCommand;
+            ImportProjectZipCommand = importProjectZipCommand;
             LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
         }
 

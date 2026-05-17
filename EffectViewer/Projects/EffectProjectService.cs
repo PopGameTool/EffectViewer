@@ -168,6 +168,21 @@ namespace EffectViewer.Projects
         }
 
         public async Task<FolderImportResult> ImportFolderAsync(
+            EffectProject project,
+            string sourceDirectory,
+            IProgress<ProjectTransferProgress> progress = null,
+            ImportConflictResolver conflictResolver = null)
+        {
+            EnsureWritableProject(project);
+            if (string.IsNullOrWhiteSpace(sourceDirectory))
+            {
+                throw new ArgumentException("A source directory is required when importing assets.", nameof(sourceDirectory));
+            }
+
+            return await ImportFolderAsync(project, new LocalResourceFolderSource(sourceDirectory), progress, conflictResolver);
+        }
+
+        public async Task<FolderImportResult> ImportFolderAsync(
             IResourceFolderSource source,
             IProgress<ProjectTransferProgress> progress = null)
         {
@@ -186,11 +201,56 @@ namespace EffectViewer.Projects
         }
 
         public async Task<FolderImportResult> ImportFolderAsync(
+            EffectProject project,
+            IResourceFolderSource source,
+            IProgress<ProjectTransferProgress> progress = null,
+            ImportConflictResolver conflictResolver = null)
+        {
+            EnsureWritableProject(project);
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            string importDirectory = Path.Combine(Path.GetTempPath(), "EffectViewer", "folder-import-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                ResourceFolderImporter importer = new();
+                FolderImportResult imported = await importer.ImportAsync(source, importDirectory, progress);
+                FolderImportResult result = await MergeImportedProjectAsync(project, imported.Project, imported.MissingImageCount, conflictResolver);
+                await SaveAsync(project);
+                project.RebuildAssetIndex();
+                project.Definitions.PreloadAll();
+                return result;
+            }
+            finally
+            {
+                TryDeleteDirectory(importDirectory);
+            }
+        }
+
+        public async Task<FolderImportResult> ImportFolderAsync(
             IStorageFolder sourceFolder,
             IProgress<ProjectTransferProgress> progress = null)
         {
             using StorageResourceFolderSource source = new(sourceFolder);
             return await ImportFolderAsync(source, progress);
+        }
+
+        public async Task<FolderImportResult> ImportFolderAsync(
+            EffectProject project,
+            IStorageFolder sourceFolder,
+            IProgress<ProjectTransferProgress> progress = null,
+            ImportConflictResolver conflictResolver = null)
+        {
+            EnsureWritableProject(project);
+            if (sourceFolder is null)
+            {
+                throw new ArgumentNullException(nameof(sourceFolder));
+            }
+
+            using StorageResourceFolderSource source = new(sourceFolder);
+            return await ImportFolderAsync(project, source, progress, conflictResolver);
         }
 
         public async Task<FolderImportResult> ImportPakAsync(
@@ -200,6 +260,18 @@ namespace EffectViewer.Projects
         {
             PakResourceFolderSource source = await PakResourceFolderSource.FromStreamAsync(sourceFileName, pakStream);
             return await ImportFolderAsync(source, progress);
+        }
+
+        public async Task<FolderImportResult> ImportPakAsync(
+            EffectProject project,
+            string sourceFileName,
+            Stream pakStream,
+            IProgress<ProjectTransferProgress> progress = null,
+            ImportConflictResolver conflictResolver = null)
+        {
+            EnsureWritableProject(project);
+            PakResourceFolderSource source = await PakResourceFolderSource.FromStreamAsync(sourceFileName, pakStream);
+            return await ImportFolderAsync(project, source, progress, conflictResolver);
         }
 
         public async Task<EffectProject> ImportProjectZipAsync(Stream zipStream, IProgress<ProjectTransferProgress> progress = null)
@@ -551,6 +623,596 @@ namespace EffectViewer.Projects
             project.RebuildAssetIndex();
             project.Definitions.Invalidate(kind, deletedProjectPath);
             return new ProjectResourceResult(project, kind, deletedAssetId, deletedProjectPath);
+        }
+
+        private async Task<FolderImportResult> MergeImportedProjectAsync(
+            EffectProject project,
+            EffectProject importedProject,
+            int missingImageCount,
+            ImportConflictResolver conflictResolver)
+        {
+            Dictionary<string, string> imageIdMap = new(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, string> fontIdMap = new(StringComparer.OrdinalIgnoreCase);
+
+            int imageCount = await MergeImportedImagesAsync(project, importedProject, imageIdMap, conflictResolver);
+            int fontCount = await MergeImportedFontsAsync(project, importedProject, imageIdMap, fontIdMap, conflictResolver);
+            int reanimCount = await MergeImportedReanimsAsync(project, importedProject, imageIdMap, fontIdMap, conflictResolver);
+            int particleCount = await MergeImportedEffectAssetsAsync(
+                project,
+                importedProject,
+                importedProject.Manifest.Particles,
+                project.Manifest.Particles,
+                EffectAssetKind.Particle,
+                imageIdMap,
+                conflictResolver,
+                CopyImportedParticleFileAsync);
+            int trailCount = await MergeImportedEffectAssetsAsync(
+                project,
+                importedProject,
+                importedProject.Manifest.Trails,
+                project.Manifest.Trails,
+                EffectAssetKind.Trail,
+                imageIdMap,
+                conflictResolver,
+                CopyImportedTrailFileAsync);
+
+            return new FolderImportResult(project, imageCount, fontCount, reanimCount, particleCount, trailCount, missingImageCount);
+        }
+
+        private static async Task<int> MergeImportedImagesAsync(
+            EffectProject project,
+            EffectProject importedProject,
+            Dictionary<string, string> imageIdMap,
+            ImportConflictResolver conflictResolver)
+        {
+            int importedCount = 0;
+            foreach (ImageAsset incoming in importedProject.Manifest.Images)
+            {
+                ImportConflictResolution? conflict = await ResolveImportConflictAsync(project.Manifest, EffectAssetKind.Image, incoming.Id, incoming.Path, conflictResolver);
+                if (conflict == ImportConflictResolution.Skip)
+                {
+                    imageIdMap[incoming.Id] = incoming.Id;
+                    continue;
+                }
+
+                if (conflict == ImportConflictResolution.Overwrite &&
+                    TryFindImageAsset(project.Manifest, incoming.Id, out ImageAsset existingImage))
+                {
+                    string path = await CopyImportedAssetFileAsync(
+                        importedProject,
+                        incoming.Path,
+                        project,
+                        existingImage.Path,
+                        ImagesDirectory,
+                        existingImage.Id);
+                    string alphaPath = await CopyImportedAssetFileAsync(
+                        importedProject,
+                        incoming.AlphaPath,
+                        project,
+                        existingImage.AlphaPath,
+                        ImagesDirectory,
+                        existingImage.Id + ".alpha");
+
+                    existingImage.Path = path;
+                    existingImage.AlphaPath = alphaPath;
+                    existingImage.AlphaOnly = incoming.AlphaOnly;
+                    existingImage.Rows = incoming.Rows;
+                    existingImage.Cols = incoming.Cols;
+                    imageIdMap[incoming.Id] = existingImage.Id;
+                    importedCount++;
+                    continue;
+                }
+
+                string assetId = CreateUniqueAssetId(project.Manifest, EffectAssetKind.Image, incoming.Id);
+                string targetPath = await CopyImportedAssetFileAsync(importedProject, incoming.Path, project, null, ImagesDirectory, assetId);
+                string targetAlphaPath = await CopyImportedAssetFileAsync(importedProject, incoming.AlphaPath, project, null, ImagesDirectory, assetId + ".alpha");
+
+                project.Manifest.Images.Add(new ImageAsset
+                {
+                    Id = assetId,
+                    Path = targetPath,
+                    AlphaPath = targetAlphaPath,
+                    AlphaOnly = incoming.AlphaOnly,
+                    Rows = incoming.Rows,
+                    Cols = incoming.Cols
+                });
+                imageIdMap[incoming.Id] = assetId;
+                importedCount++;
+            }
+
+            return importedCount;
+        }
+
+        private static async Task<int> MergeImportedFontsAsync(
+            EffectProject project,
+            EffectProject importedProject,
+            IReadOnlyDictionary<string, string> imageIdMap,
+            Dictionary<string, string> fontIdMap,
+            ImportConflictResolver conflictResolver)
+        {
+            int importedCount = 0;
+            foreach (FontAsset incoming in importedProject.Manifest.Fonts)
+            {
+                ImportConflictResolution? conflict = await ResolveImportConflictAsync(project.Manifest, EffectAssetKind.Font, incoming.Id, incoming.Path, conflictResolver);
+                if (conflict == ImportConflictResolution.Skip)
+                {
+                    fontIdMap[incoming.Id] = incoming.Id;
+                    continue;
+                }
+
+                if (conflict == ImportConflictResolution.Overwrite &&
+                    TryFindAsset(project.Manifest.Fonts, incoming.Id, out FontAsset existingFont))
+                {
+                    existingFont.Path = await CopyImportedFontFileAsync(importedProject, incoming.Path, project, existingFont.Path, existingFont.Id, imageIdMap);
+                    existingFont.TrueType = incoming.TrueType;
+                    existingFont.FontSize = incoming.FontSize;
+                    existingFont.BorderSize = incoming.BorderSize;
+                    fontIdMap[incoming.Id] = existingFont.Id;
+                    importedCount++;
+                    continue;
+                }
+
+                string assetId = CreateUniqueAssetId(project.Manifest, EffectAssetKind.Font, incoming.Id);
+                string targetPath = await CopyImportedFontFileAsync(importedProject, incoming.Path, project, null, assetId, imageIdMap);
+                project.Manifest.Fonts.Add(new FontAsset
+                {
+                    Id = assetId,
+                    Path = targetPath,
+                    TrueType = incoming.TrueType,
+                    FontSize = incoming.FontSize,
+                    BorderSize = incoming.BorderSize
+                });
+                fontIdMap[incoming.Id] = assetId;
+                importedCount++;
+            }
+
+            return importedCount;
+        }
+
+        private static async Task<int> MergeImportedReanimsAsync(
+            EffectProject project,
+            EffectProject importedProject,
+            IReadOnlyDictionary<string, string> imageIdMap,
+            IReadOnlyDictionary<string, string> fontIdMap,
+            ImportConflictResolver conflictResolver)
+        {
+            int importedCount = 0;
+            foreach (ReanimAsset incoming in importedProject.Manifest.Reanims)
+            {
+                ImportConflictResolution? conflict = await ResolveImportConflictAsync(project.Manifest, EffectAssetKind.Reanim, incoming.Id, incoming.Path, conflictResolver);
+                if (conflict == ImportConflictResolution.Skip)
+                {
+                    continue;
+                }
+
+                if (conflict == ImportConflictResolution.Overwrite &&
+                    TryFindAsset(project.Manifest.Reanims, incoming.Id, out ReanimAsset existingReanim))
+                {
+                    existingReanim.Path = await CopyImportedReanimFileAsync(importedProject, incoming.Path, project, existingReanim.Path, existingReanim.Id, imageIdMap, fontIdMap);
+                    existingReanim.Tweens = CloneTweens(incoming.Tweens);
+                    importedCount++;
+                    continue;
+                }
+
+                string assetId = CreateUniqueAssetId(project.Manifest, EffectAssetKind.Reanim, incoming.Id);
+                string targetPath = await CopyImportedReanimFileAsync(importedProject, incoming.Path, project, null, assetId, imageIdMap, fontIdMap);
+                project.Manifest.Reanims.Add(new ReanimAsset
+                {
+                    Id = assetId,
+                    Path = targetPath,
+                    Tweens = CloneTweens(incoming.Tweens)
+                });
+                importedCount++;
+            }
+
+            return importedCount;
+        }
+
+        private static async Task<int> MergeImportedEffectAssetsAsync(
+            EffectProject project,
+            EffectProject importedProject,
+            IEnumerable<EffectAsset> incomingAssets,
+            List<EffectAsset> targetAssets,
+            EffectAssetKind kind,
+            IReadOnlyDictionary<string, string> imageIdMap,
+            ImportConflictResolver conflictResolver,
+            Func<EffectProject, string, EffectProject, string, string, IReadOnlyDictionary<string, string>, Task<string>> copyFileAsync)
+        {
+            int importedCount = 0;
+            foreach (EffectAsset incoming in incomingAssets)
+            {
+                ImportConflictResolution? conflict = await ResolveImportConflictAsync(project.Manifest, kind, incoming.Id, incoming.Path, conflictResolver);
+                if (conflict == ImportConflictResolution.Skip)
+                {
+                    continue;
+                }
+
+                if (conflict == ImportConflictResolution.Overwrite &&
+                    TryFindAsset(targetAssets, incoming.Id, out EffectAsset existingAsset))
+                {
+                    existingAsset.Path = await copyFileAsync(importedProject, incoming.Path, project, existingAsset.Path, existingAsset.Id, imageIdMap);
+                    importedCount++;
+                    continue;
+                }
+
+                string assetId = CreateUniqueAssetId(project.Manifest, kind, incoming.Id);
+                string targetPath = await copyFileAsync(importedProject, incoming.Path, project, null, assetId, imageIdMap);
+                targetAssets.Add(new EffectAsset
+                {
+                    Id = assetId,
+                    Path = targetPath
+                });
+                importedCount++;
+            }
+
+            return importedCount;
+        }
+
+        private static async Task<ImportConflictResolution?> ResolveImportConflictAsync(
+            ProjectManifest manifest,
+            EffectAssetKind kind,
+            string assetId,
+            string incomingPath,
+            ImportConflictResolver conflictResolver)
+        {
+            if (!AssetIdExists(manifest, kind, assetId))
+            {
+                return null;
+            }
+
+            if (conflictResolver is null)
+            {
+                return ImportConflictResolution.KeepBoth;
+            }
+
+            return await conflictResolver(new ImportAssetConflict
+            {
+                Kind = kind,
+                AssetId = assetId,
+                ExistingProjectPath = GetExistingAssetPath(manifest, kind, assetId),
+                IncomingProjectPath = incomingPath
+            });
+        }
+
+        private static async Task<string> CopyImportedAssetFileAsync(
+            EffectProject importedProject,
+            string sourcePath,
+            EffectProject project,
+            string overwritePath,
+            string assetDirectory,
+            string assetId)
+        {
+            if (string.IsNullOrWhiteSpace(sourcePath))
+            {
+                return string.Empty;
+            }
+
+            string targetPath = CreateImportTargetPath(project, overwritePath, assetDirectory, assetId, Path.GetExtension(sourcePath));
+            await CopyProjectFileAsync(importedProject, sourcePath, project, targetPath);
+            return targetPath;
+        }
+
+        private static async Task<string> CopyImportedFontFileAsync(
+            EffectProject importedProject,
+            string sourcePath,
+            EffectProject project,
+            string overwritePath,
+            string assetId,
+            IReadOnlyDictionary<string, string> imageIdMap)
+        {
+            if (string.IsNullOrWhiteSpace(sourcePath))
+            {
+                return string.Empty;
+            }
+
+            string targetPath = CreateImportTargetPath(project, overwritePath, FontsDirectory, assetId, Path.GetExtension(sourcePath));
+            await CopyProjectFileWithResourceIdRemapAsync(importedProject, sourcePath, project, targetPath, imageIdMap, null);
+            return targetPath;
+        }
+
+        private static async Task<string> CopyImportedReanimFileAsync(
+            EffectProject importedProject,
+            string sourcePath,
+            EffectProject project,
+            string overwritePath,
+            string assetId,
+            IReadOnlyDictionary<string, string> imageIdMap,
+            IReadOnlyDictionary<string, string> fontIdMap)
+        {
+            if (string.IsNullOrWhiteSpace(sourcePath))
+            {
+                return string.Empty;
+            }
+
+            string targetPath = CreateImportTargetPath(project, overwritePath, ReanimsDirectory, assetId, ".reanim");
+            try
+            {
+                string sourceFullPath = ResolveProjectFilePath(importedProject, sourcePath);
+                string targetFullPath = ResolveProjectFilePath(project, targetPath);
+                Directory.CreateDirectory(Path.GetDirectoryName(targetFullPath)!);
+
+                await using FileStream input = File.OpenRead(sourceFullPath);
+                ReanimatorDefinition definition = ReanimReader.Decode(input);
+                RemapReanimResourceIds(definition, imageIdMap, fontIdMap);
+
+                await using FileStream output = File.Create(targetFullPath);
+                ReanimReader.WriteXml(output, definition);
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or FormatException)
+            {
+                await CopyProjectFileWithResourceIdRemapAsync(importedProject, sourcePath, project, targetPath, imageIdMap, fontIdMap);
+            }
+
+            return targetPath;
+        }
+
+        private static async Task<string> CopyImportedParticleFileAsync(
+            EffectProject importedProject,
+            string sourcePath,
+            EffectProject project,
+            string overwritePath,
+            string assetId,
+            IReadOnlyDictionary<string, string> imageIdMap)
+        {
+            if (string.IsNullOrWhiteSpace(sourcePath))
+            {
+                return string.Empty;
+            }
+
+            string targetPath = CreateImportTargetPath(project, overwritePath, ParticlesDirectory, assetId, ".xml");
+            try
+            {
+                string sourceFullPath = ResolveProjectFilePath(importedProject, sourcePath);
+                string targetFullPath = ResolveProjectFilePath(project, targetPath);
+                Directory.CreateDirectory(Path.GetDirectoryName(targetFullPath)!);
+
+                await using FileStream input = File.OpenRead(sourceFullPath);
+                ParticleDefinition definition = ParticleDefinitionCodec.Decode(input);
+                RemapParticleResourceIds(definition, imageIdMap);
+
+                await using FileStream output = File.Create(targetFullPath);
+                ParticleDefinitionCodec.WriteXml(output, definition);
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or FormatException)
+            {
+                await CopyProjectFileWithResourceIdRemapAsync(importedProject, sourcePath, project, targetPath, imageIdMap, null);
+            }
+
+            return targetPath;
+        }
+
+        private static async Task<string> CopyImportedTrailFileAsync(
+            EffectProject importedProject,
+            string sourcePath,
+            EffectProject project,
+            string overwritePath,
+            string assetId,
+            IReadOnlyDictionary<string, string> imageIdMap)
+        {
+            if (string.IsNullOrWhiteSpace(sourcePath))
+            {
+                return string.Empty;
+            }
+
+            string targetPath = CreateImportTargetPath(project, overwritePath, TrailsDirectory, assetId, ".trail");
+            try
+            {
+                string sourceFullPath = ResolveProjectFilePath(importedProject, sourcePath);
+                string targetFullPath = ResolveProjectFilePath(project, targetPath);
+                Directory.CreateDirectory(Path.GetDirectoryName(targetFullPath)!);
+
+                await using FileStream input = File.OpenRead(sourceFullPath);
+                TrailDefinition definition = TrailReader.Decode(input);
+                definition.mImage = RemapResourceId(definition.mImage, imageIdMap);
+
+                await using FileStream output = File.Create(targetFullPath);
+                TrailReader.WriteXml(output, definition);
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or FormatException)
+            {
+                await CopyProjectFileWithResourceIdRemapAsync(importedProject, sourcePath, project, targetPath, imageIdMap, null);
+            }
+
+            return targetPath;
+        }
+
+        private static string CreateImportTargetPath(
+            EffectProject project,
+            string overwritePath,
+            string assetDirectory,
+            string assetId,
+            string suffix)
+        {
+            suffix ??= string.Empty;
+            if (!string.IsNullOrWhiteSpace(overwritePath) &&
+                string.Equals(Path.GetExtension(overwritePath), suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                return overwritePath;
+            }
+
+            return CreateUniqueAssetPath(project, assetDirectory, assetId, suffix);
+        }
+
+        private static async Task CopyProjectFileAsync(
+            EffectProject sourceProject,
+            string sourcePath,
+            EffectProject targetProject,
+            string targetPath)
+        {
+            string sourceFullPath = ResolveProjectFilePath(sourceProject, sourcePath);
+            string targetFullPath = ResolveProjectFilePath(targetProject, targetPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(targetFullPath)!);
+
+            await using FileStream input = File.OpenRead(sourceFullPath);
+            await using FileStream output = File.Create(targetFullPath);
+            await input.CopyToAsync(output);
+        }
+
+        private static async Task CopyProjectFileWithResourceIdRemapAsync(
+            EffectProject sourceProject,
+            string sourcePath,
+            EffectProject targetProject,
+            string targetPath,
+            IReadOnlyDictionary<string, string> imageIdMap,
+            IReadOnlyDictionary<string, string> fontIdMap)
+        {
+            if (!IsTextResourcePath(sourcePath) || (!HasChangedResourceIds(imageIdMap) && !HasChangedResourceIds(fontIdMap)))
+            {
+                await CopyProjectFileAsync(sourceProject, sourcePath, targetProject, targetPath);
+                return;
+            }
+
+            string sourceFullPath = ResolveProjectFilePath(sourceProject, sourcePath);
+            string targetFullPath = ResolveProjectFilePath(targetProject, targetPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(targetFullPath)!);
+
+            string text = await File.ReadAllTextAsync(sourceFullPath);
+            text = ReplaceResourceIds(text, imageIdMap);
+            text = ReplaceResourceIds(text, fontIdMap);
+            await File.WriteAllTextAsync(targetFullPath, text);
+        }
+
+        private static void RemapReanimResourceIds(
+            ReanimatorDefinition definition,
+            IReadOnlyDictionary<string, string> imageIdMap,
+            IReadOnlyDictionary<string, string> fontIdMap)
+        {
+            if (definition?.mTracks is null)
+            {
+                return;
+            }
+
+            int trackCount = Math.Min(definition.mTrackCount, definition.mTracks.Length);
+            for (int trackIndex = 0; trackIndex < trackCount; trackIndex++)
+            {
+                ReanimatorTrack track = definition.mTracks[trackIndex];
+                if (track?.mTransforms is null)
+                {
+                    continue;
+                }
+
+                int transformCount = Math.Min(track.mTransformCount, track.mTransforms.Length);
+                for (int transformIndex = 0; transformIndex < transformCount; transformIndex++)
+                {
+                    ReanimatorTransform transform = track.mTransforms[transformIndex];
+                    transform.mImage = RemapResourceId(transform.mImage, imageIdMap);
+                    transform.mFont = RemapResourceId(transform.mFont, fontIdMap);
+                    track.mTransforms[transformIndex] = transform;
+                }
+            }
+        }
+
+        private static void RemapParticleResourceIds(
+            ParticleDefinition definition,
+            IReadOnlyDictionary<string, string> imageIdMap)
+        {
+            if (definition?.mEmitterDefs is null)
+            {
+                return;
+            }
+
+            int emitterCount = Math.Min(definition.mEmitterDefCount, definition.mEmitterDefs.Length);
+            for (int i = 0; i < emitterCount; i++)
+            {
+                if (definition.mEmitterDefs[i] is not null)
+                {
+                    definition.mEmitterDefs[i].mImage = RemapResourceId(definition.mEmitterDefs[i].mImage, imageIdMap);
+                }
+            }
+        }
+
+        private static string RemapResourceId(string id, IReadOnlyDictionary<string, string> idMap)
+        {
+            return !string.IsNullOrWhiteSpace(id) && idMap is not null && idMap.TryGetValue(id, out string mappedId)
+                ? mappedId
+                : id;
+        }
+
+        private static string ReplaceResourceIds(string text, IReadOnlyDictionary<string, string> idMap)
+        {
+            if (string.IsNullOrEmpty(text) || idMap is null)
+            {
+                return text;
+            }
+
+            foreach ((string sourceId, string targetId) in idMap.Where(item => !string.Equals(item.Key, item.Value, StringComparison.OrdinalIgnoreCase)))
+            {
+                text = text.Replace(sourceId, targetId, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return text;
+        }
+
+        private static bool HasChangedResourceIds(IReadOnlyDictionary<string, string> idMap)
+        {
+            return idMap?.Any(item => !string.Equals(item.Key, item.Value, StringComparison.OrdinalIgnoreCase)) == true;
+        }
+
+        private static bool IsTextResourcePath(string path)
+        {
+            string extension = Path.GetExtension(path ?? string.Empty);
+            return extension.Equals(".xml", StringComparison.OrdinalIgnoreCase) ||
+                   extension.Equals(".trail", StringComparison.OrdinalIgnoreCase) ||
+                   extension.Equals(".reanim", StringComparison.OrdinalIgnoreCase) ||
+                   extension.Equals(".txt", StringComparison.OrdinalIgnoreCase) ||
+                   extension.Equals(".lua", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static List<ReanimTween> CloneTweens(IEnumerable<ReanimTween> tweens)
+        {
+            return tweens?
+                .Select(tween => new ReanimTween
+                {
+                    TrackIndex = tween.TrackIndex,
+                    TrackName = tween.TrackName,
+                    StartFrame = tween.StartFrame,
+                    EndFrame = tween.EndFrame,
+                    AnchorX = tween.AnchorX,
+                    AnchorY = tween.AnchorY,
+                    Properties = tween.Properties?.ToList() ?? []
+                })
+                .ToList() ?? [];
+        }
+
+        private static bool TryFindImageAsset(ProjectManifest manifest, string assetId, out ImageAsset asset)
+        {
+            asset = manifest.Images.FirstOrDefault(item => string.Equals(item.Id, assetId, StringComparison.OrdinalIgnoreCase));
+            return asset is not null;
+        }
+
+        private static bool TryFindAsset<TAsset>(IEnumerable<TAsset> assets, string assetId, out TAsset asset)
+            where TAsset : EffectAsset
+        {
+            asset = assets.FirstOrDefault(item => string.Equals(item.Id, assetId, StringComparison.OrdinalIgnoreCase));
+            return asset is not null;
+        }
+
+        private static string GetExistingAssetPath(ProjectManifest manifest, EffectAssetKind kind, string assetId)
+        {
+            return kind switch
+            {
+                EffectAssetKind.Image => manifest.Images.FirstOrDefault(asset => string.Equals(asset.Id, assetId, StringComparison.OrdinalIgnoreCase))?.Path ?? string.Empty,
+                EffectAssetKind.Font => manifest.Fonts.FirstOrDefault(asset => string.Equals(asset.Id, assetId, StringComparison.OrdinalIgnoreCase))?.Path ?? string.Empty,
+                EffectAssetKind.Reanim => manifest.Reanims.FirstOrDefault(asset => string.Equals(asset.Id, assetId, StringComparison.OrdinalIgnoreCase))?.Path ?? string.Empty,
+                EffectAssetKind.Particle => manifest.Particles.FirstOrDefault(asset => string.Equals(asset.Id, assetId, StringComparison.OrdinalIgnoreCase))?.Path ?? string.Empty,
+                EffectAssetKind.Trail => manifest.Trails.FirstOrDefault(asset => string.Equals(asset.Id, assetId, StringComparison.OrdinalIgnoreCase))?.Path ?? string.Empty,
+                EffectAssetKind.Showcase => manifest.Showcases.FirstOrDefault(asset => string.Equals(asset.Id, assetId, StringComparison.OrdinalIgnoreCase))?.Path ?? string.Empty,
+                _ => string.Empty
+            };
+        }
+
+        private static void TryDeleteDirectory(string path)
+        {
+            try
+            {
+                if (Directory.Exists(path))
+                {
+                    Directory.Delete(path, recursive: true);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
         }
 
         private string CreateUniqueProjectDirectory(string sourceName, string existingDirectory = null)

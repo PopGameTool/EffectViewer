@@ -45,7 +45,7 @@ EffectViewer projects use `project.effectproj.json` as the project manifest. A m
 
 ## Key Concepts
 
-- **Internal project**: a project loaded into the app-private project directory through new project, open project, project-Zip import, resource-folder import, or Pak import. Rename, delete, save, and project-Zip export operate on internal projects.
+- **Internal project**: a project loaded into the app-private project directory through new project, open project, or project-Zip import. Resource folders and Pak files append to the current internal project; rename, delete, save, and project-Zip export operate on internal projects.
 - **Resource ID**: the name used by scripts and resource references. Imported images usually receive an `IMAGE_...` ID; other resources use a safe version of the file name or the ID entered when creating the resource.
 - **Project path**: a path stored in the manifest relative to the project root, such as `assets/images/IMAGE_FIRE.png`, `assets/reanims/zombie.reanim`, or `scripts/demo.lua`.
 - **Unsaved marker**: a `*` after a document tab title means that editor has unsaved changes.

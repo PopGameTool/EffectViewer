@@ -260,9 +260,11 @@
                         IsEnabled="{Binding CanModifyCurrentProject}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.ImportResourceFolder}"
                         Click="ImportFolderMenuItem_Click"
-                        InputGesture="Meta+Shift+I"/>
+                        InputGesture="Meta+Shift+I"
+                        IsEnabled="{Binding CanModifyCurrentProject}"/>
               <MenuItem Header="{DynamicResource Loc.Menu.ImportResourcePak}"
-                        Click="ImportPakMenuItem_Click"/>
+                        Click="ImportPakMenuItem_Click"
+                        IsEnabled="{Binding CanModifyCurrentProject}"/>
               <MenuItem x:Name="RecentlyOpenedMenuItem"
                         Header="{DynamicResource Loc.Menu.RecentlyOpened}"
                         IsVisible="{Binding HasRecentlyOpenedProjectItems}"/>
@@ -1249,6 +1251,42 @@
                      HorizontalAlignment="Right"
                      FontSize="12"
                      Foreground="{DynamicResource TextControlPlaceholderForeground}"/>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <Border Background="#80000000"
+            IsVisible="{Binding IsImportConflictDialogOpen}">
+      <Border MaxWidth="520"
+              Margin="16"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Center"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="18">
+        <StackPanel Spacing="14">
+          <TextBlock Text="{DynamicResource Loc.Dialog.ImportConflict}"
+                     FontSize="18"
+                     FontWeight="SemiBold"/>
+          <TextBlock Text="{Binding ImportConflictMessage}"
+                     TextWrapping="Wrap"/>
+          <CheckBox Content="{DynamicResource Loc.Dialog.ApplyImportConflictChoiceToRemaining}"
+                    IsChecked="{Binding ApplyImportConflictResolutionToRemaining}"/>
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="8">
+            <Button Content="{DynamicResource Loc.Common.Skip}"
+                    MinWidth="80"
+                    Command="{Binding SkipImportConflictCommand}"/>
+            <Button Content="{DynamicResource Loc.Common.Overwrite}"
+                    MinWidth="80"
+                    Command="{Binding OverwriteImportConflictCommand}"/>
+            <Button Content="{DynamicResource Loc.Common.KeepBoth}"
+                    MinWidth="96"
+                    Command="{Binding KeepBothImportConflictCommand}"/>
+          </StackPanel>
         </StackPanel>
       </Border>
     </Border>
