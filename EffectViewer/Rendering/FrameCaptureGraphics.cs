@@ -28,7 +28,9 @@ namespace EffectViewer.Rendering
                 return;
             }
 
-            List<RenderVertex> vertices = new(theVertices.Length * 3);
+            List<RenderVertex> vertices = _frame.MeshVertices;
+            int vertexOffset = vertices.Count;
+            vertices.EnsureCapacity(vertexOffset + theVertices.Length * 3);
             Vector4 globalColor = ToVector4(mColorizeImages ? mColor : EffectColor.White);
             foreach (InlineArray3TriVertex triangle in theVertices)
             {
@@ -40,15 +42,17 @@ namespace EffectViewer.Rendering
                     mClipRect);
             }
 
-            if (vertices.Count == 0)
+            int vertexCount = vertices.Count - vertexOffset;
+            if (vertexCount == 0)
             {
                 return;
             }
 
-            _frame.Meshes.Add(new RenderMeshCommand(
+            _frame.AddMeshCommand(
                 new RenderTextureRef(theTexture.mId),
-                vertices,
-                ToRenderBlendMode(mDrawMode)));
+                vertexOffset,
+                vertexCount,
+                ToRenderBlendMode(mDrawMode));
         }
 
         public override void FillRect(Rectangle rect)
@@ -74,20 +78,21 @@ namespace EffectViewer.Rendering
 
             Vector4 color = ToVector4(mColor);
 
-            List<RenderVertex> vertices =
-            [
-                new(new Vector2(left, top), new Vector2(0f, 0f), color),
-                new(new Vector2(right, top), new Vector2(1f, 0f), color),
-                new(new Vector2(right, bottom), new Vector2(1f, 1f), color),
-                new(new Vector2(left, top), new Vector2(0f, 0f), color),
-                new(new Vector2(right, bottom), new Vector2(1f, 1f), color),
-                new(new Vector2(left, bottom), new Vector2(0f, 1f), color)
-            ];
+            List<RenderVertex> vertices = _frame.MeshVertices;
+            int vertexOffset = vertices.Count;
+            vertices.EnsureCapacity(vertexOffset + 6);
+            vertices.Add(new RenderVertex(new Vector2(left, top), new Vector2(0f, 0f), color));
+            vertices.Add(new RenderVertex(new Vector2(right, top), new Vector2(1f, 0f), color));
+            vertices.Add(new RenderVertex(new Vector2(right, bottom), new Vector2(1f, 1f), color));
+            vertices.Add(new RenderVertex(new Vector2(left, top), new Vector2(0f, 0f), color));
+            vertices.Add(new RenderVertex(new Vector2(right, bottom), new Vector2(1f, 1f), color));
+            vertices.Add(new RenderVertex(new Vector2(left, bottom), new Vector2(0f, 1f), color));
 
-            _frame.Meshes.Add(new RenderMeshCommand(
+            _frame.AddMeshCommand(
                 new RenderTextureRef(WhiteTextureId),
-                vertices,
-                ToRenderBlendMode(mDrawMode)));
+                vertexOffset,
+                6,
+                ToRenderBlendMode(mDrawMode));
         }
 
         private ClipVertex ToClipVertex(TriVertex source, Vector4 globalColor)

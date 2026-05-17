@@ -26,6 +26,22 @@ namespace EffectViewer.Rendering.TextureUpload
             return batches;
         }
 
+        public static IReadOnlyList<TextureTileDrawBatch> CreateBatchesFromSpan(
+            TextureTileLayout layout,
+            ReadOnlySpan<RenderVertex> vertices)
+        {
+            ArgumentNullException.ThrowIfNull(layout);
+
+            List<TextureTileDrawBatch> batches = [];
+            Dictionary<int, TextureTileDrawBatch> batchByTile = new(layout.Tiles.Count);
+            for (int i = 0; i + 2 < vertices.Length; i += 3)
+            {
+                AppendTriangle(layout, vertices[i], vertices[i + 1], vertices[i + 2], batches, batchByTile);
+            }
+
+            return batches;
+        }
+
         private static void AppendTriangle(
             TextureTileLayout layout,
             RenderVertex a,

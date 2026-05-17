@@ -167,21 +167,21 @@ namespace EffectViewer.Rendering.Export
             RenderMeshCommand mesh,
             PreviewExportTransform transform)
         {
-            if (mesh.Vertices.Count < 3 || !TryLoadTexture(textureSource, mesh.Texture, out TextureUploadData texture))
+            if (mesh.VertexCount < 3 || !TryLoadTexture(textureSource, mesh.Texture, out TextureUploadData texture))
             {
                 return;
             }
 
-            for (int i = 0; i + 2 < mesh.Vertices.Count; i += 3)
+            for (int i = 0; i + 2 < mesh.VertexCount; i += 3)
             {
                 DrawTriangle(
                     target,
                     width,
                     height,
                     texture,
-                    Transform(mesh.Vertices[i], transform),
-                    Transform(mesh.Vertices[i + 1], transform),
-                    Transform(mesh.Vertices[i + 2], transform),
+                    Transform(mesh.GetVertex(i), transform),
+                    Transform(mesh.GetVertex(i + 1), transform),
+                    Transform(mesh.GetVertex(i + 2), transform),
                     mesh.BlendMode);
             }
         }

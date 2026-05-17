@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using EffectViewer.Projects;
@@ -142,10 +141,12 @@ namespace EffectViewer.Rendering
         private RenderFrame BuildFrame()
         {
             RenderFrame frame = new();
-            List<RenderVertex> vertices = TrailPreviewFrameBuilder.BuildMesh(_trail);
-            if (vertices.Count > 0)
+            int vertexOffset = frame.MeshVertices.Count;
+            TrailPreviewFrameBuilder.AppendMesh(_trail, frame.MeshVertices);
+            int vertexCount = frame.MeshVertices.Count - vertexOffset;
+            if (vertexCount > 0)
             {
-                frame.Meshes.Add(new RenderMeshCommand(new RenderTextureRef(_textureId), vertices, RenderBlendMode.Normal));
+                frame.AddMeshCommand(new RenderTextureRef(_textureId), vertexOffset, vertexCount, RenderBlendMode.Normal);
             }
 
             return frame;

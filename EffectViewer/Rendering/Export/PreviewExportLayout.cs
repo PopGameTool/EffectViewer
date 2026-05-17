@@ -68,8 +68,9 @@ namespace EffectViewer.Rendering.Export
 
             foreach (RenderMeshCommand mesh in frame.Meshes)
             {
-                foreach (RenderVertex vertex in mesh.Vertices)
+                for (int i = 0; i < mesh.VertexCount; i++)
                 {
+                    RenderVertex vertex = mesh.GetVertex(i);
                     Vector2 position = vertex.Position;
                     bounds.Include(position.X, position.Y);
                 }

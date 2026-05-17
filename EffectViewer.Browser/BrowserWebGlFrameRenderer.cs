@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.JavaScript;
 using Avalonia.Styling;
 using EffectViewer.Rendering;
@@ -11,7 +12,7 @@ namespace EffectViewer.Browser
     internal sealed class BrowserWebGlFrameRenderer
     {
         private const int FloatsPerVertex = 8;
-        private static readonly float[] EmptyVertices = [];
+        private const int SpriteVertexCount = 6;
         private static readonly byte[] EmptyVertexBytes = [];
         private static readonly int[] EmptyIntArray = [];
         private static readonly string[] EmptyStringArray = [];
@@ -26,7 +27,10 @@ namespace EffectViewer.Browser
         private readonly List<int> _batchVertexCounts = [];
         private readonly List<int> _batchBlendModes = [];
         private readonly List<string> _batchTextureIds = [];
+        private readonly List<RenderVertex> _transformedVertices = [];
+        private readonly RenderVertex[] _spriteVertices = new RenderVertex[SpriteVertexCount];
         private readonly Dictionary<string, UploadedTexture> _uploadedTextures = new(StringComparer.Ordinal);
+        private byte[] _vertexBytes = [];
 
         private JSObject? _canvas;
         private ITextureSource _textureSource = new GeneratedTextureSource();
@@ -106,8 +110,8 @@ namespace EffectViewer.Browser
                 GetCheckerboardColor(),
                 GetCheckerboardCellSize(scaling));
 
-            float[] vertices = _vertices.Count == 0 ? EmptyVertices : _vertices.ToArray();
-            byte[] vertexBytes = ToByteArray(vertices);
+            int vertexByteCount = PackVertexBytes();
+            byte[] vertexBytes = vertexByteCount == 0 ? EmptyVertexBytes : _vertexBytes;
             int[] batchFirstVertices = _batchFirstVertices.Count == 0 ? EmptyIntArray : _batchFirstVertices.ToArray();
             int[] batchVertexCounts = _batchVertexCounts.Count == 0 ? EmptyIntArray : _batchVertexCounts.ToArray();
             int[] batchBlendModes = _batchBlendModes.Count == 0 ? EmptyIntArray : _batchBlendModes.ToArray();
@@ -121,8 +125,8 @@ namespace EffectViewer.Browser
                 clear.Y,
                 clear.Z,
                 clear.W,
-                new ArraySegment<byte>(vertexBytes, 0, vertexBytes.Length),
-                vertexBytes.Length,
+                new ArraySegment<byte>(vertexBytes, 0, vertexByteCount),
+                vertexByteCount,
                 batchFirstVertices,
                 batchVertexCounts,
                 batchBlendModes,
@@ -159,16 +163,27 @@ namespace EffectViewer.Browser
             return Math.Max(4, (int)Math.Round(CheckerboardCellSize * scaling));
         }
 
-        private static byte[] ToByteArray(float[] vertices)
+        private int PackVertexBytes()
         {
-            if (vertices.Length == 0)
+            int byteCount = _vertices.Count * sizeof(float);
+            if (byteCount == 0)
             {
-                return EmptyVertexBytes;
+                return 0;
             }
 
-            byte[] bytes = new byte[vertices.Length * sizeof(float)];
-            Buffer.BlockCopy(vertices, 0, bytes, 0, bytes.Length);
-            return bytes;
+            if (_vertexBytes.Length < byteCount)
+            {
+                int capacity = _vertexBytes.Length == 0 ? FloatsPerVertex * sizeof(float) * 64 : _vertexBytes.Length;
+                while (capacity < byteCount)
+                {
+                    capacity *= 2;
+                }
+
+                Array.Resize(ref _vertexBytes, capacity);
+            }
+
+            MemoryMarshal.AsBytes(CollectionsMarshal.AsSpan(_vertices)).CopyTo(_vertexBytes);
+            return byteCount;
         }
 
         private void BuildDrawData(
@@ -207,8 +222,9 @@ namespace EffectViewer.Browser
 
                 if (layout.IsTiled)
                 {
+                    FillSpriteVertices(_spriteVertices, sprite, width, height);
                     AppendTiledTriangles(
-                        CreateSpriteVertices(sprite, width, height),
+                        _spriteVertices,
                         layout,
                         sprite.BlendMode,
                         sprite.Texture);
@@ -227,17 +243,19 @@ namespace EffectViewer.Browser
 
             foreach (RenderMeshCommand mesh in frame.Meshes)
             {
-                if (mesh.Vertices.Count == 0 || !EnsureTexture(mesh.Texture, out TextureTileLayout layout))
+                if (mesh.VertexCount == 0 || !EnsureTexture(mesh.Texture, out TextureTileLayout layout))
                 {
                     continue;
                 }
 
                 if (layout.IsTiled)
                 {
-                    List<RenderVertex> vertices = new(mesh.Vertices.Count);
-                    foreach (RenderVertex vertex in mesh.Vertices)
+                    _transformedVertices.Clear();
+                    _transformedVertices.EnsureCapacity(mesh.VertexCount);
+                    for (int i = 0; i < mesh.VertexCount; i++)
                     {
-                        vertices.Add(new RenderVertex(
+                        RenderVertex vertex = mesh.GetVertex(i);
+                        _transformedVertices.Add(new RenderVertex(
                             new Vector2(
                                 ToClipX(ApplyViewX(vertex.Position.X), width),
                                 ToClipY(ApplyViewY(vertex.Position.Y), height)),
@@ -245,13 +263,14 @@ namespace EffectViewer.Browser
                             vertex.Color));
                     }
 
-                    AppendTiledTriangles(vertices, layout, mesh.BlendMode, mesh.Texture);
+                    AppendTiledTriangles(CollectionsMarshal.AsSpan(_transformedVertices), layout, mesh.BlendMode, mesh.Texture);
                 }
                 else
                 {
                     int firstVertex = _vertices.Count / FloatsPerVertex;
-                    foreach (RenderVertex vertex in mesh.Vertices)
+                    for (int i = 0; i < mesh.VertexCount; i++)
                     {
+                        RenderVertex vertex = mesh.GetVertex(i);
                         AppendVertex(
                             ToClipX(ApplyViewX(vertex.Position.X), width),
                             ToClipY(ApplyViewY(vertex.Position.Y), height),
@@ -262,7 +281,7 @@ namespace EffectViewer.Browser
 
                     AddBatch(
                         firstVertex,
-                        mesh.Vertices.Count,
+                        mesh.VertexCount,
                         mesh.BlendMode,
                         TextureTileLayout.GetTileTextureId(mesh.Texture.Id, layout.Tiles[0]));
                 }
@@ -397,13 +416,13 @@ namespace EffectViewer.Browser
         }
 
         private void AppendTiledTriangles(
-            IReadOnlyList<RenderVertex> vertices,
+            ReadOnlySpan<RenderVertex> vertices,
             TextureTileLayout layout,
             RenderBlendMode blendMode,
             RenderTextureRef texture)
         {
             string id = texture.Id ?? string.Empty;
-            foreach (TextureTileDrawBatch batch in TextureTileClipper.CreateBatches(layout, vertices))
+            foreach (TextureTileDrawBatch batch in TextureTileClipper.CreateBatchesFromSpan(layout, vertices))
             {
                 if (batch.Vertices.Count == 0)
                 {
@@ -431,7 +450,8 @@ namespace EffectViewer.Browser
 
         private void AppendSprite(RenderSpriteCommand sprite, int width, int height)
         {
-            foreach (RenderVertex vertex in CreateSpriteVertices(sprite, width, height))
+            FillSpriteVertices(_spriteVertices, sprite, width, height);
+            foreach (RenderVertex vertex in _spriteVertices)
             {
                 AppendVertex(
                     vertex.Position.X,
@@ -442,7 +462,7 @@ namespace EffectViewer.Browser
             }
         }
 
-        private RenderVertex[] CreateSpriteVertices(RenderSpriteCommand sprite, int width, int height)
+        private void FillSpriteVertices(Span<RenderVertex> vertices, RenderSpriteCommand sprite, int width, int height)
         {
             float pixelX = sprite.Position.X <= 1f ? sprite.Position.X * width : sprite.Position.X;
             float pixelY = sprite.Position.Y <= 1f ? sprite.Position.Y * height : sprite.Position.Y;
@@ -456,15 +476,12 @@ namespace EffectViewer.Browser
             Vector4 uv = sprite.UvRect;
             Vector4 color = sprite.Color;
 
-            return
-            [
-                new RenderVertex(new Vector2(left, top), new Vector2(uv.X, uv.Y), color),
-                new RenderVertex(new Vector2(right, top), new Vector2(uv.Z, uv.Y), color),
-                new RenderVertex(new Vector2(right, bottom), new Vector2(uv.Z, uv.W), color),
-                new RenderVertex(new Vector2(left, top), new Vector2(uv.X, uv.Y), color),
-                new RenderVertex(new Vector2(right, bottom), new Vector2(uv.Z, uv.W), color),
-                new RenderVertex(new Vector2(left, bottom), new Vector2(uv.X, uv.W), color)
-            ];
+            vertices[0] = new RenderVertex(new Vector2(left, top), new Vector2(uv.X, uv.Y), color);
+            vertices[1] = new RenderVertex(new Vector2(right, top), new Vector2(uv.Z, uv.Y), color);
+            vertices[2] = new RenderVertex(new Vector2(right, bottom), new Vector2(uv.Z, uv.W), color);
+            vertices[3] = new RenderVertex(new Vector2(left, top), new Vector2(uv.X, uv.Y), color);
+            vertices[4] = new RenderVertex(new Vector2(right, bottom), new Vector2(uv.Z, uv.W), color);
+            vertices[5] = new RenderVertex(new Vector2(left, bottom), new Vector2(uv.X, uv.W), color);
         }
 
         private void AppendVertex(float x, float y, float u, float v, Vector4 color)

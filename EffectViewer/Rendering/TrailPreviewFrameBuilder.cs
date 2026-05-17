@@ -38,7 +38,7 @@ namespace EffectViewer.Rendering
             List<RenderVertex> vertices = BuildMesh(points, definition, 0.45f);
             if (vertices.Count > 0)
             {
-                frame.Meshes.Add(new RenderMeshCommand(new RenderTextureRef(textureId), vertices, RenderBlendMode.Normal));
+                frame.AddMesh(new RenderTextureRef(textureId), vertices, RenderBlendMode.Normal);
             }
 
             return frame;
@@ -119,9 +119,15 @@ namespace EffectViewer.Rendering
         public static List<RenderVertex> BuildMesh(Trail trail)
         {
             List<RenderVertex> vertices = [];
+            AppendMesh(trail, vertices);
+            return vertices;
+        }
+
+        internal static void AppendMesh(Trail trail, List<RenderVertex> vertices)
+        {
             if (trail is null || trail.mDead || trail.mNumTrailPoints < 2 || trail.mDefinition is null)
             {
-                return vertices;
+                return;
             }
 
             float timeValue = trail.mTrailDuration <= 1
@@ -185,8 +191,6 @@ namespace EffectViewer.Rendering
                 vertices.Add(new RenderVertex(currentBottom, new Vector2(currentU, 0f), currentColor));
                 vertices.Add(new RenderVertex(nextBottom, new Vector2(nextU, 0f), nextColor));
             }
-
-            return vertices;
         }
 
         private static Vector2 GetNormal(IReadOnlyList<Vector2> points, int index)

@@ -29,13 +29,14 @@ public sealed class FrameCaptureGraphicsTests
         graphics.DrawTrianglesTex(image, [triangle]);
 
         RenderMeshCommand mesh = Assert.Single(graphics.Frame.Meshes);
-        Assert.NotEmpty(mesh.Vertices);
-        Assert.True(mesh.Vertices.Count % 3 == 0);
-        Assert.All(mesh.Vertices, vertex =>
+        Assert.True(mesh.VertexCount > 0);
+        Assert.True(mesh.VertexCount % 3 == 0);
+        for (int i = 0; i < mesh.VertexCount; i++)
         {
+            RenderVertex vertex = mesh.GetVertex(i);
             Assert.InRange(vertex.Position.X, 0f, 10f);
             Assert.InRange(vertex.Position.Y, 0f, 10f);
-        });
+        }
     }
 
     private static TriVertex CreateVertex(float x, float y, float u, float v)

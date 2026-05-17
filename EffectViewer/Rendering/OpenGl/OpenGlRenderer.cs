@@ -10,6 +10,7 @@ namespace EffectViewer.Rendering.OpenGl
     public sealed class OpenGlRenderer
     {
         private const int FloatsPerVertex = 8;
+        private const int SpriteVertexCount = 6;
         private static readonly RenderTextureRef WhiteTexture = new(FrameCaptureGraphics.WhiteTextureId);
 
         private enum ShaderDialect
@@ -29,6 +30,9 @@ namespace EffectViewer.Rendering.OpenGl
         private readonly OpenGlTextureCache _textureCache = new();
         private ITextureSource _textureSource = new GeneratedTextureSource();
         private int _maxTextureSize;
+        private readonly List<RenderVertex> _transformedVertices = [];
+        private readonly RenderVertex[] _spriteVertices = new RenderVertex[SpriteVertexCount];
+        private float[] _packedVertices = [];
 
         private IEffectGlInterface _gl;
 
@@ -188,9 +192,8 @@ namespace EffectViewer.Rendering.OpenGl
                 }
 
                 SetBlendMode(sprite.BlendMode);
-                DrawTexturedTriangles(
-                    CreateSpriteVertices(sprite, width, height, ViewZoom, ViewPan),
-                    textureSet);
+                FillSpriteVertices(_spriteVertices, sprite, width, height, ViewZoom, ViewPan);
+                DrawTexturedTriangles(_spriteVertices, textureSet);
             }
         }
 
@@ -203,7 +206,7 @@ namespace EffectViewer.Rendering.OpenGl
 
             foreach (RenderMeshCommand mesh in meshes)
             {
-                if (mesh.Vertices.Count == 0)
+                if (mesh.VertexCount == 0)
                 {
                     continue;
                 }
@@ -213,10 +216,12 @@ namespace EffectViewer.Rendering.OpenGl
                     continue;
                 }
 
-                List<RenderVertex> vertices = new(mesh.Vertices.Count);
-                foreach (RenderVertex vertex in mesh.Vertices)
+                _transformedVertices.Clear();
+                _transformedVertices.EnsureCapacity(mesh.VertexCount);
+                for (int i = 0; i < mesh.VertexCount; i++)
                 {
-                    vertices.Add(new RenderVertex(
+                    RenderVertex vertex = mesh.GetVertex(i);
+                    _transformedVertices.Add(new RenderVertex(
                         new Vector2(
                             ToClipX(ApplyViewX(vertex.Position.X, ViewZoom, ViewPan), width),
                             ToClipY(ApplyViewY(vertex.Position.Y, ViewZoom, ViewPan), height)),
@@ -225,13 +230,13 @@ namespace EffectViewer.Rendering.OpenGl
                 }
 
                 SetBlendMode(mesh.BlendMode);
-                DrawTexturedTriangles(vertices, textureSet);
+                DrawTexturedTriangles(CollectionsMarshal.AsSpan(_transformedVertices), textureSet);
             }
         }
 
-        private void DrawTexturedTriangles(IReadOnlyList<RenderVertex> vertices, OpenGlTextureSet textureSet)
+        private void DrawTexturedTriangles(ReadOnlySpan<RenderVertex> vertices, OpenGlTextureSet textureSet)
         {
-            if (vertices.Count == 0 || textureSet.Handles.Count == 0)
+            if (vertices.Length == 0 || textureSet.Handles.Count == 0)
             {
                 return;
             }
@@ -241,20 +246,20 @@ namespace EffectViewer.Rendering.OpenGl
                 UploadVertices(vertices);
                 if (BindTextureHandle(textureSet.Handles[0]))
                 {
-                    _gl.DrawArrays(OpenGlConstants.Triangles, 0, vertices.Count);
+                    _gl.DrawArrays(OpenGlConstants.Triangles, 0, vertices.Length);
                 }
 
                 return;
             }
 
-            foreach (TextureTileDrawBatch batch in TextureTileClipper.CreateBatches(textureSet.Layout, vertices))
+            foreach (TextureTileDrawBatch batch in TextureTileClipper.CreateBatchesFromSpan(textureSet.Layout, vertices))
             {
                 if (batch.Vertices.Count == 0)
                 {
                     continue;
                 }
 
-                UploadVertices(batch.Vertices);
+                UploadVertices(CollectionsMarshal.AsSpan(batch.Vertices));
                 if (BindTextureHandle(textureSet.GetHandle(batch.Tile)))
                 {
                     _gl.DrawArrays(OpenGlConstants.Triangles, 0, batch.Vertices.Count);
@@ -273,7 +278,8 @@ namespace EffectViewer.Rendering.OpenGl
             int columns = Math.Max(1, (width + cellSize - 1) / cellSize);
             int rows = Math.Max(1, (height + cellSize - 1) / cellSize);
             int squareCount = (columns * rows + 1) / 2;
-            float[] vertices = new float[squareCount * 6 * FloatsPerVertex];
+            EnsurePackedVertexCapacity(squareCount * SpriteVertexCount * FloatsPerVertex);
+            float[] vertices = _packedVertices;
             int offset = 0;
 
             for (int row = 0; row < rows; row++)
@@ -298,12 +304,7 @@ namespace EffectViewer.Rendering.OpenGl
                 return;
             }
 
-            if (offset != vertices.Length)
-            {
-                Array.Resize(ref vertices, offset);
-            }
-
-            UploadVertices(vertices);
+            UploadPackedVertices(vertices, offset);
             SetBlendMode(RenderBlendMode.Normal);
             _gl.DrawArrays(OpenGlConstants.Triangles, 0, offset / FloatsPerVertex);
         }
@@ -324,7 +325,7 @@ namespace EffectViewer.Rendering.OpenGl
             }
         }
 
-        private void UploadVertices(float[] vertices)
+        private void UploadPackedVertices(float[] vertices, int floatCount)
         {
             _gl.UseProgram(_program);
             _gl.Uniform1i(_textureLocation, 0);
@@ -336,7 +337,7 @@ namespace EffectViewer.Rendering.OpenGl
             {
                 _gl.BufferData(
                     OpenGlConstants.ArrayBuffer,
-                    new IntPtr(vertices.Length * sizeof(float)),
+                    new IntPtr(floatCount * sizeof(float)),
                     verticesHandle.AddrOfPinnedObject(),
                     OpenGlConstants.StreamDraw);
             }
@@ -359,14 +360,14 @@ namespace EffectViewer.Rendering.OpenGl
             _gl.VertexAttribPointer((uint)_colorLocation, 4, OpenGlConstants.Float, false, stride, new IntPtr(4 * sizeof(float)));
         }
 
-        private void UploadVertices(IReadOnlyList<RenderVertex> vertices)
+        private void UploadVertices(ReadOnlySpan<RenderVertex> vertices)
         {
-            float[] packed = new float[vertices.Count * FloatsPerVertex];
+            EnsurePackedVertexCapacity(vertices.Length * FloatsPerVertex);
             int offset = 0;
             foreach (RenderVertex vertex in vertices)
             {
                 AppendVertex(
-                    packed,
+                    _packedVertices,
                     ref offset,
                     vertex.Position.X,
                     vertex.Position.Y,
@@ -375,7 +376,23 @@ namespace EffectViewer.Rendering.OpenGl
                     vertex.Color);
             }
 
-            UploadVertices(packed);
+            UploadPackedVertices(_packedVertices, offset);
+        }
+
+        private void EnsurePackedVertexCapacity(int floatCount)
+        {
+            if (_packedVertices.Length >= floatCount)
+            {
+                return;
+            }
+
+            int capacity = _packedVertices.Length == 0 ? FloatsPerVertex * 64 : _packedVertices.Length;
+            while (capacity < floatCount)
+            {
+                capacity *= 2;
+            }
+
+            Array.Resize(ref _packedVertices, capacity);
         }
 
         private void BindVertexArray()
@@ -597,7 +614,13 @@ namespace EffectViewer.Rendering.OpenGl
             }
         }
 
-        private static RenderVertex[] CreateSpriteVertices(RenderSpriteCommand sprite, int width, int height, float zoom, Vector2 pan)
+        private static void FillSpriteVertices(
+            Span<RenderVertex> vertices,
+            RenderSpriteCommand sprite,
+            int width,
+            int height,
+            float zoom,
+            Vector2 pan)
         {
             float pixelX = sprite.Position.X <= 1f ? sprite.Position.X * width : sprite.Position.X;
             float pixelY = sprite.Position.Y <= 1f ? sprite.Position.Y * height : sprite.Position.Y;
@@ -612,15 +635,12 @@ namespace EffectViewer.Rendering.OpenGl
             Vector4 uv = sprite.UvRect;
             Vector4 color = sprite.Color;
 
-            return
-            [
-                new RenderVertex(new Vector2(left, top), new Vector2(uv.X, uv.Y), color),
-                new RenderVertex(new Vector2(right, top), new Vector2(uv.Z, uv.Y), color),
-                new RenderVertex(new Vector2(right, bottom), new Vector2(uv.Z, uv.W), color),
-                new RenderVertex(new Vector2(left, top), new Vector2(uv.X, uv.Y), color),
-                new RenderVertex(new Vector2(right, bottom), new Vector2(uv.Z, uv.W), color),
-                new RenderVertex(new Vector2(left, bottom), new Vector2(uv.X, uv.W), color)
-            ];
+            vertices[0] = new RenderVertex(new Vector2(left, top), new Vector2(uv.X, uv.Y), color);
+            vertices[1] = new RenderVertex(new Vector2(right, top), new Vector2(uv.Z, uv.Y), color);
+            vertices[2] = new RenderVertex(new Vector2(right, bottom), new Vector2(uv.Z, uv.W), color);
+            vertices[3] = new RenderVertex(new Vector2(left, top), new Vector2(uv.X, uv.Y), color);
+            vertices[4] = new RenderVertex(new Vector2(right, bottom), new Vector2(uv.Z, uv.W), color);
+            vertices[5] = new RenderVertex(new Vector2(left, bottom), new Vector2(uv.X, uv.W), color);
         }
 
         private static void AppendVertex(float[] vertices, ref int offset, float x, float y, float u, float v, Vector4 color)

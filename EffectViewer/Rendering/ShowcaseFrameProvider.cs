@@ -90,7 +90,7 @@ namespace EffectViewer.Rendering
 
             foreach (RenderMeshCommand mesh in source.Meshes)
             {
-                target.Meshes.Add(mesh);
+                target.AddMesh(mesh);
             }
         }
     }
