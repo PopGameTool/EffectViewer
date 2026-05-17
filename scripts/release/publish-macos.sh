@@ -16,15 +16,15 @@ read_version() {
 
 configuration="${CONFIGURATION:-Release}"
 framework="${MACOS_FRAMEWORK:-net10.0-macos}"
-runtime="${MACOS_RUNTIME:-osx-arm64}"
+artifact_runtime="${MACOS_ARTIFACT_RUNTIME:-osx}"
 version="${VERSION:-$(read_version)}"
 publish_root="${PUBLISH_ROOT:-artifacts/publish}"
 dist_dir="${DIST_DIR:-artifacts/dist}"
-publish_dir="$publish_root/macos-$runtime"
-dmg_stage="$publish_root/macos-dmg-stage-$runtime"
+publish_dir="$publish_root/macos-$artifact_runtime"
+dmg_stage="$publish_root/macos-dmg-stage-$artifact_runtime"
 app_name="${APP_NAME:-Effect Viewer}"
 bundle_name="${APP_BUNDLE_NAME:-$app_name.app}"
-artifact_base="${ARTIFACT_BASE:-effectviewer-$version-macos-$runtime}"
+artifact_base="${ARTIFACT_BASE:-effectviewer-$version-macos-$artifact_runtime}"
 
 if [[ -z "$version" ]]; then
   echo "Could not read VersionPrefix from Directory.Build.props. Set VERSION explicitly." >&2
@@ -49,7 +49,6 @@ publish_args=(
   publish EffectViewer.macOS/EffectViewer.macOS.csproj
   --configuration "$configuration"
   --framework "$framework"
-  --runtime "$runtime"
   --self-contained true
   --output "$publish_dir"
   -p:Version="$version"
@@ -69,9 +68,14 @@ fi
 
 dotnet "${publish_args[@]}"
 
+search_roots=(
+  "EffectViewer.macOS/bin/$configuration/$framework"
+  "$publish_dir"
+)
+
 app_path="$(
   {
-    find "$publish_dir" "EffectViewer.macOS/bin/$configuration/$framework/$runtime" \
+    find "${search_roots[@]}" \
       -maxdepth 5 -type d -name '*.app' 2>/dev/null || true
   } |
     sort |

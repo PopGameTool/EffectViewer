@@ -253,7 +253,6 @@ jobs:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
       VERSION: ${{ needs.validate.outputs.version }}
-      MACOS_RUNTIME: osx-arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
