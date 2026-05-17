@@ -54,11 +54,11 @@ The workflow publishes:
 - Windows `win-x64` and `win-arm64` zip packages from `EffectViewer.Windows`.
 - Linux `linux-x64` and `linux-arm64` tarballs from `EffectViewer.Desktop`.
 - Browser static WebAssembly zip package from `EffectViewer.Browser`.
-- macOS `osx-arm64` DMG from `EffectViewer.macOS`.
+- macOS `osx` DMG from `EffectViewer.macOS`.
 - iOS `ios-arm64` IPA from `EffectViewer.iOS` on macOS.
-- Android `android-arm64` packages on Windows, macOS, and Linux.
+- Android `android-arm64` packages on Windows, macOS, and Linux, optionally signed with a JKS keystore.
 
-The scripts used by the workflow live in `scripts/release`. iOS signing and provisioning must already be available on the macOS runner, or provided through the `IOS_CODESIGN_KEY`, `IOS_CODESIGN_PROVISION`, and `IOS_CODESIGN_KEYCHAIN` environment variables.
+The scripts used by the workflow live in `scripts/release`. iOS signing and provisioning must already be available on the macOS runner, or provided through the `IOS_CODESIGN_KEY`, `IOS_CODESIGN_PROVISION`, and `IOS_CODESIGN_KEYCHAIN` environment variables. Android JKS signing can use `ANDROID_SIGNING_KEYSTORE` for a local keystore path, or `ANDROID_SIGNING_KEYSTORE_BASE64` in GitHub Actions, plus `ANDROID_SIGNING_KEY_ALIAS`, `ANDROID_SIGNING_STORE_PASS`, and optionally `ANDROID_SIGNING_KEY_PASS`.
 
 ## Final Review
 

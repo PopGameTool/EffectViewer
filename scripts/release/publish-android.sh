@@ -78,6 +78,49 @@ publish_root="${PUBLISH_ROOT:-artifacts/publish}"
 dist_dir="${DIST_DIR:-artifacts/dist}"
 publish_dir="$publish_root/android-$runtime-$host_label"
 artifact_base="${ARTIFACT_BASE:-effectviewer-$version-android-$runtime-$host_label}"
+signing_keystore="${ANDROID_SIGNING_KEYSTORE:-}"
+signing_keystore_base64="${ANDROID_SIGNING_KEYSTORE_BASE64:-}"
+signing_keystore_path="${ANDROID_SIGNING_KEYSTORE_PATH:-$publish_root/android-signing-$host_label.jks}"
+signing_key_alias="${ANDROID_SIGNING_KEY_ALIAS:-}"
+signing_store_pass="${ANDROID_SIGNING_STORE_PASS:-}"
+signing_key_pass="${ANDROID_SIGNING_KEY_PASS:-}"
+
+decode_base64_file() {
+  local encoded="$1"
+  local target_path="$2"
+
+  if printf '' | base64 --decode >/dev/null 2>&1; then
+    printf '%s' "$encoded" | base64 --decode >"$target_path"
+  else
+    printf '%s' "$encoded" | base64 -D >"$target_path"
+  fi
+}
+
+resolve_android_signing_keystore() {
+  if [[ -n "$signing_keystore" && -n "$signing_keystore_base64" ]]; then
+    echo "Set only one of ANDROID_SIGNING_KEYSTORE or ANDROID_SIGNING_KEYSTORE_BASE64." >&2
+    exit 1
+  fi
+
+  if [[ -n "$signing_keystore_base64" ]]; then
+    local output_path_posix
+    output_path_posix="$(to_posix_path "$signing_keystore_path")"
+    mkdir -p "$(dirname "$output_path_posix")"
+    decode_base64_file "$signing_keystore_base64" "$output_path_posix"
+    printf '%s\n' "$output_path_posix"
+    return
+  fi
+
+  if [[ -n "$signing_keystore" ]]; then
+    local keystore_posix
+    keystore_posix="$(to_posix_path "$signing_keystore")"
+    if [[ ! -f "$keystore_posix" ]]; then
+      echo "Android signing keystore not found: '$signing_keystore'." >&2
+      exit 1
+    fi
+    printf '%s\n' "$keystore_posix"
+  fi
+}
 
 if [[ -z "$version" ]]; then
   echo "Could not read VersionPrefix from Directory.Build.props. Set VERSION explicitly." >&2
@@ -112,24 +155,57 @@ rm -rf \
   "$publish_dir"
 mkdir -p "$publish_dir" "$dist_dir"
 
-dotnet publish EffectViewer.Android/EffectViewer.Android.csproj \
-  --configuration "$configuration" \
-  --framework "$framework" \
-  --runtime "$runtime" \
-  --output "$publish_dir" \
-  -p:AndroidSdkDirectory="$android_home_msbuild" \
-  -p:AndroidNdkDirectory="$android_ndk_msbuild" \
-  -p:AndroidNdkVersion="$ndk_version" \
+publish_args=(
+  publish EffectViewer.Android/EffectViewer.Android.csproj
+  --configuration "$configuration"
+  --framework "$framework"
+  --runtime "$runtime"
+  --output "$publish_dir"
+  -p:AndroidSdkDirectory="$android_home_msbuild"
+  -p:AndroidNdkDirectory="$android_ndk_msbuild"
+  -p:AndroidNdkVersion="$ndk_version"
   -p:Version="$version"
+)
+
+resolved_signing_keystore="$(resolve_android_signing_keystore)"
+if [[ -n "$resolved_signing_keystore" ]]; then
+  if [[ -z "$signing_key_alias" || -z "$signing_store_pass" ]]; then
+    echo "Android signing requires ANDROID_SIGNING_KEY_ALIAS and ANDROID_SIGNING_STORE_PASS." >&2
+    exit 1
+  fi
+
+  signing_key_pass="${signing_key_pass:-$signing_store_pass}"
+  signing_keystore_msbuild="$(to_msbuild_path "$resolved_signing_keystore")"
+  publish_args+=(
+    -p:AndroidKeyStore=true
+    -p:AndroidSigningKeyStore="$signing_keystore_msbuild"
+    -p:AndroidSigningStorePass="$signing_store_pass"
+    -p:AndroidSigningKeyAlias="$signing_key_alias"
+    -p:AndroidSigningKeyPass="$signing_key_pass"
+  )
+fi
+
+dotnet "${publish_args[@]}"
 
 package_path="$(
   {
     find "$publish_dir" "EffectViewer.Android/bin/$configuration" \
-      -type f \( -name '*.apk' -o -name '*.aab' \) 2>/dev/null || true
+      -type f -name '*-Signed.apk' 2>/dev/null || true
   } |
     sort |
     tail -n 1
 )"
+
+if [[ -z "$package_path" ]]; then
+  package_path="$(
+    {
+      find "$publish_dir" "EffectViewer.Android/bin/$configuration" \
+        -type f \( -name '*.apk' -o -name '*.aab' \) 2>/dev/null || true
+    } |
+      sort |
+      tail -n 1
+  )"
+fi
 
 if [[ -z "$package_path" ]]; then
   echo "Android publish completed, but no .apk or .aab package was found." >&2

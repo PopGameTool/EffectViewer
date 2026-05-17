@@ -54,11 +54,11 @@ git push origin v0.1.0
 - 从 `EffectViewer.Windows` 发布 Windows `win-x64` 和 `win-arm64` zip 包。
 - 从 `EffectViewer.Desktop` 发布 Linux `linux-x64` 和 `linux-arm64` tar 包。
 - 从 `EffectViewer.Browser` 发布 Browser 静态 WebAssembly zip 包。
-- 从 `EffectViewer.macOS` 发布 macOS `osx-arm64` DMG。
+- 从 `EffectViewer.macOS` 发布 macOS `osx` DMG。
 - 在 macOS 上从 `EffectViewer.iOS` 发布 iOS `ios-arm64` IPA。
-- 在 Windows、macOS 和 Linux 上发布 Android `android-arm64` 包。
+- 在 Windows、macOS 和 Linux 上发布 Android `android-arm64` 包，并可使用 JKS keystore 签名。
 
-工作流使用的脚本位于 `scripts/release`。iOS 签名与 provisioning 需要提前在 macOS runner 上配置好，或通过 `IOS_CODESIGN_KEY`、`IOS_CODESIGN_PROVISION`、`IOS_CODESIGN_KEYCHAIN` 环境变量传入。
+工作流使用的脚本位于 `scripts/release`。iOS 签名与 provisioning 需要提前在 macOS runner 上配置好，或通过 `IOS_CODESIGN_KEY`、`IOS_CODESIGN_PROVISION`、`IOS_CODESIGN_KEYCHAIN` 环境变量传入。Android JKS 签名可用 `ANDROID_SIGNING_KEYSTORE` 指向本地 keystore，或在 GitHub Actions 中使用 `ANDROID_SIGNING_KEYSTORE_BASE64`，并配合 `ANDROID_SIGNING_KEY_ALIAS`、`ANDROID_SIGNING_STORE_PASS` 和可选的 `ANDROID_SIGNING_KEY_PASS`。
 
 ## 最终检查
 

@@ -335,6 +335,10 @@ jobs:
       VERSION: ${{ needs.validate.outputs.version }}
       HOST_LABEL: ${{ matrix.host }}
       ANDROID_NDK_VERSION: 27.2.12479018
+      ANDROID_SIGNING_KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+      ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+      ANDROID_SIGNING_STORE_PASS: ${{ secrets.ANDROID_SIGNING_STORE_PASS }}
+      ANDROID_SIGNING_KEY_PASS: ${{ secrets.ANDROID_SIGNING_KEY_PASS }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

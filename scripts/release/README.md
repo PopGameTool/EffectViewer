@@ -12,6 +12,14 @@ VERSION=0.1.0 IOS_CODESIGN_KEY="Apple Distribution: ..." IOS_CODESIGN_PROVISION=
 # Android arm64 package. Works on Windows/macOS/Linux when Android SDK and NDK are installed.
 VERSION=0.1.0 ANDROID_NDK_VERSION=27.2.12479018 scripts/release/publish-android.sh
 
+# Android package signed with a JKS keystore.
+VERSION=0.1.0 \
+ANDROID_SIGNING_KEYSTORE=/path/to/release.jks \
+ANDROID_SIGNING_KEY_ALIAS=effectviewer \
+ANDROID_SIGNING_STORE_PASS=store-password \
+ANDROID_SIGNING_KEY_PASS=key-password \
+scripts/release/publish-android.sh
+
 # Browser static WebAssembly package.
 VERSION=0.1.0 scripts/release/publish-browser.sh
 
@@ -32,6 +40,13 @@ VERSION=0.1.0 scripts/release/publish-linux-docker.sh
 
 # Android arm64 package on Windows. Add -RestoreWorkload on first setup if needed.
 ./scripts/release/publish-android.ps1 -Version 0.1.0
+
+# Android package signed with a JKS keystore on Windows.
+./scripts/release/publish-android.ps1 -Version 0.1.0 `
+  -AndroidSigningKeyStore C:\keys\release.jks `
+  -AndroidSigningKeyAlias effectviewer `
+  -AndroidSigningStorePass store-password `
+  -AndroidSigningKeyPass key-password
 
 # Browser static WebAssembly package. Add -RestoreWorkload on first setup if needed.
 ./scripts/release/publish-browser.ps1 -Version 0.1.0

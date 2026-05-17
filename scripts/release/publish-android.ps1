@@ -11,6 +11,12 @@ param(
     [string]$PublishRoot = $env:PUBLISH_ROOT,
     [string]$DistDir = $env:DIST_DIR,
     [string]$ArtifactBase = $env:ARTIFACT_BASE,
+    [string]$AndroidSigningKeyStore = $env:ANDROID_SIGNING_KEYSTORE,
+    [string]$AndroidSigningKeyStoreBase64 = $env:ANDROID_SIGNING_KEYSTORE_BASE64,
+    [string]$AndroidSigningKeyStorePath = $env:ANDROID_SIGNING_KEYSTORE_PATH,
+    [string]$AndroidSigningKeyAlias = $env:ANDROID_SIGNING_KEY_ALIAS,
+    [string]$AndroidSigningStorePass = $env:ANDROID_SIGNING_STORE_PASS,
+    [string]$AndroidSigningKeyPass = $env:ANDROID_SIGNING_KEY_PASS,
     [switch]$NoClean,
     [switch]$RestoreWorkload
 )
@@ -29,6 +35,46 @@ function Use-DefaultWhenBlank {
     }
 
     return $Value
+}
+
+function Resolve-AndroidSigningKeyStore {
+    param(
+        [string]$KeyStore,
+        [string]$KeyStoreBase64,
+        [string]$KeyStorePath,
+        [string]$PublishRoot,
+        [string]$HostLabel
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($KeyStore) -and -not [string]::IsNullOrWhiteSpace($KeyStoreBase64)) {
+        throw "Set only one of -AndroidSigningKeyStore/ANDROID_SIGNING_KEYSTORE or -AndroidSigningKeyStoreBase64/ANDROID_SIGNING_KEYSTORE_BASE64."
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($KeyStoreBase64)) {
+        $targetPath = Use-DefaultWhenBlank $KeyStorePath (Join-Path $PublishRoot "android-signing-$HostLabel.jks")
+        $targetDir = Split-Path -Parent $targetPath
+        if (-not [string]::IsNullOrWhiteSpace($targetDir)) {
+            New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+        }
+
+        $normalizedKeyStoreBase64 = $KeyStoreBase64 -replace "\s", ""
+        [System.IO.File]::WriteAllBytes($targetPath, [System.Convert]::FromBase64String($normalizedKeyStoreBase64))
+        return (Resolve-Path -LiteralPath $targetPath).Path
+    }
+
+    if ([string]::IsNullOrWhiteSpace($KeyStore)) {
+        $KeyStore = $KeyStorePath
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($KeyStore)) {
+        if (-not (Test-Path -LiteralPath $KeyStore -PathType Leaf)) {
+            throw "Android signing keystore not found: '$KeyStore'."
+        }
+
+        return (Resolve-Path -LiteralPath $KeyStore).Path
+    }
+
+    return $null
 }
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "../..")
@@ -94,6 +140,13 @@ if (-not $NoClean) {
 
 New-Item -ItemType Directory -Path $publishDir, $DistDir -Force | Out-Null
 
+$resolvedSigningKeyStore = Resolve-AndroidSigningKeyStore `
+    -KeyStore $AndroidSigningKeyStore `
+    -KeyStoreBase64 $AndroidSigningKeyStoreBase64 `
+    -KeyStorePath $AndroidSigningKeyStorePath `
+    -PublishRoot $PublishRoot `
+    -HostLabel $HostLabel
+
 if ($RestoreWorkload) {
     dotnet workload restore "EffectViewer.Android/EffectViewer.Android.csproj" --skip-manifest-update
     if ($LASTEXITCODE -ne 0) {
@@ -114,6 +167,21 @@ $publishArgs = @(
     "-p:Version=$Version"
 )
 
+if (-not [string]::IsNullOrWhiteSpace($resolvedSigningKeyStore)) {
+    if ([string]::IsNullOrWhiteSpace($AndroidSigningKeyAlias) -or [string]::IsNullOrWhiteSpace($AndroidSigningStorePass)) {
+        throw "Android signing requires -AndroidSigningKeyAlias/ANDROID_SIGNING_KEY_ALIAS and -AndroidSigningStorePass/ANDROID_SIGNING_STORE_PASS."
+    }
+
+    $AndroidSigningKeyPass = Use-DefaultWhenBlank $AndroidSigningKeyPass $AndroidSigningStorePass
+    $publishArgs += @(
+        "-p:AndroidKeyStore=true",
+        "-p:AndroidSigningKeyStore=$resolvedSigningKeyStore",
+        "-p:AndroidSigningStorePass=$AndroidSigningStorePass",
+        "-p:AndroidSigningKeyAlias=$AndroidSigningKeyAlias",
+        "-p:AndroidSigningKeyPass=$AndroidSigningKeyPass"
+    )
+}
+
 dotnet @publishArgs
 if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed with exit code $LASTEXITCODE."
@@ -126,13 +194,22 @@ $searchRoots = @(
     Test-Path -LiteralPath $_ -PathType Container
 }
 
-$package = $searchRoots |
+$packages = $searchRoots |
     ForEach-Object {
         Get-ChildItem -LiteralPath $_ -Recurse -File -ErrorAction SilentlyContinue |
             Where-Object { $_.Extension -in ".apk", ".aab" }
-    } |
+    }
+
+$package = $packages |
+    Where-Object { $_.Name -like "*-Signed.apk" } |
     Sort-Object LastWriteTimeUtc, FullName -Descending |
     Select-Object -First 1
+
+if ($null -eq $package) {
+    $package = $packages |
+        Sort-Object LastWriteTimeUtc, FullName -Descending |
+        Select-Object -First 1
+}
 
 if ($null -eq $package) {
     throw "Android publish completed, but no .apk or .aab package was found."
