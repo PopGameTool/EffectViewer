@@ -125,11 +125,31 @@ namespace EffectViewer.Rendering
 
         internal static void AppendMesh(Trail trail, List<RenderVertex> vertices)
         {
-            if (trail is null || trail.mDead || trail.mNumTrailPoints < 2 || trail.mDefinition is null)
+            int maxVertexCount = GetTrailMeshVertexCapacity(trail);
+            if (maxVertexCount == 0)
             {
                 return;
             }
 
+            Span<RenderVertex> buffer = maxVertexCount <= 128
+                ? stackalloc RenderVertex[maxVertexCount]
+                : new RenderVertex[maxVertexCount];
+            int vertexCount = AppendMesh(trail, buffer);
+            vertices.EnsureCapacity(vertices.Count + vertexCount);
+            for (int i = 0; i < vertexCount; i++)
+            {
+                vertices.Add(buffer[i]);
+            }
+        }
+
+        internal static int AppendMesh(Trail trail, Span<RenderVertex> vertices)
+        {
+            if (GetTrailMeshVertexCapacity(trail) == 0)
+            {
+                return 0;
+            }
+
+            int vertexCount = 0;
             float timeValue = trail.mTrailDuration <= 1
                 ? 0f
                 : trail.mTrailAge / (float)(trail.mTrailDuration - 1);
@@ -183,14 +203,23 @@ namespace EffectViewer.Rendering
                 Vector4 currentColor = ToVector4(trail.mColorOverride, alphaCurrent);
                 Vector4 nextColor = ToVector4(trail.mColorOverride, alphaNext);
 
-                vertices.Add(new RenderVertex(currentTop, new Vector2(currentU, 1f), currentColor));
-                vertices.Add(new RenderVertex(currentBottom, new Vector2(currentU, 0f), currentColor));
-                vertices.Add(new RenderVertex(nextTop, new Vector2(nextU, 1f), nextColor));
+                vertices[vertexCount++] = new RenderVertex(currentTop, new Vector2(currentU, 1f), currentColor);
+                vertices[vertexCount++] = new RenderVertex(currentBottom, new Vector2(currentU, 0f), currentColor);
+                vertices[vertexCount++] = new RenderVertex(nextTop, new Vector2(nextU, 1f), nextColor);
 
-                vertices.Add(new RenderVertex(nextTop, new Vector2(nextU, 1f), nextColor));
-                vertices.Add(new RenderVertex(currentBottom, new Vector2(currentU, 0f), currentColor));
-                vertices.Add(new RenderVertex(nextBottom, new Vector2(nextU, 0f), nextColor));
+                vertices[vertexCount++] = new RenderVertex(nextTop, new Vector2(nextU, 1f), nextColor);
+                vertices[vertexCount++] = new RenderVertex(currentBottom, new Vector2(currentU, 0f), currentColor);
+                vertices[vertexCount++] = new RenderVertex(nextBottom, new Vector2(nextU, 0f), nextColor);
             }
+
+            return vertexCount;
+        }
+
+        private static int GetTrailMeshVertexCapacity(Trail trail)
+        {
+            return trail is null || trail.mDead || trail.mNumTrailPoints < 2 || trail.mDefinition is null
+                ? 0
+                : (trail.mNumTrailPoints - 1) * 6;
         }
 
         private static Vector2 GetNormal(IReadOnlyList<Vector2> points, int index)

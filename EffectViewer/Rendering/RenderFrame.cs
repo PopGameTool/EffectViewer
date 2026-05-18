@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace EffectViewer.Rendering
 {
@@ -19,11 +20,22 @@ namespace EffectViewer.Rendering
                 return;
             }
 
-            int vertexOffset = MeshVertices.Count;
-            MeshVertices.EnsureCapacity(vertexOffset + vertices.Count);
-            foreach (RenderVertex vertex in vertices)
+            if (vertices is List<RenderVertex> vertexList)
             {
-                MeshVertices.Add(vertex);
+                AddMesh(texture, CollectionsMarshal.AsSpan(vertexList), blendMode);
+                return;
+            }
+
+            if (vertices is RenderVertex[] vertexArray)
+            {
+                AddMesh(texture, vertexArray.AsSpan(), blendMode);
+                return;
+            }
+
+            Span<RenderVertex> target = AllocateMeshVertices(vertices.Count, out int vertexOffset);
+            for (int i = 0; i < vertices.Count; i++)
+            {
+                target[i] = vertices[i];
             }
 
             AddMeshCommand(texture, vertexOffset, vertices.Count, blendMode);
@@ -36,32 +48,23 @@ namespace EffectViewer.Rendering
                 return;
             }
 
-            int vertexOffset = MeshVertices.Count;
-            MeshVertices.EnsureCapacity(vertexOffset + vertices.Length);
-            foreach (RenderVertex vertex in vertices)
-            {
-                MeshVertices.Add(vertex);
-            }
+            Span<RenderVertex> target = AllocateMeshVertices(vertices.Length, out int vertexOffset);
+            vertices.CopyTo(target);
 
             AddMeshCommand(texture, vertexOffset, vertices.Length, blendMode);
         }
 
-        public void AddMesh(RenderMeshCommand mesh)
+        public ReadOnlySpan<RenderVertex> GetMeshVertices(RenderMeshCommand mesh)
         {
-            ArgumentNullException.ThrowIfNull(mesh);
-            if (mesh.VertexCount == 0)
+            if (mesh.VertexOffset < 0 ||
+                mesh.VertexCount < 0 ||
+                mesh.VertexOffset > MeshVertices.Count ||
+                mesh.VertexCount > MeshVertices.Count - mesh.VertexOffset)
             {
-                return;
+                throw new ArgumentOutOfRangeException(nameof(mesh));
             }
 
-            int vertexOffset = MeshVertices.Count;
-            MeshVertices.EnsureCapacity(vertexOffset + mesh.VertexCount);
-            for (int i = 0; i < mesh.VertexCount; i++)
-            {
-                MeshVertices.Add(mesh.GetVertex(i));
-            }
-
-            AddMeshCommand(mesh.Texture, vertexOffset, mesh.VertexCount, mesh.BlendMode);
+            return CollectionsMarshal.AsSpan(MeshVertices).Slice(mesh.VertexOffset, mesh.VertexCount);
         }
 
         public void ClearCommands()
@@ -82,7 +85,43 @@ namespace EffectViewer.Rendering
                 return;
             }
 
-            Meshes.Add(new RenderMeshCommand(texture, MeshVertices, vertexOffset, vertexCount, blendMode));
+            if (vertexOffset < 0 ||
+                vertexCount < 0 ||
+                vertexOffset > MeshVertices.Count ||
+                vertexCount > MeshVertices.Count - vertexOffset)
+            {
+                throw new ArgumentOutOfRangeException(nameof(vertexOffset));
+            }
+
+            Meshes.Add(new RenderMeshCommand(texture, vertexOffset, vertexCount, blendMode));
+        }
+
+        internal Span<RenderVertex> AllocateMeshVertices(int vertexCount, out int vertexOffset)
+        {
+            if (vertexCount < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(vertexCount));
+            }
+
+            vertexOffset = MeshVertices.Count;
+            if (vertexCount == 0)
+            {
+                return [];
+            }
+
+            MeshVertices.EnsureCapacity(vertexOffset + vertexCount);
+            CollectionsMarshal.SetCount(MeshVertices, vertexOffset + vertexCount);
+            return CollectionsMarshal.AsSpan(MeshVertices).Slice(vertexOffset, vertexCount);
+        }
+
+        internal void SetMeshVertexCount(int vertexCount)
+        {
+            if (vertexCount < 0 || vertexCount > MeshVertices.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(vertexCount));
+            }
+
+            CollectionsMarshal.SetCount(MeshVertices, vertexCount);
         }
     }
 }

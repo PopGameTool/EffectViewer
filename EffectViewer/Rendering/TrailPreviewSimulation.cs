@@ -141,12 +141,19 @@ namespace EffectViewer.Rendering
         private RenderFrame BuildFrame()
         {
             RenderFrame frame = new();
-            int vertexOffset = frame.MeshVertices.Count;
-            TrailPreviewFrameBuilder.AppendMesh(_trail, frame.MeshVertices);
-            int vertexCount = frame.MeshVertices.Count - vertexOffset;
+            int maxVertexCount = Math.Max(0, (_trail?.mNumTrailPoints ?? 0) - 1) * 6;
+            if (maxVertexCount == 0)
+            {
+                return frame;
+            }
+
+            RenderCommandWriter commands = new(frame);
+            Span<RenderVertex> vertices = commands.AllocateMeshVertices(maxVertexCount, out int vertexOffset);
+            int vertexCount = TrailPreviewFrameBuilder.AppendMesh(_trail, vertices);
+            commands.SetMeshVertexCount(vertexOffset + vertexCount);
             if (vertexCount > 0)
             {
-                frame.AddMeshCommand(new RenderTextureRef(_textureId), vertexOffset, vertexCount, RenderBlendMode.Normal);
+                commands.AddMesh(new RenderTextureRef(_textureId), vertexOffset, vertexCount, RenderBlendMode.Normal);
             }
 
             return frame;

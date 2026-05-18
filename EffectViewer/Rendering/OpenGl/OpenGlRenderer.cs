@@ -121,7 +121,7 @@ namespace EffectViewer.Rendering.OpenGl
             }
 
             DrawSprites(frame.Sprites, width, height);
-            DrawMeshes(frame.Meshes, width, height);
+            DrawMeshes(frame, width, height);
         }
 
         public void Deinitialize()
@@ -177,14 +177,15 @@ namespace EffectViewer.Rendering.OpenGl
             _textureCache.Clear();
         }
 
-        private void DrawSprites(IReadOnlyCollection<RenderSpriteCommand> sprites, int width, int height)
+        private void DrawSprites(List<RenderSpriteCommand> sprites, int width, int height)
         {
             if (!_canDrawSprites || sprites.Count == 0 || _program == 0 || _vertexBuffer == 0)
             {
                 return;
             }
 
-            foreach (RenderSpriteCommand sprite in sprites)
+            ReadOnlySpan<RenderSpriteCommand> spriteSpan = CollectionsMarshal.AsSpan(sprites);
+            foreach (ref readonly RenderSpriteCommand sprite in spriteSpan)
             {
                 if (!TryGetTextureSet(sprite.Texture, out OpenGlTextureSet textureSet))
                 {
@@ -197,14 +198,16 @@ namespace EffectViewer.Rendering.OpenGl
             }
         }
 
-        private void DrawMeshes(IReadOnlyCollection<RenderMeshCommand> meshes, int width, int height)
+        private void DrawMeshes(RenderFrame frame, int width, int height)
         {
+            List<RenderMeshCommand> meshes = frame.Meshes;
             if (!_canDrawSprites || meshes.Count == 0 || _program == 0 || _vertexBuffer == 0)
             {
                 return;
             }
 
-            foreach (RenderMeshCommand mesh in meshes)
+            ReadOnlySpan<RenderMeshCommand> meshSpan = CollectionsMarshal.AsSpan(meshes);
+            foreach (ref readonly RenderMeshCommand mesh in meshSpan)
             {
                 if (mesh.VertexCount == 0)
                 {
@@ -216,21 +219,24 @@ namespace EffectViewer.Rendering.OpenGl
                     continue;
                 }
 
+                ReadOnlySpan<RenderVertex> sourceVertices = frame.GetMeshVertices(mesh);
                 _transformedVertices.Clear();
                 _transformedVertices.EnsureCapacity(mesh.VertexCount);
+                CollectionsMarshal.SetCount(_transformedVertices, mesh.VertexCount);
+                Span<RenderVertex> transformedVertices = CollectionsMarshal.AsSpan(_transformedVertices);
                 for (int i = 0; i < mesh.VertexCount; i++)
                 {
-                    RenderVertex vertex = mesh.GetVertex(i);
-                    _transformedVertices.Add(new RenderVertex(
+                    RenderVertex vertex = sourceVertices[i];
+                    transformedVertices[i] = new RenderVertex(
                         new Vector2(
                             ToClipX(ApplyViewX(vertex.Position.X, ViewZoom, ViewPan), width),
                             ToClipY(ApplyViewY(vertex.Position.Y, ViewZoom, ViewPan), height)),
                         vertex.Uv,
-                        vertex.Color));
+                        vertex.Color);
                 }
 
                 SetBlendMode(mesh.BlendMode);
-                DrawTexturedTriangles(CollectionsMarshal.AsSpan(_transformedVertices), textureSet);
+                DrawTexturedTriangles(transformedVertices, textureSet);
             }
         }
 
@@ -325,25 +331,20 @@ namespace EffectViewer.Rendering.OpenGl
             }
         }
 
-        private void UploadPackedVertices(float[] vertices, int floatCount)
+        private unsafe void UploadPackedVertices(float[] vertices, int floatCount)
         {
             _gl.UseProgram(_program);
             _gl.Uniform1i(_textureLocation, 0);
             BindVertexArray();
             _gl.BindBuffer(OpenGlConstants.ArrayBuffer, _vertexBuffer);
 
-            GCHandle verticesHandle = GCHandle.Alloc(vertices, GCHandleType.Pinned);
-            try
+            fixed (float* verticesPtr = vertices)
             {
                 _gl.BufferData(
                     OpenGlConstants.ArrayBuffer,
                     new IntPtr(floatCount * sizeof(float)),
-                    verticesHandle.AddrOfPinnedObject(),
+                    new IntPtr(verticesPtr),
                     OpenGlConstants.StreamDraw);
-            }
-            finally
-            {
-                verticesHandle.Free();
             }
 
             int stride = FloatsPerVertex * sizeof(float);
@@ -364,8 +365,9 @@ namespace EffectViewer.Rendering.OpenGl
         {
             EnsurePackedVertexCapacity(vertices.Length * FloatsPerVertex);
             int offset = 0;
-            foreach (RenderVertex vertex in vertices)
+            for (int i = 0; i < vertices.Length; i++)
             {
+                ref readonly RenderVertex vertex = ref vertices[i];
                 AppendVertex(
                     _packedVertices,
                     ref offset,
@@ -475,7 +477,7 @@ namespace EffectViewer.Rendering.OpenGl
             return new OpenGlTextureSet(layout, handles);
         }
 
-        private int CreateTexture(int width, int height, byte[] rgbaPixels)
+        private unsafe int CreateTexture(int width, int height, byte[] rgbaPixels)
         {
             if (!TryGetRgbaByteCount(width, height, out int byteCount) ||
                 rgbaPixels is null ||
@@ -499,8 +501,7 @@ namespace EffectViewer.Rendering.OpenGl
             _gl.TexParameteri(OpenGlConstants.Texture2D, OpenGlConstants.TextureWrapT, OpenGlConstants.ClampToEdge);
             _gl.PixelStorei(OpenGlConstants.UnpackAlignment, 1);
             byte[] pixels = CreatePremultipliedPixels(rgbaPixels, byteCount);
-            GCHandle pixelsHandle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
-            try
+            fixed (byte* pixelsPtr = pixels)
             {
                 ClearTextureErrors();
                 _gl.TexImage2D(
@@ -512,11 +513,7 @@ namespace EffectViewer.Rendering.OpenGl
                     0,
                     OpenGlConstants.Rgba,
                     OpenGlConstants.UnsignedByte,
-                    pixelsHandle.AddrOfPinnedObject());
-            }
-            finally
-            {
-                pixelsHandle.Free();
+                    new IntPtr(pixelsPtr));
             }
 
             if (_gl.GetError() != OpenGlConstants.NoError)

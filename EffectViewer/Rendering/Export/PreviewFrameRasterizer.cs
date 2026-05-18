@@ -54,7 +54,7 @@ namespace EffectViewer.Rendering.Export
 
             foreach (RenderMeshCommand mesh in frame.Meshes)
             {
-                DrawMesh(pixels, width, height, textureSource, mesh, transform);
+                DrawMesh(pixels, width, height, textureSource, mesh, frame.GetMeshVertices(mesh), transform);
             }
 
             return pixels;
@@ -165,23 +165,24 @@ namespace EffectViewer.Rendering.Export
             int height,
             ITextureSource textureSource,
             RenderMeshCommand mesh,
+            ReadOnlySpan<RenderVertex> vertices,
             PreviewExportTransform transform)
         {
-            if (mesh.VertexCount < 3 || !TryLoadTexture(textureSource, mesh.Texture, out TextureUploadData texture))
+            if (vertices.Length < 3 || !TryLoadTexture(textureSource, mesh.Texture, out TextureUploadData texture))
             {
                 return;
             }
 
-            for (int i = 0; i + 2 < mesh.VertexCount; i += 3)
+            for (int i = 0; i + 2 < vertices.Length; i += 3)
             {
                 DrawTriangle(
                     target,
                     width,
                     height,
                     texture,
-                    Transform(mesh.GetVertex(i), transform),
-                    Transform(mesh.GetVertex(i + 1), transform),
-                    Transform(mesh.GetVertex(i + 2), transform),
+                    Transform(vertices[i], transform),
+                    Transform(vertices[i + 1], transform),
+                    Transform(vertices[i + 2], transform),
                     mesh.BlendMode);
             }
         }

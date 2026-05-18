@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using EffectViewer.EffectRuntime.Graphics;
@@ -12,10 +11,24 @@ namespace EffectViewer.Rendering
     {
         public const string WhiteTextureId = "__builtin_white_pixel";
         private const float ClipEpsilon = 0.0001f;
+        private const int MaxClipPolygonVertexCount = 8;
+        private const int TriangleVertexCount = 3;
+        private const int QuadTriangleCount = 2;
+        private const int MaxRenderVerticesPerClippedTriangle = (MaxClipPolygonVertexCount - 2) * TriangleVertexCount;
 
-        private readonly RenderFrame _frame = new();
+        private readonly RenderCommandWriter _commands;
 
-        public RenderFrame Frame => _frame;
+        public FrameCaptureGraphics()
+            : this(new RenderFrame())
+        {
+        }
+
+        public FrameCaptureGraphics(RenderFrame frame)
+        {
+            _commands = new RenderCommandWriter(frame);
+        }
+
+        public RenderFrame Frame => _commands.Frame;
 
         public override void DrawTrianglesTex(Image theTexture, ReadOnlySpan<InlineArray3TriVertex> theVertices)
         {
@@ -28,31 +41,104 @@ namespace EffectViewer.Rendering
                 return;
             }
 
-            List<RenderVertex> vertices = _frame.MeshVertices;
-            int vertexOffset = vertices.Count;
-            vertices.EnsureCapacity(vertexOffset + theVertices.Length * 3);
+            Span<RenderVertex> vertices = _commands.AllocateMeshVertices(
+                theVertices.Length * MaxRenderVerticesPerClippedTriangle,
+                out int vertexOffset);
+            int vertexCount = 0;
             Vector4 globalColor = ToVector4(mColorizeImages ? mColor : EffectColor.White);
             foreach (InlineArray3TriVertex triangle in theVertices)
             {
                 AppendClippedTriangle(
                     vertices,
+                    ref vertexCount,
                     ToClipVertex(triangle[0], globalColor),
                     ToClipVertex(triangle[1], globalColor),
                     ToClipVertex(triangle[2], globalColor),
                     mClipRect);
             }
 
-            int vertexCount = vertices.Count - vertexOffset;
+            _commands.SetMeshVertexCount(vertexOffset + vertexCount);
             if (vertexCount == 0)
             {
                 return;
             }
 
-            _frame.AddMeshCommand(
+            _commands.AddMesh(
                 new RenderTextureRef(theTexture.mId),
                 vertexOffset,
                 vertexCount,
                 ToRenderBlendMode(mDrawMode));
+        }
+
+        public override void DrawImageMatrix(
+            Image theImage,
+            in Matrix4x4 theTransform,
+            in Rectangle theClipRect,
+            in EffectColor theColor,
+            DrawMode theDrawMode,
+            in Rectangle theSrcRect)
+        {
+            if (theImage == null ||
+                string.IsNullOrWhiteSpace(theImage.mId) ||
+                theSrcRect.Width <= 0 ||
+                theSrcRect.Height <= 0 ||
+                theClipRect.Width <= 0 ||
+                theClipRect.Height <= 0 ||
+                theColor.mAlpha <= 0)
+            {
+                return;
+            }
+
+            float halfWidth = theSrcRect.Width * 0.5f;
+            float halfHeight = theSrcRect.Height * 0.5f;
+            float left = -halfWidth;
+            float top = -halfHeight;
+            float right = halfWidth;
+            float bottom = halfHeight;
+
+            Vector2 topLeft = Vector2.Transform(new Vector2(left, top), theTransform);
+            Vector2 topRight = Vector2.Transform(new Vector2(right, top), theTransform);
+            Vector2 bottomRight = Vector2.Transform(new Vector2(right, bottom), theTransform);
+            Vector2 bottomLeft = Vector2.Transform(new Vector2(left, bottom), theTransform);
+
+            float textureWidth = Math.Max(1, theImage.mWidth);
+            float textureHeight = Math.Max(1, theImage.mHeight);
+            float u0 = theSrcRect.Left / textureWidth;
+            float v0 = theSrcRect.Top / textureHeight;
+            float u1 = theSrcRect.Right / textureWidth;
+            float v1 = theSrcRect.Bottom / textureHeight;
+            Vector4 color = ToVector4(theColor);
+
+            Span<RenderVertex> vertices = _commands.AllocateMeshVertices(
+                QuadTriangleCount * MaxRenderVerticesPerClippedTriangle,
+                out int vertexOffset);
+            int vertexCount = 0;
+            AppendClippedTriangle(
+                vertices,
+                ref vertexCount,
+                new ClipVertex(topLeft, new Vector2(u0, v0), color),
+                new ClipVertex(topRight, new Vector2(u1, v0), color),
+                new ClipVertex(bottomRight, new Vector2(u1, v1), color),
+                theClipRect);
+            AppendClippedTriangle(
+                vertices,
+                ref vertexCount,
+                new ClipVertex(topLeft, new Vector2(u0, v0), color),
+                new ClipVertex(bottomRight, new Vector2(u1, v1), color),
+                new ClipVertex(bottomLeft, new Vector2(u0, v1), color),
+                theClipRect);
+
+            _commands.SetMeshVertexCount(vertexOffset + vertexCount);
+            if (vertexCount == 0)
+            {
+                return;
+            }
+
+            _commands.AddMesh(
+                new RenderTextureRef(theImage.mId),
+                vertexOffset,
+                vertexCount,
+                ToRenderBlendMode(theDrawMode));
         }
 
         public override void FillRect(Rectangle rect)
@@ -78,24 +164,22 @@ namespace EffectViewer.Rendering
 
             Vector4 color = ToVector4(mColor);
 
-            List<RenderVertex> vertices = _frame.MeshVertices;
-            int vertexOffset = vertices.Count;
-            vertices.EnsureCapacity(vertexOffset + 6);
-            vertices.Add(new RenderVertex(new Vector2(left, top), new Vector2(0f, 0f), color));
-            vertices.Add(new RenderVertex(new Vector2(right, top), new Vector2(1f, 0f), color));
-            vertices.Add(new RenderVertex(new Vector2(right, bottom), new Vector2(1f, 1f), color));
-            vertices.Add(new RenderVertex(new Vector2(left, top), new Vector2(0f, 0f), color));
-            vertices.Add(new RenderVertex(new Vector2(right, bottom), new Vector2(1f, 1f), color));
-            vertices.Add(new RenderVertex(new Vector2(left, bottom), new Vector2(0f, 1f), color));
+            Span<RenderVertex> vertices = _commands.AllocateMeshVertices(6, out int vertexOffset);
+            vertices[0] = new RenderVertex(new Vector2(left, top), new Vector2(0f, 0f), color);
+            vertices[1] = new RenderVertex(new Vector2(right, top), new Vector2(1f, 0f), color);
+            vertices[2] = new RenderVertex(new Vector2(right, bottom), new Vector2(1f, 1f), color);
+            vertices[3] = new RenderVertex(new Vector2(left, top), new Vector2(0f, 0f), color);
+            vertices[4] = new RenderVertex(new Vector2(right, bottom), new Vector2(1f, 1f), color);
+            vertices[5] = new RenderVertex(new Vector2(left, bottom), new Vector2(0f, 1f), color);
 
-            _frame.AddMeshCommand(
+            _commands.AddMesh(
                 new RenderTextureRef(WhiteTextureId),
                 vertexOffset,
                 6,
                 ToRenderBlendMode(mDrawMode));
         }
 
-        private ClipVertex ToClipVertex(TriVertex source, Vector4 globalColor)
+        private ClipVertex ToClipVertex(in TriVertex source, Vector4 globalColor)
         {
             Vector4 color = IsZeroColor(source.Color)
                 ? globalColor
@@ -121,7 +205,8 @@ namespace EffectViewer.Rendering
         }
 
         private static void AppendClippedTriangle(
-            List<RenderVertex> output,
+            Span<RenderVertex> output,
+            ref int outputCount,
             ClipVertex a,
             ClipVertex b,
             ClipVertex c,
@@ -129,14 +214,14 @@ namespace EffectViewer.Rendering
         {
             if (IsInside(a, clipRect) && IsInside(b, clipRect) && IsInside(c, clipRect))
             {
-                output.Add(ToRenderVertex(a));
-                output.Add(ToRenderVertex(b));
-                output.Add(ToRenderVertex(c));
+                output[outputCount++] = ToRenderVertex(a);
+                output[outputCount++] = ToRenderVertex(b);
+                output[outputCount++] = ToRenderVertex(c);
                 return;
             }
 
-            InlineArray8<ClipVertex> polygonMemory = new InlineArray8<ClipVertex>();
-            InlineArray8<ClipVertex> scratchMemory = new InlineArray8<ClipVertex>();
+            InlineArray8<ClipVertex> polygonMemory = new();
+            InlineArray8<ClipVertex> scratchMemory = new();
             Span<ClipVertex> polygon = polygonMemory;
             Span<ClipVertex> scratch = scratchMemory;
             polygon[0] = a;
@@ -176,9 +261,9 @@ namespace EffectViewer.Rendering
             ClipVertex first = polygon[0];
             for (int i = 1; i < polygonCount - 1; i++)
             {
-                output.Add(ToRenderVertex(first));
-                output.Add(ToRenderVertex(polygon[i]));
-                output.Add(ToRenderVertex(polygon[i + 1]));
+                output[outputCount++] = ToRenderVertex(first);
+                output[outputCount++] = ToRenderVertex(polygon[i]);
+                output[outputCount++] = ToRenderVertex(polygon[i + 1]);
             }
         }
 
@@ -329,11 +414,13 @@ namespace EffectViewer.Rendering
                 Vector4.Lerp(start.Color, end.Color, t));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static RenderVertex ToRenderVertex(ClipVertex vertex)
         {
             return new RenderVertex(vertex.Position, vertex.Uv, vertex.Color);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool IsZeroColor(EffectColor color)
         {
             return color.mRed == 0 &&
@@ -342,13 +429,15 @@ namespace EffectViewer.Rendering
                    color.mAlpha == 0;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static Vector4 ToVector4(EffectColor color)
         {
+            const float inv255 = 1f / 255f;
             return new Vector4(
-                color.mRed / 255f,
-                color.mGreen / 255f,
-                color.mBlue / 255f,
-                color.mAlpha / 255f);
+                color.mRed * inv255,
+                color.mGreen * inv255,
+                color.mBlue * inv255,
+                color.mAlpha * inv255);
         }
 
         private static RenderBlendMode ToRenderBlendMode(DrawMode drawMode)

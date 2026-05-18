@@ -31,9 +31,10 @@ public sealed class FrameCaptureGraphicsTests
         RenderMeshCommand mesh = Assert.Single(graphics.Frame.Meshes);
         Assert.True(mesh.VertexCount > 0);
         Assert.True(mesh.VertexCount % 3 == 0);
-        for (int i = 0; i < mesh.VertexCount; i++)
+        ReadOnlySpan<RenderVertex> vertices = graphics.Frame.GetMeshVertices(mesh);
+        for (int i = 0; i < vertices.Length; i++)
         {
-            RenderVertex vertex = mesh.GetVertex(i);
+            RenderVertex vertex = vertices[i];
             Assert.InRange(vertex.Position.X, 0f, 10f);
             Assert.InRange(vertex.Position.Y, 0f, 10f);
         }

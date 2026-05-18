@@ -223,7 +223,9 @@ namespace EffectViewer.Runtime.Lua
             }
 
             int triangleCount = vertices.Length / 3;
-            InlineArray3TriVertex[] triangles = new InlineArray3TriVertex[triangleCount];
+            Span<InlineArray3TriVertex> triangles = triangleCount <= 32
+                ? stackalloc InlineArray3TriVertex[triangleCount]
+                : new InlineArray3TriVertex[triangleCount];
             for (int triangleIndex = 0; triangleIndex < triangleCount; triangleIndex++)
             {
                 for (int vertexIndex = 0; vertexIndex < 3; vertexIndex++)

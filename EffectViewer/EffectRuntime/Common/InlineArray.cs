@@ -19,4 +19,10 @@ namespace EffectViewer.EffectRuntime.Common
     {
         private T _buffer;
     }
+
+    [InlineArray(256)]
+    public struct InlineArray256<T>
+    {
+        private T _buffer;
+    }
 }

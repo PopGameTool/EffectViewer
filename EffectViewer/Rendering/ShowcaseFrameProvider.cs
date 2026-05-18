@@ -90,7 +90,7 @@ namespace EffectViewer.Rendering
 
             foreach (RenderMeshCommand mesh in source.Meshes)
             {
-                target.AddMesh(mesh);
+                target.AddMesh(mesh.Texture, source.GetMeshVertices(mesh), mesh.BlendMode);
             }
         }
     }
