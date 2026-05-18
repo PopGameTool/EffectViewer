@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using EffectViewer.Controls;
+using EffectViewer.macOS.Metal;
 using System;
 
 namespace EffectViewer.macOS
@@ -18,6 +19,8 @@ namespace EffectViewer.macOS
         {
             App.ProjectStorageProvider = new DesktopProjectStorageProvider();
             OpenGlEffectViewport.GlInterfaceFactory = new DesktopGlInterfaceFactory();
+            InteractiveEffectViewport.ViewportFactory = static () =>
+                MetalEffectViewport.IsSupported ? new MetalEffectViewport() : new OpenGlEffectViewport();
 
             AppBuilder builder = AppBuilder.Configure<App>()
                 .UsePlatformDetect();
@@ -26,7 +29,12 @@ namespace EffectViewer.macOS
             {
                 builder = builder.With(new AvaloniaNativePlatformOptions
                 {
-                    RenderingMode = new[] { AvaloniaNativeRenderingMode.OpenGl }
+                    RenderingMode =
+                    [
+                        AvaloniaNativeRenderingMode.Metal,
+                        AvaloniaNativeRenderingMode.OpenGl,
+                        AvaloniaNativeRenderingMode.Software
+                    ]
                 });
             }
 
