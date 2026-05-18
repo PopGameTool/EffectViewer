@@ -1,4 +1,7 @@
 using System;
+#if VIEWPORT_RENDER_STATS
+using System.Diagnostics;
+#endif
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.OpenGL;
@@ -13,6 +16,9 @@ using EffectViewer.Rendering.TextureUpload;
 namespace EffectViewer.Controls
 {
     public sealed class OpenGlEffectViewport : OpenGlControlBase, IEffectViewport
+#if VIEWPORT_RENDER_STATS
+        , IViewportRenderStatsProvider
+#endif
     {
         public static readonly StyledProperty<RenderFrame> FrameProperty =
             AvaloniaProperty.Register<OpenGlEffectViewport, RenderFrame>(nameof(Frame), new RenderFrame());
@@ -34,6 +40,9 @@ namespace EffectViewer.Controls
         private static readonly Vector4 LightCheckerboardBaseColor = new(0.965f, 0.973f, 0.984f, 1f);
         private static readonly Vector4 LightCheckerboardAlternateColor = new(0.84f, 0.86f, 0.89f, 1f);
         private readonly OpenGlRenderer _renderer = new();
+#if VIEWPORT_RENDER_STATS
+        private readonly ViewportRenderStatsTracker _renderStats = new("OpenGL");
+#endif
         private DateTime _lastRenderUtc = DateTime.UtcNow;
         private Vector2 _panPixels = Vector2.Zero;
         private float _zoom = 1f;
@@ -62,6 +71,13 @@ namespace EffectViewer.Controls
             set => SetValue(BackgroundModeProperty, value);
         }
 
+#if VIEWPORT_RENDER_STATS
+        public ViewportRenderStats GetRenderStats()
+        {
+            return _renderStats.GetStats();
+        }
+#endif
+
         public void SetViewTransform(float zoom, Vector2 panPixels)
         {
             _zoom = Math.Clamp(zoom, 0.05f, 32f);
@@ -87,9 +103,20 @@ namespace EffectViewer.Controls
             DateTime now = DateTime.UtcNow;
             double deltaSeconds = Math.Clamp((now - _lastRenderUtc).TotalSeconds, 0, 0.1);
             _lastRenderUtc = now;
+
+#if VIEWPORT_RENDER_STATS
+            long providerStart = Stopwatch.GetTimestamp();
+#endif
             RenderFrame frame = FrameProvider?.GetFrame(deltaSeconds) ?? Frame ?? new RenderFrame();
+#if VIEWPORT_RENDER_STATS
+            double providerMs = Stopwatch.GetElapsedTime(providerStart).TotalMilliseconds;
+#endif
+
             _renderer.ViewZoom = _zoom;
             _renderer.ViewPan = _panPixels;
+#if VIEWPORT_RENDER_STATS
+            long renderStart = Stopwatch.GetTimestamp();
+#endif
             _renderer.Render(
                 frame,
                 fb,
@@ -98,6 +125,10 @@ namespace EffectViewer.Controls
                 GetBackgroundClearColor(),
                 GetCheckerboardColor(),
                 GetCheckerboardCellSize(scaling));
+#if VIEWPORT_RENDER_STATS
+            double renderMs = Stopwatch.GetElapsedTime(renderStart).TotalMilliseconds;
+            _renderStats.RecordFrame(_renderer.BackendName, deltaSeconds * 1000d, providerMs, renderMs);
+#endif
             RequestNextFrameRendering();
         }
 

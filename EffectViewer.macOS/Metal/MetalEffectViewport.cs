@@ -18,6 +18,9 @@ using IOSurfaceOptions = IOSurface.IOSurfaceOptions;
 namespace EffectViewer.macOS.Metal
 {
     internal sealed class MetalEffectViewport : Control, IEffectViewport
+#if VIEWPORT_RENDER_STATS
+        , IViewportRenderStatsProvider
+#endif
     {
         public static readonly StyledProperty<RenderFrame> FrameProperty =
             AvaloniaProperty.Register<MetalEffectViewport, RenderFrame>(nameof(Frame), new RenderFrame());
@@ -41,6 +44,9 @@ namespace EffectViewer.macOS.Metal
 
         private readonly GeneratedTextureSource _fallbackTextureSource = new();
         private readonly MetalFrameBuffer?[] _frameBuffers = new MetalFrameBuffer?[SurfaceBufferCount];
+#if VIEWPORT_RENDER_STATS
+        private readonly ViewportRenderStatsTracker _renderStats = new("Metal");
+#endif
         private IMTLDevice? _device;
         private MetalRenderer? _renderer;
         private ICompositionGpuInterop? _gpuInterop;
@@ -89,6 +95,13 @@ namespace EffectViewer.macOS.Metal
             get => GetValue(BackgroundModeProperty);
             set => SetValue(BackgroundModeProperty, value);
         }
+
+#if VIEWPORT_RENDER_STATS
+        public ViewportRenderStats GetRenderStats()
+        {
+            return _renderStats.GetStats();
+        }
+#endif
 
         public void SetViewTransform(float zoom, Vector2 panPixels)
         {
@@ -259,7 +272,14 @@ namespace EffectViewer.macOS.Metal
             double deltaSeconds = Math.Clamp((now - _lastRenderUtc).TotalSeconds, 0, 0.1);
             _lastRenderUtc = now;
 
+#if VIEWPORT_RENDER_STATS
+            long providerStart = Stopwatch.GetTimestamp();
+#endif
             RenderFrame frame = FrameProvider?.GetFrame(deltaSeconds) ?? Frame ?? new RenderFrame();
+#if VIEWPORT_RENDER_STATS
+            double providerMs = Stopwatch.GetElapsedTime(providerStart).TotalMilliseconds;
+#endif
+
             _renderer.ViewZoom = _zoom;
             _renderer.ViewPan = _panPixels;
             frameBuffer.IsBusy = true;
@@ -267,8 +287,14 @@ namespace EffectViewer.macOS.Metal
             FrameSynchronization synchronization = frameBuffer.CreateFrameSynchronization();
 
             bool submitted;
+#if VIEWPORT_RENDER_STATS
+            double renderMs = 0d;
+#endif
             try
             {
+#if VIEWPORT_RENDER_STATS
+                long renderStart = Stopwatch.GetTimestamp();
+#endif
                 submitted = _renderer.Render(
                     frameBuffer.Texture,
                     pixelSize.Width,
@@ -277,14 +303,30 @@ namespace EffectViewer.macOS.Metal
                     GetBackgroundClearColor(),
                     GetCheckerboardColor(),
                     GetCheckerboardCellSize(),
-                    commandBuffer => commandBuffer.AddCompletedHandler(_ =>
+                    commandBuffer =>
                     {
-                        frameBuffer.SignalReady(synchronization);
-                        if (!synchronization.UsesTimelineSemaphore)
+#if VIEWPORT_RENDER_STATS
+                        renderMs = Stopwatch.GetElapsedTime(renderStart).TotalMilliseconds;
+#endif
+                        commandBuffer.AddCompletedHandler(_ =>
                         {
-                            BeginDrawingSurfaceUpdate(frameBuffer, generation, synchronization);
-                        }
-                    }));
+                            frameBuffer.SignalReady(synchronization);
+                            if (!synchronization.UsesTimelineSemaphore)
+                            {
+#if VIEWPORT_RENDER_STATS
+                                BeginDrawingSurfaceUpdate(frameBuffer, generation, synchronization, deltaSeconds * 1000d, providerMs, renderMs);
+#else
+                                BeginDrawingSurfaceUpdate(frameBuffer, generation, synchronization);
+#endif
+                            }
+                        });
+                    });
+#if VIEWPORT_RENDER_STATS
+                if (renderMs <= 0d)
+                {
+                    renderMs = Stopwatch.GetElapsedTime(renderStart).TotalMilliseconds;
+                }
+#endif
             }
             catch
             {
@@ -300,14 +342,31 @@ namespace EffectViewer.macOS.Metal
 
             if (synchronization.UsesTimelineSemaphore)
             {
+#if VIEWPORT_RENDER_STATS
+                BeginDrawingSurfaceUpdate(frameBuffer, generation, synchronization, deltaSeconds * 1000d, providerMs, renderMs);
+#else
                 BeginDrawingSurfaceUpdate(frameBuffer, generation, synchronization);
+#endif
             }
         }
 
+#if VIEWPORT_RENDER_STATS
+        private void BeginDrawingSurfaceUpdate(
+            MetalFrameBuffer frameBuffer,
+            int generation,
+            FrameSynchronization synchronization,
+            double frameIntervalMs,
+            double providerMs,
+            double renderMs)
+#else
         private void BeginDrawingSurfaceUpdate(MetalFrameBuffer frameBuffer, int generation, FrameSynchronization synchronization)
+#endif
         {
             Dispatcher.UIThread.Post(async () =>
             {
+#if VIEWPORT_RENDER_STATS
+                double publishMs = 0d;
+#endif
                 try
                 {
                     if (_isAttached &&
@@ -316,7 +375,13 @@ namespace EffectViewer.macOS.Metal
                         !frameBuffer.IsDisposed &&
                         _drawingSurface is not null)
                     {
+#if VIEWPORT_RENDER_STATS
+                        long publishStart = Stopwatch.GetTimestamp();
+#endif
                         await frameBuffer.UpdateDrawingSurfaceAsync(_drawingSurface, synchronization);
+#if VIEWPORT_RENDER_STATS
+                        publishMs = Stopwatch.GetElapsedTime(publishStart).TotalMilliseconds;
+#endif
                         InvalidateVisual();
                     }
                     else
@@ -332,6 +397,9 @@ namespace EffectViewer.macOS.Metal
                 }
                 finally
                 {
+#if VIEWPORT_RENDER_STATS
+                    _renderStats.RecordFrame("Metal", frameIntervalMs, providerMs, renderMs, publishMs);
+#endif
                     frameBuffer.IsBusy = false;
                 }
             }, DispatcherPriority.Render);

@@ -4,7 +4,13 @@ using System.Numerics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+#if VIEWPORT_RENDER_STATS
+using Avalonia.Layout;
+#endif
 using Avalonia.Media;
+#if VIEWPORT_RENDER_STATS
+using Avalonia.Threading;
+#endif
 using Avalonia.VisualTree;
 using EffectViewer.Rendering;
 using EffectViewer.Rendering.TextureUpload;
@@ -38,6 +44,11 @@ namespace EffectViewer.Controls
         private readonly Control _viewportControl;
         private readonly IEffectViewport _viewport;
         private readonly TransformOverlay _overlay;
+#if VIEWPORT_RENDER_STATS
+        private readonly IViewportRenderStatsProvider _renderStatsProvider;
+        private readonly TextBlock _renderStatsText;
+        private readonly DispatcherTimer _renderStatsTimer;
+#endif
         private readonly Dictionary<IPointer, Vector2> _touchPointsPixels = [];
         private Vector2 _panPixels;
         private Vector2 _lastPanPositionPixels;
@@ -74,6 +85,38 @@ namespace EffectViewer.Controls
                 IsHitTestVisible = false
             };
             root.Children.Add(_overlay);
+
+#if VIEWPORT_RENDER_STATS
+            if (_viewportControl is IViewportRenderStatsProvider renderStatsProvider)
+            {
+                _renderStatsProvider = renderStatsProvider;
+                _renderStatsText = new TextBlock
+                {
+                    Foreground = Brushes.White,
+                    FontFamily = FontFamily.Parse("Menlo, Consolas, monospace"),
+                    FontSize = 12,
+                    LineHeight = 16,
+                    Text = renderStatsProvider.GetRenderStats().ToOverlayText()
+                };
+
+                Border statsPanel = new()
+                {
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(8),
+                    Padding = new Thickness(8, 6),
+                    CornerRadius = new CornerRadius(4),
+                    Background = new SolidColorBrush(Color.FromArgb(185, 12, 14, 18)),
+                    IsHitTestVisible = false,
+                    Child = _renderStatsText
+                };
+                root.Children.Add(statsPanel);
+
+                _renderStatsTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, OnRenderStatsTimerTick);
+                _renderStatsTimer.Stop();
+            }
+#endif
+
             Content = root;
         }
 
@@ -285,11 +328,18 @@ namespace EffectViewer.Controls
             base.OnAttachedToVisualTree(e);
             ApplyViewportBackgroundMode();
             ViewportBackgroundSettings.ModeChanged += OnViewportBackgroundModeChanged;
+#if VIEWPORT_RENDER_STATS
+            _renderStatsTimer?.Start();
+            UpdateRenderStatsText();
+#endif
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             ViewportBackgroundSettings.ModeChanged -= OnViewportBackgroundModeChanged;
+#if VIEWPORT_RENDER_STATS
+            _renderStatsTimer?.Stop();
+#endif
             _touchPointsPixels.Clear();
             _isPinching = false;
             base.OnDetachedFromVisualTree(e);
@@ -528,6 +578,23 @@ namespace EffectViewer.Controls
             InvalidateVisual();
             _overlay?.InvalidateVisual();
         }
+
+#if VIEWPORT_RENDER_STATS
+        private void OnRenderStatsTimerTick(object sender, EventArgs e)
+        {
+            UpdateRenderStatsText();
+        }
+
+        private void UpdateRenderStatsText()
+        {
+            if (_renderStatsText is null || _renderStatsProvider is null)
+            {
+                return;
+            }
+
+            _renderStatsText.Text = _renderStatsProvider.GetRenderStats().ToOverlayText();
+        }
+#endif
 
         private void DrawTransformBox(DrawingContext context)
         {
