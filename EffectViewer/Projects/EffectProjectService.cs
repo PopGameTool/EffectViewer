@@ -1425,9 +1425,13 @@ namespace EffectViewer.Projects
 
         private static string CreateUniqueAssetId(ProjectManifest manifest, EffectAssetKind kind, string requestedAssetId)
         {
-            string baseId = kind == EffectAssetKind.Image
-                ? CreateSafeImageAssetId(requestedAssetId)
-                : ProjectPathUtility.CreateSafeName(requestedAssetId, kind.ToString().ToLowerInvariant());
+            string baseId = kind switch
+            {
+                EffectAssetKind.Image => CreateSafeImageAssetId(requestedAssetId),
+                EffectAssetKind.Font or EffectAssetKind.Reanim or EffectAssetKind.Particle or EffectAssetKind.Trail =>
+                    CreateCasePreservingAssetId(requestedAssetId, kind.ToString().ToLowerInvariant()),
+                _ => ProjectPathUtility.CreateSafeName(requestedAssetId, kind.ToString().ToLowerInvariant())
+            };
             string candidate = baseId;
             for (int i = 2; AssetIdExists(manifest, kind, candidate); i++)
             {
@@ -1435,6 +1439,12 @@ namespace EffectViewer.Projects
             }
 
             return candidate;
+        }
+
+        private static string CreateCasePreservingAssetId(string requestedAssetId, string fallback)
+        {
+            string id = requestedAssetId?.Trim() ?? string.Empty;
+            return string.IsNullOrWhiteSpace(id) ? fallback : id;
         }
 
         public static string CreateImageAssetId(string name)
