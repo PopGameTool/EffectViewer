@@ -803,42 +803,77 @@ namespace EffectViewer.Views
             }
 
             double parentHeight = parent.Bounds.Height;
-            double top = TryGetInlineCompletionTop(parent, out double caretLineBottom)
-                ? caretLineBottom + InlineCompletionVerticalGap
-                : InlineCompletionMargin;
-            top = Math.Max(InlineCompletionMargin, top);
+            InlineCompletionCaretLineBounds caretLineBounds = TryGetInlineCompletionCaretLineBounds(parent, out InlineCompletionCaretLineBounds bounds)
+                ? bounds
+                : new InlineCompletionCaretLineBounds(InlineCompletionMargin, InlineCompletionMargin);
 
-            double availableHeight = double.IsNaN(parentHeight) || parentHeight <= 0
-                ? InlineCompletionMaxHeight
-                : parentHeight - top - InlineCompletionMargin;
+            double belowTop = Math.Max(InlineCompletionMargin, caretLineBounds.Bottom + InlineCompletionVerticalGap);
+            bool hasParentHeight = !double.IsNaN(parentHeight) && parentHeight > 0;
+            if (!hasParentHeight)
+            {
+                InlineCompletionHost.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+                InlineCompletionHost.Margin = new Thickness(
+                    InlineCompletionMargin,
+                    belowTop,
+                    InlineCompletionMargin,
+                    InlineCompletionMargin);
+                SetInlineCompletionMaxHeight(InlineCompletionMaxHeight);
+                return;
+            }
 
+            double availableBelow = Math.Max(0, parentHeight - belowTop - InlineCompletionMargin);
+            double aboveBottom = Math.Clamp(
+                caretLineBounds.Top - InlineCompletionVerticalGap,
+                InlineCompletionMargin,
+                Math.Max(InlineCompletionMargin, parentHeight - InlineCompletionMargin));
+            double availableAbove = Math.Max(0, aboveBottom - InlineCompletionMargin);
+            bool placeAbove = availableBelow < InlineCompletionMinimumHeight && availableAbove > availableBelow;
+
+            if (placeAbove)
+            {
+                InlineCompletionHost.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom;
+                InlineCompletionHost.Margin = new Thickness(
+                    InlineCompletionMargin,
+                    InlineCompletionMargin,
+                    InlineCompletionMargin,
+                    Math.Max(InlineCompletionMargin, parentHeight - aboveBottom));
+                SetInlineCompletionMaxHeight(Math.Min(InlineCompletionMaxHeight, availableAbove));
+                return;
+            }
+
+            InlineCompletionHost.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
             InlineCompletionHost.Margin = new Thickness(
                 InlineCompletionMargin,
-                top,
+                belowTop,
                 InlineCompletionMargin,
                 InlineCompletionMargin);
-            InlineCompletionHost.MaxHeight = Math.Min(
-                InlineCompletionMaxHeight,
-                Math.Max(InlineCompletionMinimumHeight, availableHeight));
+            SetInlineCompletionMaxHeight(Math.Min(InlineCompletionMaxHeight, availableBelow));
         }
 
-        private bool TryGetInlineCompletionTop(Control parent, out double top)
+        private void SetInlineCompletionMaxHeight(double maxHeight)
         {
-            if (TryGetTextPresenterCaretLineBottom(parent, out top))
+            double normalizedMaxHeight = Math.Max(0, maxHeight);
+            InlineCompletionHost.MaxHeight = normalizedMaxHeight;
+            InlineCompletionList.MaxHeight = normalizedMaxHeight;
+        }
+
+        private bool TryGetInlineCompletionCaretLineBounds(Control parent, out InlineCompletionCaretLineBounds bounds)
+        {
+            if (TryGetTextPresenterCaretLineBounds(parent, out bounds))
             {
                 return true;
             }
 
-            return TryGetEstimatedCaretLineBottom(out top);
+            return TryGetEstimatedCaretLineBounds(out bounds);
         }
 
-        private bool TryGetTextPresenterCaretLineBottom(Control parent, out double top)
+        private bool TryGetTextPresenterCaretLineBounds(Control parent, out InlineCompletionCaretLineBounds bounds)
         {
             TextPresenter presenter = ScriptEditor.GetVisualDescendants().OfType<TextPresenter>().FirstOrDefault();
             TextLayout layout = presenter?.TextLayout;
             if (presenter is null || layout?.TextLines is not { Count: > 0 } lines)
             {
-                top = 0;
+                bounds = default;
                 return false;
             }
 
@@ -857,10 +892,13 @@ namespace EffectViewer.Views
 
                 if (caretOffset <= lineEnd)
                 {
-                    Point? parentPoint = presenter.TranslatePoint(new Point(0, lineTop + lineHeight), parent);
-                    if (parentPoint is not null)
+                    Point? parentLineTop = presenter.TranslatePoint(new Point(0, lineTop), parent);
+                    Point? parentLineBottom = presenter.TranslatePoint(new Point(0, lineTop + lineHeight), parent);
+                    if (parentLineTop is not null && parentLineBottom is not null)
                     {
-                        top = parentPoint.Value.Y;
+                        bounds = new InlineCompletionCaretLineBounds(
+                            parentLineTop.Value.Y,
+                            parentLineBottom.Value.Y);
                         return true;
                     }
 
@@ -870,11 +908,11 @@ namespace EffectViewer.Views
                 lineTop += lineHeight;
             }
 
-            top = 0;
+            bounds = default;
             return false;
         }
 
-        private bool TryGetEstimatedCaretLineBottom(out double top)
+        private bool TryGetEstimatedCaretLineBounds(out InlineCompletionCaretLineBounds bounds)
         {
             string text = GetScriptEditorText();
             int caretOffset = Math.Clamp(ScriptEditor.CaretIndex, 0, text.Length);
@@ -890,7 +928,8 @@ namespace EffectViewer.Views
             double lineHeight = double.IsNaN(ScriptEditor.LineHeight) || ScriptEditor.LineHeight <= 0
                 ? ScriptEditor.FontSize * 1.4
                 : ScriptEditor.LineHeight;
-            top = ScriptEditor.Padding.Top + (lineIndex + 1) * lineHeight;
+            double top = ScriptEditor.Padding.Top + lineIndex * lineHeight;
+            bounds = new InlineCompletionCaretLineBounds(top, top + lineHeight);
             return lineHeight > 0;
         }
 
@@ -1159,6 +1198,8 @@ namespace EffectViewer.Views
             public bool AllMembers { get; }
             public bool Suppress { get; }
         }
+
+        private readonly record struct InlineCompletionCaretLineBounds(double Top, double Bottom);
 
         private sealed class ScriptEditSnapshot
         {
