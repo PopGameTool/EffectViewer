@@ -248,13 +248,14 @@ namespace EffectViewer.Browser
                     continue;
                 }
 
+                ReadOnlySpan<RenderVertex> sourceVertices = frame.GetMeshVertices(mesh);
                 if (layout.IsTiled)
                 {
                     _transformedVertices.Clear();
-                    _transformedVertices.EnsureCapacity(mesh.VertexCount);
-                    for (int i = 0; i < mesh.VertexCount; i++)
+                    _transformedVertices.EnsureCapacity(sourceVertices.Length);
+                    for (int i = 0; i < sourceVertices.Length; i++)
                     {
-                        RenderVertex vertex = mesh.GetVertex(i);
+                        RenderVertex vertex = sourceVertices[i];
                         _transformedVertices.Add(new RenderVertex(
                             new Vector2(
                                 ToClipX(ApplyViewX(vertex.Position.X), width),
@@ -268,9 +269,9 @@ namespace EffectViewer.Browser
                 else
                 {
                     int firstVertex = _vertices.Count / FloatsPerVertex;
-                    for (int i = 0; i < mesh.VertexCount; i++)
+                    for (int i = 0; i < sourceVertices.Length; i++)
                     {
-                        RenderVertex vertex = mesh.GetVertex(i);
+                        RenderVertex vertex = sourceVertices[i];
                         AppendVertex(
                             ToClipX(ApplyViewX(vertex.Position.X), width),
                             ToClipY(ApplyViewY(vertex.Position.Y), height),
@@ -281,7 +282,7 @@ namespace EffectViewer.Browser
 
                     AddBatch(
                         firstVertex,
-                        mesh.VertexCount,
+                        sourceVertices.Length,
                         mesh.BlendMode,
                         TextureTileLayout.GetTileTextureId(mesh.Texture.Id, layout.Tiles[0]));
                 }
