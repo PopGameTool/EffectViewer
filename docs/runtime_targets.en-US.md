@@ -67,6 +67,18 @@ dotnet build EffectViewer.Browser/EffectViewer.Browser.csproj
 
 The Browser target uses a WebAssembly/WebGL host and is useful for validating browser rendering and file-picker behavior.
 
+Browser preview requires WebGL2 and the `wasm-tools` workload. `WasmBuildNative` is enabled
+so `eglGetProcAddress` from `libSkiaSharp` resolves GLES entry points in the same WASM module.
+The linker enables `FULL_ES3` and restricts rendering to WebGL2.
+
+An `ICustomDrawOperation` leases Avalonia's current compositor graphics context, uses the
+shared `OpenGlRenderer` to render into an RGBA8 texture/FBO, then lets Skia sample that texture
+directly. Normal preview rendering performs no `readPixels`, CPU row flipping, or
+`WriteableBitmap` upload. The output texture is reallocated only when its size changes.
+The platform API lease flushes Skia commands and resets its cached state; recorded drawing
+operations retain GPU resources until released. This host explicitly uses single-threaded
+WASM. Enabling threads requires revisiting frame snapshots and resource disposal ownership.
+
 ## Build The Full Solution
 
 ```bash

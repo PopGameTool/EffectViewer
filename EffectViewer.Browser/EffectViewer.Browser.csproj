@@ -4,6 +4,11 @@
     <OutputType>Exe</OutputType>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>enable</Nullable>
+    <!-- Resolve GLES entry points in the same Emscripten module as Skia. -->
+    <WasmBuildNative>true</WasmBuildNative>
+    <!-- Recorded operations and resource disposal currently share the browser UI thread. -->
+    <WasmEnableThreads>false</WasmEnableThreads>
+    <EmccExtraLDFlags>$(EmccExtraLDFlags) -s FULL_ES3=1 -s MIN_WEBGL_VERSION=2 -s MAX_WEBGL_VERSION=2</EmccExtraLDFlags>
   </PropertyGroup>
 
   <ItemGroup>

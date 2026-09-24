@@ -42,6 +42,9 @@ This imports `Samples/QuickStartShowcase.zip`, runs the bundled Lua ShowCase, ca
 3. Import `Samples/QuickStartShowcase.zip`.
 4. Open and run `quickstart_showcase`.
 5. Confirm that the preview renders, the log line appears, and file picker/export actions do not fail.
+6. Zoom and pan the preview, resize the window, and switch light/dark backgrounds. Check orientation, clipping, and alpha blending.
+7. Close and reopen resource tabs, then import or switch projects. Check that previews return and other controls and dialogs still render correctly.
+8. Check the browser console for WebGL errors. Preview rendering should use Avalonia's canvas without creating a separate preview canvas.
 
 ## Pass Criteria
 

@@ -42,6 +42,9 @@ dotnet test EffectViewer.Tests/EffectViewer.Tests.csproj --filter QuickStartShow
 3. 导入 `Samples/QuickStartShowcase.zip`。
 4. 打开并运行 `quickstart_showcase`。
 5. 确认预览可以渲染，日志正常出现，文件选择和导出操作没有失败。
+6. 缩放和平移预览，调整窗口大小，切换浅色/深色背景，检查方向、裁剪和透明混合正确。
+7. 关闭并重新打开资源标签页，再导入或切换项目；检查预览重新出现，其他控件和弹窗仍正常绘制。
+8. 检查浏览器控制台没有 WebGL 错误。预览应只使用 Avalonia 的 canvas，不再创建独立预览 canvas。
 
 ## 通过标准
 

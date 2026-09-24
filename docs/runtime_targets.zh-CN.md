@@ -67,6 +67,16 @@ dotnet build EffectViewer.Browser/EffectViewer.Browser.csproj
 
 Browser 目标使用 WebAssembly/WebGL 宿主，适合验证浏览器环境下的渲染和文件选择行为。
 
+Browser 预览要求 WebGL2，构建时需要安装 `wasm-tools` 工作负载。项目启用
+`WasmBuildNative`，通过 `libSkiaSharp` 的 `eglGetProcAddress` 调用同一 WASM 模块中的 GLES 入口；
+链接参数固定 WebGL2 并启用 `FULL_ES3`。
+
+预览通过 `ICustomDrawOperation` 借用 Avalonia 合成器当前的图形上下文，复用共享
+`OpenGlRenderer` 渲染到 RGBA8 纹理/FBO，再由 Skia 直接采样该纹理。常规预览不执行
+`readPixels`、像素翻转或 `WriteableBitmap` 上传。输出纹理仅在尺寸变化时重建。
+平台 API lease 负责刷新 Skia 命令及重置状态缓存，绘制操作保留资源引用直到被释放。
+当前宿主显式采用单线程 WASM；启用多线程前需要重新设计绘制快照和资源销毁的线程归属。
+
 ## 构建完整解决方案
 
 ```bash

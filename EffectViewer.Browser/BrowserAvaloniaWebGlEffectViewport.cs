@@ -1,270 +1,172 @@
 using System;
 using System.Numerics;
-using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.JavaScript;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
+using Avalonia.Rendering.SceneGraph;
+using Avalonia.Skia;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using EffectViewer.Controls;
 using EffectViewer.Rendering;
 using EffectViewer.Rendering.TextureUpload;
 
-namespace EffectViewer.Browser
+namespace EffectViewer.Browser;
+
+public sealed class BrowserAvaloniaWebGlEffectViewport : Control, IEffectViewport
 {
-    public sealed class BrowserAvaloniaWebGlEffectViewport : Control, IEffectViewport
+    private BrowserWebGlRenderSession? _session;
+    private RenderFrame _frame = new();
+    private ITextureSource _textureSource = new GeneratedTextureSource();
+    private IRenderFrameProvider? _frameProvider;
+    private ViewportBackgroundMode _backgroundMode;
+    private Vector2 _panPixels;
+    private float _zoom = 1f;
+    private DateTime _lastRenderUtc = DateTime.UtcNow;
+    private bool _frameQueued;
+    private int _attachmentVersion;
+
+    public BrowserAvaloniaWebGlEffectViewport() => ClipToBounds = true;
+
+    public RenderFrame Frame
     {
-        private readonly BrowserWebGlFrameRenderer _renderer = new();
-        private JSObject? _canvas;
-        private WriteableBitmap? _bitmap;
-        private byte[] _pixelBuffer = [];
-        private RenderFrame _frame = new();
-        private IRenderFrameProvider? _frameProvider;
-        private DateTime _lastRenderUtc = DateTime.UtcNow;
-        private bool _isAttached;
-        private bool _frameQueued;
+        get => _frame;
+        set { _frame = value ?? new RenderFrame(); InvalidateVisual(); }
+    }
+    public ITextureSource TextureSource
+    {
+        get => _textureSource;
+        set { _textureSource = value ?? new GeneratedTextureSource(); InvalidateVisual(); }
+    }
+    public IRenderFrameProvider FrameProvider
+    {
+        get => _frameProvider!;
+        set { _frameProvider = value; InvalidateVisual(); }
+    }
+    public ViewportBackgroundMode BackgroundMode
+    {
+        get => _backgroundMode;
+        set { _backgroundMode = value; InvalidateVisual(); }
+    }
+    public void SetViewTransform(float zoom, Vector2 panPixels)
+    {
+        _zoom = Math.Clamp(zoom, 0.05f, 32f);
+        _panPixels = panPixels;
+        InvalidateVisual();
+    }
 
-        public BrowserAvaloniaWebGlEffectViewport()
-        {
-            ClipToBounds = true;
-        }
+    public override void Render(DrawingContext context)
+    {
+        base.Render(context);
+        if (_session is null || Bounds.Width <= 0 || Bounds.Height <= 0)
+            return;
+        double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1d;
+        PixelSize size = PixelSize.FromSize(Bounds.Size, scaling);
+        size = new PixelSize(Math.Max(1, size.Width), Math.Max(1, size.Height));
+        DateTime now = DateTime.UtcNow;
+        double delta = Math.Clamp((now - _lastRenderUtc).TotalSeconds, 0d, 0.1d);
+        _lastRenderUtc = now;
+        RenderFrame source = _frameProvider?.GetFrame(delta) ?? _frame;
+        // Providers reuse buffers; recorded operations must own a stable snapshot.
+        RenderFrame snapshot = new() { ClearColor = source.ClearColor };
+        snapshot.Sprites.AddRange(source.Sprites);
+        foreach (RenderMeshCommand mesh in source.Meshes)
+            snapshot.AddMesh(mesh.Texture, source.GetMeshVertices(mesh), mesh.BlendMode);
+        bool light = BackgroundMode == ViewportBackgroundMode.Light ||
+            (BackgroundMode != ViewportBackgroundMode.Dark && ActualThemeVariant == ThemeVariant.Light);
+        context.Custom(new DrawOperation(_session, snapshot, TextureSource, size, new Rect(Bounds.Size),
+            _zoom, _panPixels,
+            light ? new Vector4(0.965f, 0.973f, 0.984f, 1f) : new Vector4(0.08f, 0.09f, 0.1f, 1f),
+            light ? new Vector4(0.84f, 0.86f, 0.89f, 1f) : null,
+            Math.Max(4, (int)Math.Round(12d * scaling))));
+    }
 
-        public RenderFrame Frame
-        {
-            get => _frame;
-            set
-            {
-                _frame = value ?? new RenderFrame();
-                QueueRenderFrame();
-            }
-        }
-
-        public ITextureSource TextureSource
-        {
-            get => _renderer.TextureSource;
-            set
-            {
-                _renderer.TextureSource = value;
-                QueueRenderFrame();
-            }
-        }
-
-        public IRenderFrameProvider FrameProvider
-        {
-            get => _frameProvider!;
-            set
-            {
-                _frameProvider = value;
-                QueueRenderFrame();
-            }
-        }
-
-        public ViewportBackgroundMode BackgroundMode
-        {
-            get => _renderer.BackgroundMode;
-            set
-            {
-                if (_renderer.BackgroundMode == value)
-                {
-                    return;
-                }
-
-                _renderer.BackgroundMode = value;
-                QueueRenderFrame();
-            }
-        }
-
-        public void SetViewTransform(float zoom, Vector2 panPixels)
-        {
-            _renderer.SetViewTransform(zoom, panPixels);
-            QueueRenderFrame();
-        }
-
-        public override void Render(DrawingContext context)
-        {
-            base.Render(context);
-
-            if (_bitmap is null || Bounds.Width <= 0 || Bounds.Height <= 0)
-            {
-                return;
-            }
-
-            context.DrawImage(_bitmap, new Rect(Bounds.Size));
-        }
-
-        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
-        {
-            base.OnAttachedToVisualTree(e);
-            _isAttached = true;
-            _lastRenderUtc = DateTime.UtcNow;
-            EnsureCanvas();
-            QueueRenderFrame();
-        }
-
-        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-        {
-            _isAttached = false;
-            DestroyCanvas();
-            DisposeBitmap();
-            base.OnDetachedFromVisualTree(e);
-        }
-
-        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
-        {
-            base.OnPropertyChanged(change);
-
-            if (change.Property == BoundsProperty ||
-                change.Property == IsVisibleProperty ||
-                string.Equals(change.Property.Name, nameof(ActualThemeVariant), StringComparison.Ordinal))
-            {
-                QueueRenderFrame();
-            }
-        }
-
-        private void EnsureCanvas()
-        {
-            if (_canvas is not null)
-            {
-                return;
-            }
-
-            _canvas = BrowserWebGlInterop.CreateViewport();
-            _renderer.AttachCanvas(_canvas);
-        }
-
-        private void DestroyCanvas()
-        {
-            if (_canvas is null)
-            {
-                _renderer.DetachCanvas();
-                return;
-            }
-
-            BrowserWebGlInterop.DestroyViewport(_canvas);
-            _canvas = null;
-            _renderer.DetachCanvas();
-            _pixelBuffer = [];
-        }
-
-        private void QueueRenderFrame()
-        {
-            if (!_isAttached || _frameQueued)
-            {
-                return;
-            }
-
-            TopLevel? topLevel = TopLevel.GetTopLevel(this);
-            if (topLevel is null)
-            {
-                return;
-            }
-
-            _frameQueued = true;
-            topLevel.RequestAnimationFrame(_ =>
-            {
-                _frameQueued = false;
-                RenderNow();
-
-                if (_isAttached)
-                {
-                    QueueRenderFrame();
-                }
-            });
-        }
-
-        private void RenderNow()
-        {
-            if (_canvas is null || !IsVisible || Bounds.Width <= 0 || Bounds.Height <= 0)
-            {
-                return;
-            }
-
-            double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1d;
-            PixelSize pixelSize = PixelSize.FromSize(Bounds.Size, scaling);
-            int width = Math.Max(1, pixelSize.Width);
-            int height = Math.Max(1, pixelSize.Height);
-            if (!TryGetRgbaByteCount(width, height, out int byteCount))
-            {
-                return;
-            }
-
-            DateTime now = DateTime.UtcNow;
-            double deltaSeconds = Math.Clamp((now - _lastRenderUtc).TotalSeconds, 0d, 0.1d);
-            _lastRenderUtc = now;
-
-            RenderFrame frame = _frameProvider?.GetFrame(deltaSeconds) ?? _frame ?? new RenderFrame();
-            _renderer.ActualThemeVariant = ActualThemeVariant;
-            _renderer.Render(frame, width, height, scaling);
-
-            EnsurePixelBuffer(byteCount);
-            bool pixelsRead = BrowserWebGlInterop.ReadPixels(
-                _canvas,
-                new ArraySegment<byte>(_pixelBuffer, 0, byteCount),
-                byteCount);
-            if (!pixelsRead)
-            {
-                return;
-            }
-
-            PublishBitmap(width, height, byteCount);
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _session = new BrowserWebGlRenderSession();
+        _attachmentVersion++;
+        _lastRenderUtc = DateTime.UtcNow;
+        QueueRenderFrame();
+    }
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _attachmentVersion++;
+        _frameQueued = false;
+        _session?.Release();
+        _session = null;
+        base.OnDetachedFromVisualTree(e);
+    }
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == BoundsProperty || change.Property == IsVisibleProperty ||
+            change.Property.Name == nameof(ActualThemeVariant))
             InvalidateVisual();
-        }
-
-        private void EnsurePixelBuffer(int byteCount)
+    }
+    private void QueueRenderFrame()
+    {
+        if (_session is null || _frameQueued || TopLevel.GetTopLevel(this) is not { } topLevel)
+            return;
+        _frameQueued = true;
+        int attachment = _attachmentVersion;
+        topLevel.RequestAnimationFrame(_ =>
         {
-            if (_pixelBuffer.Length != byteCount)
-            {
-                _pixelBuffer = new byte[byteCount];
-            }
-        }
+            // Ignore callbacks left over from an earlier attachment.
+            if (attachment != _attachmentVersion)
+                return;
+            _frameQueued = false;
+            if (_session is null)
+                return;
+            if (IsVisible)
+                InvalidateVisual();
+            QueueRenderFrame();
+        });
+    }
 
-        private void PublishBitmap(int width, int height, int byteCount)
-        {
-            GCHandle handle = default;
-            try
-            {
-                handle = GCHandle.Alloc(_pixelBuffer, GCHandleType.Pinned);
-                WriteableBitmap next = new(
-                    PixelFormat.Rgba8888,
-                    AlphaFormat.Premul,
-                    handle.AddrOfPinnedObject(),
-                    new PixelSize(width, height),
-                    new Avalonia.Vector(96, 96),
-                    width * 4);
-                WriteableBitmap? previous = _bitmap;
-                _bitmap = next;
-                previous?.Dispose();
-            }
-            finally
-            {
-                if (handle.IsAllocated)
-                {
-                    handle.Free();
-                }
-            }
-        }
+    private sealed class DrawOperation : ICustomDrawOperation
+    {
+        private BrowserWebGlRenderSession? _session;
+        private readonly RenderFrame _frame;
+        private readonly ITextureSource _textures;
+        private readonly PixelSize _size;
+        private readonly float _zoom;
+        private readonly Vector2 _pan;
+        private readonly Vector4 _clear;
+        private readonly Vector4? _checkerboard;
+        private readonly int _cellSize;
 
-        private void DisposeBitmap()
+        public DrawOperation(BrowserWebGlRenderSession session, RenderFrame frame, ITextureSource textures,
+            PixelSize size, Rect bounds, float zoom, Vector2 pan, Vector4 clear, Vector4? checkerboard, int cellSize)
         {
-            _bitmap?.Dispose();
-            _bitmap = null;
+            _session = session;
+            session.Retain();
+            _frame = frame;
+            _textures = textures;
+            _size = size;
+            Bounds = bounds;
+            _zoom = zoom;
+            _pan = pan;
+            _clear = clear;
+            _checkerboard = checkerboard;
+            _cellSize = cellSize;
         }
-
-        private static bool TryGetRgbaByteCount(int width, int height, out int byteCount)
+        public Rect Bounds { get; }
+        public bool HitTest(Point p) => Bounds.Contains(p);
+        public bool Equals(ICustomDrawOperation? other) => ReferenceEquals(this, other);
+        public void Render(ImmediateDrawingContext context)
         {
-            try
-            {
-                byteCount = checked(width * height * 4);
-                return true;
-            }
-            catch (OverflowException)
-            {
-                byteCount = 0;
-                return false;
-            }
+            if (_session is null)
+                return;
+            ISkiaSharpApiLeaseFeature feature = context.TryGetFeature<ISkiaSharpApiLeaseFeature>()
+                ?? throw new InvalidOperationException("Effect preview requires the Skia renderer.");
+            using ISkiaSharpApiLease lease = feature.Lease();
+            _session.Draw(lease, _frame, _textures, _size, Bounds, _zoom, _pan, _clear, _checkerboard, _cellSize);
+        }
+        public void Dispose()
+        {
+            _session?.Release();
+            _session = null;
         }
     }
 }

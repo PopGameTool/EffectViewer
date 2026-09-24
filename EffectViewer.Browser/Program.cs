@@ -9,8 +9,8 @@ internal sealed partial class Program
 {
     private static async Task Main(string[] args)
     {
-        await EffectViewer.Browser.BrowserWebGlInterop.EnsureLoadedAsync();
-        MainView.BrowserDialogOverlayActiveChanged = EffectViewer.Browser.BrowserWebGlInterop.SetDialogOverlayActive;
+        await EffectViewer.Browser.BrowserDialogInterop.EnsureLoadedAsync();
+        MainView.BrowserDialogOverlayActiveChanged = EffectViewer.Browser.BrowserDialogInterop.SetDialogOverlayActive;
 
         await BuildAvaloniaApp()
             .WithInterFont()
@@ -21,6 +21,7 @@ internal sealed partial class Program
                 "out",
                 new BrowserPlatformOptions
                 {
+                    RenderingMode = [BrowserRenderingMode.WebGL2],
                     PreferFileDialogPolyfill = true
                 });
     }
